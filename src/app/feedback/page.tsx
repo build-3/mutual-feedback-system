@@ -47,6 +47,7 @@ export default function FeedbackPage() {
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
       timeoutRefs.current.forEach(clearTimeout)
@@ -275,9 +276,66 @@ export default function FeedbackPage() {
     }
   }
 
+  // Pending answers ref so goNext() can validate against the latest value
+  // even before React flushes the state update.
+  const pendingAnswers = useRef<Record<string, string>>({})
+
   function setAnswer(key: string, value: string) {
-    setAnswers((previous) => ({ ...previous, [key]: value }))
+    pendingAnswers.current[key] = value
+    setAnswers((previous) => {
+      const next = { ...previous, [key]: value }
+      pendingAnswers.current = next
+      return next
+    })
     setError("")
+  }
+
+  /** Set the answer and auto-advance after a short visual delay (like Typeform). */
+  function setAnswerAndAdvance(key: string, value: string) {
+    setAnswer(key, value)
+    safeTimeout(() => {
+      if (!mountedRef.current) return
+      goNextWithAnswers()
+    }, 350)
+  }
+
+  /**
+   * Like goNext, but reads from pendingAnswers ref instead of `answers` state
+   * so it works even when called right after setAnswer (before React flushes).
+   */
+  function goNextWithAnswers() {
+    setError("")
+
+    if (phase === "questions") {
+      const question = questions[currentQ]
+      if (!validateAnswerFromRef(question)) return
+
+      if (currentQ < questions.length - 1) {
+        animateTransition(true, () => setCurrentQ((previous) => previous + 1))
+      } else {
+        void handleSubmit()
+      }
+    }
+  }
+
+  /** Validate using pendingAnswers ref for immediate reads. */
+  function validateAnswerFromRef(question: Question) {
+    if (question.type === "employee_search") {
+      return !!feedbackFor && (!submitter || feedbackFor.id !== submitter.id)
+    }
+    if (question.type === "matrix_rating") {
+      const items = question.matrixItems || []
+      return items.every((item) => !!pendingAnswers.current[item.key])
+    }
+    if (question.type === "number_input") {
+      const numericValue = Number(pendingAnswers.current[question.key])
+      if (!Number.isFinite(numericValue)) return false
+      if (question.min !== undefined && numericValue < question.min) return false
+      if (question.max !== undefined && numericValue > question.max) return false
+      return true
+    }
+    const value = pendingAnswers.current[question.key]
+    return !!(value && value.trim())
   }
 
   function renderQuestion(question: Question) {
@@ -286,7 +344,17 @@ export default function FeedbackPage() {
         return (
           <SearchableDropdown
             value={feedbackFor}
-            onChange={setFeedbackFor}
+            onChange={(employee) => {
+              setFeedbackFor(employee)
+              if (employee && (!submitter || employee.id !== submitter.id)) {
+                safeTimeout(() => {
+                  if (!mountedRef.current) return
+                  if (currentQ < questions.length - 1) {
+                    animateTransition(true, () => setCurrentQ((prev) => prev + 1))
+                  }
+                }, 350)
+              }
+            }}
             filterRole={question.employeeRole}
             excludeEmployeeId={submitter?.id}
             placeholder="search for a teammate..."
@@ -296,7 +364,7 @@ export default function FeedbackPage() {
         return (
           <StarRating
             value={Number(answers[question.key]) || 0}
-            onChange={(value) => setAnswer(question.key, String(value))}
+            onChange={(value) => setAnswerAndAdvance(question.key, String(value))}
           />
         )
       case "matrix_rating":
@@ -335,7 +403,7 @@ export default function FeedbackPage() {
                 <button
                   key={option.key}
                   type="button"
-                  onClick={() => setAnswer(question.key, option.key)}
+                  onClick={() => setAnswerAndAdvance(question.key, option.key)}
                   className={[
                     "w-full rounded-[24px] border px-5 py-4 text-left transition-all",
                     active
@@ -358,7 +426,7 @@ export default function FeedbackPage() {
         return (
           <NpsScale
             value={answers[question.key] ? Number(answers[question.key]) : null}
-            onChange={(value) => setAnswer(question.key, String(value))}
+            onChange={(value) => setAnswerAndAdvance(question.key, String(value))}
           />
         )
       case "number_input":
@@ -380,7 +448,13 @@ export default function FeedbackPage() {
         return (
           <select
             value={answers[question.key] || ""}
-            onChange={(event) => setAnswer(question.key, event.target.value)}
+            onChange={(event) => {
+              if (event.target.value) {
+                setAnswerAndAdvance(question.key, event.target.value)
+              } else {
+                setAnswer(question.key, event.target.value)
+              }
+            }}
             className={fieldClasses({ size: "lg" })}
           >
             <option value="">choose one</option>
@@ -471,7 +545,15 @@ export default function FeedbackPage() {
                 <div className="mt-8">
                   <SearchableDropdown
                     value={submitter}
-                    onChange={setSubmitter}
+                    onChange={(employee) => {
+                      setSubmitter(employee)
+                      if (employee) {
+                        safeTimeout(() => {
+                          if (!mountedRef.current) return
+                          animateTransition(true, () => setPhase("route"))
+                        }, 350)
+                      }
+                    }}
                     placeholder="search for your name..."
                   />
                 </div>
@@ -497,7 +579,15 @@ export default function FeedbackPage() {
                           setFeedbackPath(option.key)
                           setFeedbackFor(null)
                           setAnswers({})
+                          pendingAnswers.current = {}
                           setError("")
+                          safeTimeout(() => {
+                            if (!mountedRef.current) return
+                            animateTransition(true, () => {
+                              setCurrentQ(0)
+                              setPhase("questions")
+                            })
+                          }, 350)
                         }}
                         className={[
                           "w-full rounded-[26px] border px-5 py-5 text-left transition-all",
