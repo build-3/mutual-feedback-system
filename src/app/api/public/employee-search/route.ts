@@ -33,14 +33,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ employees: [] })
   }
 
-  const escapedQuery = query.replace(/%/g, "\\%").replace(/_/g, "\\_")
   const supabaseAdmin = getSupabaseAdmin()
+
+  // q=* returns all employees (for client-side caching)
   let employeeQuery = supabaseAdmin
     .from("employees")
     .select("id, name, role")
-    .ilike("name", `%${escapedQuery}%`)
     .order("name")
-    .limit(10)
+
+  if (query !== "*") {
+    const escapedQuery = query.replace(/%/g, "\\%").replace(/_/g, "\\_")
+    employeeQuery = employeeQuery.ilike("name", `%${escapedQuery}%`).limit(10)
+  }
 
   if (role === "intern" || role === "full_timer") {
     employeeQuery = employeeQuery.eq("role", role)

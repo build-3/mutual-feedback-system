@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyboardEvent, useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { KeyboardEvent, useState, useEffect, useRef, useMemo } from "react"
 import type { Employee } from "@/lib/types"
 import { getRoleAccent, getRoleLabel } from "@/lib/brand"
 import {
@@ -8,6 +8,29 @@ import {
   buttonClasses,
   fieldClasses,
 } from "@/components/ui/brand"
+
+/** Module-level cache — load employees once across all dropdown instances. */
+let employeeCache: Employee[] | null = null
+let employeeCachePromise: Promise<Employee[]> | null = null
+
+async function loadAllEmployees(): Promise<Employee[]> {
+  if (employeeCache) return employeeCache
+  if (employeeCachePromise) return employeeCachePromise
+
+  employeeCachePromise = fetch("/api/public/employee-search?q=*")
+    .then((res) => (res.ok ? res.json() : { employees: [] }))
+    .then((data) => {
+      employeeCache = (data.employees || []) as Employee[]
+      employeeCachePromise = null
+      return employeeCache
+    })
+    .catch(() => {
+      employeeCachePromise = null
+      return [] as Employee[]
+    })
+
+  return employeeCachePromise
+}
 
 type SearchableDropdownProps = {
   value: Employee | null
@@ -25,20 +48,36 @@ export default function SearchableDropdown({
   placeholder = "Search by name...",
 }: SearchableDropdownProps) {
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<Employee[]>([])
+  const [allEmployees, setAllEmployees] = useState<Employee[]>(employeeCache || [])
   const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
-  const [error, setError] = useState<string | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
-  const abortRef = useRef<AbortController | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const visibleResults = useMemo(
-    () => results.filter((employee) => employee.id !== excludeEmployeeId),
-    [excludeEmployeeId, results]
-  )
+  // Load employees on mount (instant if cached)
+  useEffect(() => {
+    loadAllEmployees().then(setAllEmployees)
+  }, [])
+
+  // Instant client-side filter — no debounce, no network
+  const visibleResults = useMemo(() => {
+    let list = allEmployees
+
+    if (filterRole) {
+      list = list.filter((e) => e.role === filterRole)
+    }
+
+    if (excludeEmployeeId) {
+      list = list.filter((e) => e.id !== excludeEmployeeId)
+    }
+
+    if (!query.trim()) {
+      return list
+    }
+
+    const q = query.trim().toLowerCase()
+    return list.filter((e) => e.name.toLowerCase().includes(q))
+  }, [allEmployees, query, filterRole, excludeEmployeeId])
 
   const duplicateNameCounts = useMemo(() => {
     return visibleResults.reduce<Record<string, number>>((counts, employee) => {
@@ -60,73 +99,6 @@ export default function SearchableDropdown({
     setQuery("")
     setHighlightedIndex(0)
   }
-
-  const search = useCallback(
-    async (searchQuery: string) => {
-      // Abort any in-flight request so stale results never overwrite newer ones
-      if (abortRef.current) {
-        abortRef.current.abort()
-      }
-
-      if (!searchQuery.trim()) {
-        setResults([])
-        setHasSearched(false)
-        setError(null)
-        return
-      }
-
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      setLoading(true)
-      setHasSearched(false)
-      setError(null)
-
-      try {
-        const params = new URLSearchParams({ q: searchQuery })
-        if (filterRole) {
-          params.set("role", filterRole)
-        }
-
-        const res = await fetch(`/api/public/employee-search?${params.toString()}`, {
-          signal: controller.signal,
-        })
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error(data.error || "We could not search the roster right now.")
-        }
-
-        const data = await res.json()
-        setResults((data.employees || []) as Employee[])
-      } catch (searchError) {
-        if (searchError instanceof DOMException && searchError.name === "AbortError") {
-          return
-        }
-        setResults([])
-        setError(
-          searchError instanceof Error
-            ? searchError.message
-            : "We could not search the roster right now."
-        )
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false)
-          setHasSearched(true)
-        }
-      }
-    },
-    [filterRole]
-  )
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => search(query), 300)
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      if (abortRef.current) abortRef.current.abort()
-    }
-  }, [query, search])
 
   useEffect(() => {
     setHighlightedIndex(0)
@@ -213,9 +185,13 @@ export default function SearchableDropdown({
     }
   }
 
+  // Show dropdown on focus with full list even before typing
+  const showDropdown = isOpen && visibleResults.length > 0
+
   return (
     <div ref={wrapperRef} className="relative w-full max-w-md">
       <input
+        ref={inputRef}
         type="text"
         role="combobox"
         value={query}
@@ -223,7 +199,7 @@ export default function SearchableDropdown({
           setQuery(e.target.value)
           setIsOpen(true)
         }}
-        onFocus={() => query && setIsOpen(true)}
+        onFocus={() => setIsOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={fieldClasses({ size: "lg" })}
@@ -232,37 +208,12 @@ export default function SearchableDropdown({
         aria-haspopup="listbox"
         aria-controls="employee-search-results"
         aria-activedescendant={
-          isOpen && visibleResults[highlightedIndex]
+          showDropdown && visibleResults[highlightedIndex]
             ? `employee-option-${visibleResults[highlightedIndex].id}`
             : undefined
         }
       />
-      {loading && (
-        <div className="absolute right-4 top-4 text-muted">
-          <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="none"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-        </div>
-      )}
-      {error && !loading && (
-        <div className="absolute z-10 mt-2 w-full rounded-[24px] border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-brand">
-          {error}
-        </div>
-      )}
-      {isOpen && visibleResults.length > 0 && !error && (
+      {showDropdown && (
         <ul
           id="employee-search-results"
           role="listbox"
@@ -303,7 +254,7 @@ export default function SearchableDropdown({
           ))}
         </ul>
       )}
-      {isOpen && query && !loading && hasSearched && visibleResults.length === 0 && !error && (
+      {isOpen && query.trim() && visibleResults.length === 0 && (
         <div className="absolute z-10 mt-2 w-full rounded-[24px] border border-line bg-white/92 p-4 text-sm text-muted shadow-brand backdrop-blur-md">
           we could not find that builder yet.
         </div>
