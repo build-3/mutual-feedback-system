@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# build3 Feedback Management System
 
-## Getting Started
+A full-stack feedback management system built with Next.js 14, Supabase, and Tailwind CSS.
 
-First, run the development server:
+## Features
+
+- **Typeform-style Feedback Form** — One question at a time with smooth animations, progress bar, and keyboard support
+- **4 Feedback Paths**: Intern feedback, build3 feedback, Full Timer feedback, Self feedback
+- **Responses Viewer** — Browse feedback by employee with searchable sidebar and admin view
+- **Employee Management** — Add/remove employees with role assignments
+
+## Tech Stack
+
+- **Frontend**: Next.js 14 (App Router) + Tailwind CSS
+- **Backend/DB**: Supabase (Postgres)
+- **Language**: TypeScript
+
+## Setup
+
+### 1. Create a Supabase project
+
+Go to [supabase.com](https://supabase.com) and create a new project.
+
+### 2. Run the schema
+
+Copy the contents of `supabase/schema.sql` and run it in the Supabase SQL Editor. This creates the tables and seeds employee data.
+
+### 3. Configure environment variables
+
+Copy `.env.example` to `.env.local` and fill in the server-side credentials:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required values:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+APP_BASIC_AUTH_USER=admin
+APP_BASIC_AUTH_PASSWORD=replace-me
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Optional Google Chat notification values:
 
-## Learn More
+```
+GOOGLE_SERVICE_ACCOUNT_EMAIL=service-account@project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_CHAT_SENDER_EMAIL=foundation@example.org
+```
 
-To learn more about Next.js, take a look at the following resources:
+Keep `.env.local` out of version control. If any real keys were previously committed or shared, rotate them before deploying.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Install dependencies and run
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install
+npm run dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Pages
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Description |
+|-------|-------------|
+| `/feedback` | Typeform-style feedback form |
+| `/insights` | Team view — org overview and per-employee insights (basic-auth protected) |
+| `/employees` | Manage employees (add/delete, basic-auth protected) |
+| `/responses` | Redirects to `/insights` |
+
+## Database Schema
+
+- **employees** — id, name, role (intern/full_timer/admin), created_at
+- **feedback_submissions** — id, submitted_by_id, feedback_for_id, feedback_type, created_at
+- **feedback_answers** — id, submission_id, question_key, question_text, answer_value, created_at
+
+## Security Notes
+
+- Privileged reads and writes now go through server routes backed by the Supabase service role key.
+- `/employees`, `/insights`, `/responses`, and admin APIs are protected with HTTP basic auth using `APP_BASIC_AUTH_USER` and `APP_BASIC_AUTH_PASSWORD`.
+- Public feedback submission and employee lookup use constrained server endpoints instead of exposing direct browser access to Supabase.
+- The bootstrap schema enables row level security so direct anon access is denied by default.

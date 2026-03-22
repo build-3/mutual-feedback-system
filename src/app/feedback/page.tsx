@@ -1,0 +1,614 @@
+"use client"
+
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Navbar from "@/components/Navbar"
+import MatrixRating from "@/components/MatrixRating"
+import NpsScale from "@/components/NpsScale"
+import SearchableDropdown from "@/components/SearchableDropdown"
+import StarRating from "@/components/StarRating"
+import ValuesCard from "@/components/ValuesCard"
+import {
+  BrandPanel,
+  NoticeCard,
+  PillarMark,
+  SectionHeading,
+  StatPill,
+  buttonClasses,
+  fieldClasses,
+} from "@/components/ui/brand"
+import { SCREEN_ACCENTS, getFeedbackPathOptions, type FeedbackPath } from "@/lib/brand"
+import {
+  Question,
+  getQuestionsForPath,
+} from "@/lib/questions"
+import { Employee, FeedbackType } from "@/lib/types"
+
+type Phase = "identify" | "route" | "questions" | "submitting" | "done"
+
+const feedbackAccent = SCREEN_ACCENTS.feedback
+
+export default function FeedbackPage() {
+  const [phase, setPhase] = useState<Phase>("identify")
+  const [submitter, setSubmitter] = useState<Employee | null>(null)
+  const [feedbackPath, setFeedbackPath] = useState<FeedbackPath | null>(null)
+  const [currentQ, setCurrentQ] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
+  const [animClass, setAnimClass] = useState("slide-enter-active")
+  const [error, setError] = useState("")
+  const submittingRef = useRef(false)
+  const timeoutRefs = useRef<NodeJS.Timeout[]>([])
+  const mountedRef = useRef(true)
+
+  const safeTimeout = useCallback((fn: () => void, ms: number) => {
+    const id = setTimeout(fn, ms)
+    timeoutRefs.current.push(id)
+    return id
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+      timeoutRefs.current.forEach(clearTimeout)
+    }
+  }, [])
+
+  const questions: Question[] = useMemo(
+    () => (feedbackPath ? getQuestionsForPath(feedbackPath) : []),
+    [feedbackPath]
+  )
+
+  // Progress: identify & route are setup steps, then questions fill the rest.
+  // Before a path is chosen, questions.length is 0 — clamp progress so it
+  // doesn't jump to 100% on the route screen.
+  const totalSteps = 2 + questions.length
+  const currentStep =
+    phase === "identify" ? 1 : phase === "route" ? 2 : 2 + currentQ + 1
+  const progress =
+    totalSteps <= 2
+      ? Math.round((currentStep / totalSteps) * 30)   // cap at ~30% during setup
+      : Math.round((currentStep / totalSteps) * 100)
+  const pathOptions = getFeedbackPathOptions()
+
+  const animateTransition = useCallback((forward: boolean, cb: () => void) => {
+    setAnimClass(forward ? "slide-exit-active" : "slide-enter")
+    safeTimeout(() => {
+      if (!mountedRef.current) return
+      cb()
+      setAnimClass("slide-enter")
+      safeTimeout(() => {
+        if (!mountedRef.current) return
+        setAnimClass("slide-enter-active")
+      }, 20)
+    }, 280)
+  }, [safeTimeout])
+
+  const resetForm = useCallback(() => {
+    setPhase("identify")
+    setSubmitter(null)
+    setFeedbackPath(null)
+    setCurrentQ(0)
+    setAnswers({})
+    setFeedbackFor(null)
+    setError("")
+  }, [])
+
+  function goNext() {
+    setError("")
+
+    if (phase === "identify") {
+      if (!submitter) {
+        setError("we need your name before we can route this.")
+        return
+      }
+
+      animateTransition(true, () => setPhase("route"))
+      return
+    }
+
+    if (phase === "route") {
+      if (!feedbackPath) {
+        setError("pick the kind of feedback you want to share.")
+        return
+      }
+
+      animateTransition(true, () => {
+        setCurrentQ(0)
+        setPhase("questions")
+      })
+      return
+    }
+
+    if (phase === "questions") {
+      const question = questions[currentQ]
+      if (!validateAnswer(question)) return
+
+      if (currentQ < questions.length - 1) {
+        animateTransition(true, () => setCurrentQ((previous) => previous + 1))
+      } else {
+        void handleSubmit()
+      }
+    }
+  }
+
+  function goBack() {
+    setError("")
+
+    if (phase === "route") {
+      animateTransition(false, () => setPhase("identify"))
+      return
+    }
+
+    if (phase === "questions") {
+      if (currentQ > 0) {
+        animateTransition(false, () => setCurrentQ((previous) => previous - 1))
+      } else {
+        animateTransition(false, () => setPhase("route"))
+      }
+    }
+  }
+
+  function validateAnswer(question: Question) {
+    if (question.type === "employee_search") {
+      if (!feedbackFor) {
+        setError("choose the person this feedback is about.")
+        return false
+      }
+      if (submitter && feedbackFor.id === submitter.id) {
+        setError("use the self reflection path if you want to review yourself.")
+        return false
+      }
+      return true
+    }
+
+    if (question.type === "matrix_rating") {
+      const items = question.matrixItems || []
+      for (const item of items) {
+        if (!answers[item.key]) {
+          setError("give each item a quick score before you move on.")
+          return false
+        }
+      }
+      return true
+    }
+
+    if (question.type === "number_input") {
+      const rawValue = answers[question.key]
+      const numericValue = rawValue ? Number(rawValue) : Number.NaN
+      if (!Number.isFinite(numericValue)) {
+        setError("add a valid number so we can keep going.")
+        return false
+      }
+      if (
+        (question.min !== undefined && numericValue < question.min) ||
+        (question.max !== undefined && numericValue > question.max)
+      ) {
+        setError(`keep this between ${question.min ?? 0} and ${question.max ?? 100}.`)
+        return false
+      }
+      return true
+    }
+
+    const value = answers[question.key]
+    if (!value || !value.trim()) {
+      setError("add a response so we can keep going.")
+      return false
+    }
+
+    return true
+  }
+
+  async function handleSubmit() {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setPhase("submitting")
+
+    try {
+      const answerRows: Array<{
+        question_key: string
+        question_text: string
+        answer_value: string
+      }> = []
+
+      for (const question of questions) {
+        if (question.type === "employee_search") continue
+
+        if (question.type === "matrix_rating" && question.matrixItems) {
+          for (const item of question.matrixItems) {
+            answerRows.push({
+              question_key: item.key,
+              question_text: `${question.text} - ${item.label}`,
+              answer_value: answers[item.key] || "",
+            })
+          }
+        } else {
+          answerRows.push({
+            question_key: question.key,
+            question_text: question.text,
+            answer_value: answers[question.key] || "",
+          })
+        }
+      }
+
+      const res = await fetch("/api/public/feedback-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submittedById: submitter!.id,
+          feedbackForId:
+            feedbackPath === "build3" || feedbackPath === "self"
+              ? null
+              : feedbackFor?.id || null,
+          feedbackType: feedbackPath as FeedbackType,
+          answers: answerRows,
+        }),
+      })
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}))
+        throw new Error(
+          payload.error || "that did not send cleanly. please give it one more go."
+        )
+      }
+
+      setPhase("done")
+    } catch (submissionError) {
+      console.error(submissionError)
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "that did not send cleanly. please give it one more go."
+      )
+      setPhase("questions")
+      setCurrentQ(Math.max(questions.length - 1, 0))
+    } finally {
+      submittingRef.current = false
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === "Enter" && phase !== "submitting" && phase !== "done") {
+      const question = phase === "questions" ? questions[currentQ] : null
+      if (question && question.type === "long_text") return
+      event.preventDefault()
+      goNext()
+    }
+  }
+
+  function setAnswer(key: string, value: string) {
+    setAnswers((previous) => ({ ...previous, [key]: value }))
+    setError("")
+  }
+
+  function renderQuestion(question: Question) {
+    switch (question.type) {
+      case "employee_search":
+        return (
+          <SearchableDropdown
+            value={feedbackFor}
+            onChange={setFeedbackFor}
+            filterRole={question.employeeRole}
+            excludeEmployeeId={submitter?.id}
+            placeholder="search for a teammate..."
+          />
+        )
+      case "star_rating":
+        return (
+          <StarRating
+            value={Number(answers[question.key]) || 0}
+            onChange={(value) => setAnswer(question.key, String(value))}
+          />
+        )
+      case "matrix_rating":
+        return (
+          <MatrixRating
+            items={question.matrixItems || []}
+            values={Object.fromEntries(
+              (question.matrixItems || []).map((item) => [
+                item.key,
+                Number(answers[item.key]) || 0,
+              ])
+            )}
+            onChange={(key, value) => setAnswer(key, String(value))}
+          />
+        )
+      case "long_text":
+        return (
+          <>
+            {question.showValues && <ValuesCard />}
+            <textarea
+              value={answers[question.key] || ""}
+              onChange={(event) => setAnswer(question.key, event.target.value)}
+              rows={6}
+              className={fieldClasses({ size: "lg" })}
+              placeholder="write it how you would say it."
+            />
+          </>
+        )
+      case "single_select":
+        return (
+          <div className="space-y-3">
+            {question.options?.map((option) => {
+              const active = answers[question.key] === option.key
+
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setAnswer(question.key, option.key)}
+                  className={[
+                    "w-full rounded-[24px] border px-5 py-4 text-left transition-all",
+                    active
+                      ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
+                      : "border-line bg-white text-ink hover:-translate-y-0.5 hover:border-black/15",
+                  ].join(" ")}
+                >
+                  <div className="text-base font-semibold">{option.label}</div>
+                  {option.description && (
+                    <div className="mt-1 text-sm leading-6 text-muted">
+                      {option.description}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )
+      case "nps":
+        return (
+          <NpsScale
+            value={answers[question.key] ? Number(answers[question.key]) : null}
+            onChange={(value) => setAnswer(question.key, String(value))}
+          />
+        )
+      case "number_input":
+        return (
+          <div className="flex items-end gap-3">
+            <input
+              type="number"
+              min={question.min}
+              max={question.max}
+              value={answers[question.key] || ""}
+              onChange={(event) => setAnswer(question.key, event.target.value)}
+              className={`${fieldClasses({ size: "lg" })} max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em]`}
+              placeholder="50"
+            />
+            <span className="pb-3 text-sm text-muted">out of 100</span>
+          </div>
+        )
+      case "dropdown":
+        return (
+          <select
+            value={answers[question.key] || ""}
+            onChange={(event) => setAnswer(question.key, event.target.value)}
+            className={fieldClasses({ size: "lg" })}
+          >
+            <option value="">choose one</option>
+            {question.options?.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )
+      default:
+        return null
+    }
+  }
+
+  if (phase === "done") {
+    const restartButton = buttonClasses({ accent: feedbackAccent, variant: "solid", size: "lg" })
+
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-12 sm:px-6">
+          <BrandPanel accent={feedbackAccent} tone="plain" className="w-full p-8 sm:p-12">
+            <div className="mx-auto max-w-xl text-center">
+              <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-full border border-brand-peach/50 bg-brand-peach/25">
+                <PillarMark accent={feedbackAccent} className="scale-125" />
+              </div>
+              <SectionHeading
+                accent={feedbackAccent}
+                eyebrow="all set"
+                title="we have your feedback"
+                description="thanks. clear notes make the next step easier for all of us."
+                align="center"
+              />
+              <div className="mt-8 flex justify-center">
+                <button type="button" className={restartButton.className} style={restartButton.style} onClick={resetForm}>
+                  send another one
+                </button>
+              </div>
+            </div>
+          </BrandPanel>
+        </main>
+      </div>
+    )
+  }
+
+  const nextButton = buttonClasses({ accent: feedbackAccent, variant: "solid", size: "lg" })
+  const backButton = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
+
+  return (
+    <div className="min-h-screen" onKeyDown={handleKeyDown}>
+      <Navbar />
+
+      <div className="sticky top-[72px] z-40 border-b border-line bg-canvas backdrop-blur-xl">
+        <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-xs font-semibold tracking-[0.08em] text-muted">
+              step {Math.min(currentStep, totalSteps)} of {totalSteps}
+            </div>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
+              <div
+                className="h-full rounded-full bg-brand-peach transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+          <div className={`space-y-6 ${animClass}`}>
+            {phase !== "identify" && phase !== "submitting" && (
+              <button type="button" className={backButton.className} style={backButton.style} onClick={goBack}>
+                go back
+              </button>
+            )}
+
+            {phase === "identify" && (
+              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                <SectionHeading
+                  accent={feedbackAccent}
+                  eyebrow="who are we hearing from?"
+                  title="start with your name"
+                  description="we keep it simple. pick yourself first, then we will route the rest."
+                />
+                <div className="mt-8">
+                  <SearchableDropdown
+                    value={submitter}
+                    onChange={setSubmitter}
+                    placeholder="search for your name..."
+                  />
+                </div>
+              </BrandPanel>
+            )}
+
+            {phase === "route" && (
+              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                <SectionHeading
+                  accent={feedbackAccent}
+                  eyebrow="what are we writing?"
+                  title="pick the lane"
+                  description="each route keeps the questions short and relevant."
+                />
+                <div className="mt-8 space-y-3">
+                  {pathOptions.map((option) => {
+                    const active = feedbackPath === option.key
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => {
+                          setFeedbackPath(option.key)
+                          setFeedbackFor(null)
+                          setAnswers({})
+                          setError("")
+                        }}
+                        className={[
+                          "w-full rounded-[26px] border px-5 py-5 text-left transition-all",
+                          active
+                            ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
+                            : "border-line bg-white/86 hover:-translate-y-0.5 hover:border-black/15",
+                        ].join(" ")}
+                      >
+                        <div className="text-lg font-semibold tracking-[-0.04em] text-ink">
+                          {option.label}
+                        </div>
+                        <div className="mt-1 text-sm leading-6 text-muted">{option.blurb}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </BrandPanel>
+            )}
+
+            {phase === "questions" && questions[currentQ] && (
+              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                <SectionHeading
+                  accent={feedbackAccent}
+                  eyebrow={`question ${currentQ + 1} of ${questions.length}`}
+                  title={questions[currentQ].text}
+                  description={questions[currentQ].subtext}
+                />
+                <div className="mt-8">{renderQuestion(questions[currentQ])}</div>
+              </BrandPanel>
+            )}
+
+            {phase === "submitting" && (
+              <BrandPanel accent={feedbackAccent} tone="soft" className="p-8 text-center">
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-[3px] border-brand-peach border-t-transparent" />
+                <div className="text-lg font-semibold tracking-[-0.03em] text-ink">
+                  sending it through
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  we are packaging your answers and handing them off.
+                </p>
+              </BrandPanel>
+            )}
+
+            {error && (
+              <NoticeCard accent={feedbackAccent} title="one quick fix">
+                {error}
+              </NoticeCard>
+            )}
+
+            {phase !== "submitting" && (
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" className={nextButton.className} style={nextButton.style} onClick={goNext}>
+                  {phase === "questions" && currentQ === questions.length - 1
+                    ? "send it"
+                    : "keep going"}
+                </button>
+                <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
+                  press enter to keep moving
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 lg:sticky lg:top-[142px] lg:self-start">
+            <BrandPanel accent={feedbackAccent} tone="soft" className="brand-lines brand-pillars p-6">
+              <div className="flex items-center gap-2">
+                <PillarMark accent={feedbackAccent} />
+                <h2 className="text-sm font-semibold text-ink">how we keep this useful</h2>
+              </div>
+              <div className="mt-5 grid gap-3">
+                <StatPill
+                  accent={feedbackAccent}
+                  label="voice"
+                  value="direct, warm, human"
+                  detail="short answers beat vague essays every time."
+                />
+                <StatPill
+                  accent={feedbackAccent}
+                  label="pace"
+                  value="one step at a time"
+                  detail="we keep each question focused so it does not feel like homework."
+                />
+                <StatPill
+                  accent={feedbackAccent}
+                  label="use"
+                  value="feedback that moves"
+                  detail="we are after clarity, not fluff. slightly quirky is welcome."
+                />
+              </div>
+            </BrandPanel>
+
+            <BrandPanel accent={feedbackAccent} tone="washed" className="brand-lines p-6">
+              <div className="text-xs font-semibold tracking-[0.08em] text-muted">
+                current route
+              </div>
+              <div className="mt-2 text-2xl font-bold tracking-[-0.05em] text-ink">
+                {feedbackPath ? pathOptions.find((option) => option.key === feedbackPath)?.label : "not picked yet"}
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                {feedbackPath
+                  ? pathOptions.find((option) => option.key === feedbackPath)?.blurb
+                  : "choose the route first and we will tailor the rest."}
+              </p>
+              <div className="mt-5 h-px w-full bg-black/[0.08]" />
+              <div className="mt-5 text-sm leading-6 text-muted">
+                we speak plainly here: kind, clear, and not too polished for our own good.
+              </div>
+            </BrandPanel>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
