@@ -1,13 +1,5 @@
 import { NextResponse } from "next/server"
-import { getBasicAuthChallengeHeaders, isAuthorizedRequest } from "@/lib/server/basic-auth"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
-
-function unauthorizedResponse() {
-  return new NextResponse("Authentication required.", {
-    status: 401,
-    headers: getBasicAuthChallengeHeaders(),
-  })
-}
 
 function normalizeName(name: string) {
   const trimmed = name.trim()
@@ -34,11 +26,7 @@ function normalizeEmail(email: string | null | undefined) {
   return trimmed.toLowerCase()
 }
 
-export async function GET(request: Request) {
-  if (!isAuthorizedRequest(request.headers.get("authorization"))) {
-    return unauthorizedResponse()
-  }
-
+export async function GET() {
   if (!hasServerSupabaseConfig()) {
     return NextResponse.json(
       { error: "Server configuration is incomplete." },
@@ -64,10 +52,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAuthorizedRequest(request.headers.get("authorization"))) {
-    return unauthorizedResponse()
-  }
-
   if (!hasServerSupabaseConfig()) {
     return NextResponse.json(
       { error: "Server configuration is incomplete." },
@@ -105,10 +89,6 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isAuthorizedRequest(request.headers.get("authorization"))) {
-    return unauthorizedResponse()
-  }
-
   if (!hasServerSupabaseConfig()) {
     return NextResponse.json(
       { error: "Server configuration is incomplete." },

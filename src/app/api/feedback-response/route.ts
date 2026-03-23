@@ -1,8 +1,4 @@
 import { NextResponse } from "next/server"
-import {
-  getBasicAuthChallengeHeaders,
-  isAuthorizedRequest,
-} from "@/lib/server/basic-auth"
 import { saveFeedbackResponse } from "@/lib/server/feedback"
 import {
   consumeRateLimit,
@@ -14,13 +10,6 @@ import {
 } from "@/lib/server/supabase-admin"
 
 export async function POST(request: Request) {
-  if (!isAuthorizedRequest(request.headers.get("authorization"))) {
-    return new NextResponse("Authentication required.", {
-      status: 401,
-      headers: getBasicAuthChallengeHeaders(),
-    })
-  }
-
   const ip = getRequestIp(request)
   const rateLimit = consumeRateLimit({
     bucket: "feedback-response",

@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { SCREEN_ACCENTS } from "@/lib/brand"
 import { PillarMark, buttonClasses } from "@/components/ui/brand"
+import { createClient } from "@/lib/supabase/client"
 
 const links = [
   { href: "/feedback", label: "give feedback" },
@@ -19,6 +20,13 @@ const LINK_ACCENTS: Record<string, typeof SCREEN_ACCENTS[keyof typeof SCREEN_ACC
 
 export default function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <nav className="sticky top-0 z-50 border-b border-line/80 bg-canvas/90 backdrop-blur-xl">
@@ -60,6 +68,13 @@ export default function Navbar() {
               </Link>
             )
           })}
+
+          <button
+            onClick={handleSignOut}
+            className="ml-2 rounded-xl px-3 py-1.5 text-xs text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
+          >
+            sign out
+          </button>
         </div>
       </div>
     </nav>

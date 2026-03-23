@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { getBasicAuthChallengeHeaders, isAuthorizedRequest } from "@/lib/server/basic-auth"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -35,14 +34,7 @@ async function fetchAll<T = Record<string, unknown>>(
   return { data: all, error: null }
 }
 
-export async function GET(request: Request) {
-  if (!isAuthorizedRequest(request.headers.get("authorization"))) {
-    return new NextResponse("Authentication required.", {
-      status: 401,
-      headers: getBasicAuthChallengeHeaders(),
-    })
-  }
-
+export async function GET() {
   if (!hasServerSupabaseConfig()) {
     return NextResponse.json(
       { error: "Server configuration is incomplete." },
