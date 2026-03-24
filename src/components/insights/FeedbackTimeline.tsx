@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { format, formatDistanceToNow } from "date-fns"
+import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
 import { QUESTION_LABELS, parseNumericAnswer, getInitials, getAvatarColor } from "@/lib/insights-helpers"
@@ -69,7 +69,7 @@ function ResponseThread({
             <div className="flex items-baseline gap-2">
               <span className="text-xs font-semibold text-ink">{r.responderName}</span>
               <span className="text-[10px] tracking-[0.08em] text-muted">
-                {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
+                {timeAgo(new Date(r.created_at))}
               </span>
             </div>
             <p className="mt-0.5 whitespace-pre-wrap text-sm leading-6 text-ink/80">
@@ -373,10 +373,8 @@ const TimelineItem = memo(function TimelineItem({
                 </span>
               </div>
               <div className="mt-1 text-xs tracking-[0.08em] text-muted">
-                {formatDistanceToNow(new Date(submission.submission.created_at), {
-                  addSuffix: true,
-                })}{" "}
-                · {format(new Date(submission.submission.created_at), "MMM d, yyyy")}
+                {timeAgo(new Date(submission.submission.created_at))}{" "}
+                · {formatDate(new Date(submission.submission.created_at), "MMM d, yyyy")}
               </div>
             </div>
             <span className="text-xs font-semibold tracking-[0.08em] text-muted">

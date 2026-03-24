@@ -1,6 +1,6 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
+import { timeAgo } from "@/lib/date-utils"
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { OrgMetrics } from "@/hooks/useOrgInsights"
@@ -345,9 +345,7 @@ export default function OrgOverview({
                       {FEEDBACK_TYPE_LABELS[submission.submission.feedback_type]}
                     </span>
                     <span className="text-xs tracking-[0.08em] text-muted">
-                      {formatDistanceToNow(new Date(submission.submission.created_at), {
-                        addSuffix: true,
-                      })}
+                      {timeAgo(new Date(submission.submission.created_at))}
                     </span>
                   </div>
 
@@ -397,9 +395,7 @@ export default function OrgOverview({
                     {FEEDBACK_TYPE_LABELS[item.submission.feedback_type]}
                   </span>
                   <span className="text-xs tracking-[0.08em] text-muted">
-                    {formatDistanceToNow(new Date(item.submission.created_at), {
-                      addSuffix: true,
-                    })}
+                    {timeAgo(new Date(item.submission.created_at))}
                   </span>
                 </div>
               )

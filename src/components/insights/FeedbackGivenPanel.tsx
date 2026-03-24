@@ -1,6 +1,6 @@
 "use client"
 
-import { format } from "date-fns"
+import { formatDate } from "@/lib/date-utils"
 import { BrandPanel, Eyebrow, StatPill } from "@/components/ui/brand"
 
 interface GivenFeedbackItem {
@@ -49,7 +49,7 @@ export default function FeedbackGivenPanel({
                   <span className="font-semibold">{item.employeeName}</span>
                 </span>
                 <span className="text-xs tracking-[0.08em] text-muted">
-                  {format(new Date(item.date), "MMM d, yyyy")}
+                  {formatDate(new Date(item.date), "MMM d, yyyy")}
                 </span>
               </li>
             ))}

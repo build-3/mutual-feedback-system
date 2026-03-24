@@ -1,12 +1,13 @@
 "use client"
 
 import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
-import MatrixRating from "@/components/MatrixRating"
-import NpsScale from "@/components/NpsScale"
 import SearchableDropdown from "@/components/SearchableDropdown"
-import StarRating from "@/components/StarRating"
-import ValuesCard from "@/components/ValuesCard"
+const MatrixRating = dynamic(() => import("@/components/MatrixRating"), { ssr: false })
+const NpsScale = dynamic(() => import("@/components/NpsScale"), { ssr: false })
+const StarRating = dynamic(() => import("@/components/StarRating"), { ssr: false })
+const ValuesCard = dynamic(() => import("@/components/ValuesCard"), { ssr: false })
 import {
   BrandPanel,
   NoticeCard,

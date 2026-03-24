@@ -1,10 +1,10 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
 import { Employee } from "@/lib/types"
 import { getAvatarColor, getInitials } from "@/lib/insights-helpers"
 import { getRoleAccent, getRoleLabel } from "@/lib/brand"
 import { BrandPanel, Eyebrow, StatPill } from "@/components/ui/brand"
+import { timeAgo } from "@/lib/date-utils"
 
 interface Props {
   employee: Employee
@@ -24,7 +24,7 @@ export default function ProfileHeader({
 }: Props) {
   const roleAccent = getRoleAccent(employee.role)
   const lastSeen = lastFeedbackDate
-    ? formatDistanceToNow(new Date(lastFeedbackDate), { addSuffix: true })
+    ? timeAgo(new Date(lastFeedbackDate))
     : "not yet"
 
   return (

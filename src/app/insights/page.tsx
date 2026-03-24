@@ -3,12 +3,17 @@
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import EmployeeSidebar from "@/components/insights/EmployeeSidebar"
-import ProfileHeader from "@/components/insights/ProfileHeader"
-import ScoreCardRow from "@/components/insights/ScoreCardRow"
-
-// Lazy-loaded — defer Recharts and heavy components until needed
+// Lazy-loaded — defer heavy components until needed
 const LoadingSkeleton = () => <div className="animate-pulse bg-stone-800/50 rounded-2xl h-64" />
+const EmployeeSidebar = dynamic(() => import("@/components/insights/EmployeeSidebar"), {
+  loading: LoadingSkeleton,
+})
+const ProfileHeader = dynamic(() => import("@/components/insights/ProfileHeader"), {
+  loading: LoadingSkeleton,
+})
+const ScoreCardRow = dynamic(() => import("@/components/insights/ScoreCardRow"), {
+  loading: LoadingSkeleton,
+})
 const CompetencyRadar = dynamic(() => import("@/components/insights/CompetencyRadar"), {
   loading: LoadingSkeleton,
 })

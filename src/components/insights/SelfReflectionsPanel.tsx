@@ -1,6 +1,6 @@
 "use client"
 
-import { format } from "date-fns"
+import { formatDate } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { QUESTION_LABELS } from "@/lib/insights-helpers"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
@@ -29,7 +29,7 @@ export default function SelfReflectionsPanel({ submissions }: Props) {
                 self note
               </span>
               <span className="text-xs tracking-[0.08em] text-muted">
-                {format(new Date(submission.submission.created_at), "MMM d, yyyy")}
+                {formatDate(new Date(submission.submission.created_at), "MMM d, yyyy")}
               </span>
             </div>
 

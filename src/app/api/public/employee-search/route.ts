@@ -59,5 +59,10 @@ export async function GET(request: Request) {
     )
   }
 
-  return NextResponse.json({ employees: data || [] })
+  const response = NextResponse.json({ employees: data || [] })
+  // Cache employee list for 5 minutes — it rarely changes
+  if (query === "*") {
+    response.headers.set("Cache-Control", "private, max-age=300, stale-while-revalidate=600")
+  }
+  return response
 }
