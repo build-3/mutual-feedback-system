@@ -11,6 +11,10 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "build3 Feedback",
   description: "build3 feedback, reflections, and team insight in one place.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 }
 
 export default function RootLayout({
