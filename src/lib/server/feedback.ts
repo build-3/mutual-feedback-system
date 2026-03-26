@@ -377,7 +377,7 @@ export async function sendNotificationForSubmission(submissionId: string) {
 
   const submitterName = submitterDetail?.name || "Someone"
   const recipientName = recipientDetail.name || "there"
-  const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nHead to the insights dashboard to check it out.`
+  const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nCheck it out: https://build3.online/insights?employee=${typedSubmission.feedback_for_id}`
 
   console.log(`[notify] Sending to ${recipientDetail.email}`)
   await sendDirectMessage(recipientDetail.email, message)
@@ -487,7 +487,7 @@ export async function saveFeedbackResponse({
         console.log(`[notify] Sending response notification to ${recipientEmail}`)
         await sendDirectMessage(
           recipientEmail,
-          `${responderName} replied to feedback:\n\n"${preview}"\n\nHead to the insights dashboard to see the full thread.`
+          `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${notifyId}`
         )
         console.log(`[notify] Response notification sent to ${recipientEmail}`)
       } catch (error) {

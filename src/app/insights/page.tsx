@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 // Lazy-loaded — defer heavy components until needed
 const LoadingSkeleton = () => <div className="animate-pulse bg-stone-800/50 rounded-2xl h-64" />
 const EmployeeSidebar = dynamic(() => import("@/components/insights/EmployeeSidebar"), {
@@ -54,6 +55,15 @@ import { SubmissionWithDetails } from "./types"
 const insightsAccent = SCREEN_ACCENTS.insights
 
 export default function InsightsPage() {
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <InsightsContent />
+    </Suspense>
+  )
+}
+
+function InsightsContent() {
+  const searchParams = useSearchParams()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [allSubmissions, setAllSubmissions] = useState<SubmissionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
@@ -143,6 +153,18 @@ export default function InsightsPage() {
   useEffect(() => {
     void loadDashboard()
   }, [loadDashboard])
+
+  // Auto-select employee from URL param (e.g. /insights?employee=uuid)
+  useEffect(() => {
+    const employeeParam = searchParams.get("employee")
+    if (employeeParam && employees.length > 0) {
+      const exists = employees.some((e) => e.id === employeeParam)
+      if (exists) {
+        setSelectedEmployeeId(employeeParam)
+        setShowOrgOverview(false)
+      }
+    }
+  }, [searchParams, employees])
 
   const filteredSubmissions = useMemo(
     () => filterSubmissionsByRange(allSubmissions, dateRange),
