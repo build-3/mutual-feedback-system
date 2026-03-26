@@ -41,6 +41,8 @@ export default function FeedbackPage() {
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
   const skipNextPush = useRef(false)
+  const isAnimating = useRef(false)
+  const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
 
   const safeTimeout = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms)
@@ -75,6 +77,8 @@ export default function FeedbackPage() {
 
   const animateTransition = useCallback(
     (forward: boolean, cb: () => void, historyState?: { formPhase: string; formQ: number }) => {
+      if (isAnimating.current) return
+      isAnimating.current = true
       setAnimClass(forward ? "slide-exit-active" : "slide-enter")
       safeTimeout(() => {
         if (!mountedRef.current) return
@@ -87,6 +91,7 @@ export default function FeedbackPage() {
         safeTimeout(() => {
           if (!mountedRef.current) return
           setAnimClass("slide-enter-active")
+          isAnimating.current = false
         }, 20)
       }, 280)
     },
@@ -120,6 +125,7 @@ export default function FeedbackPage() {
     setAnswers({})
     setFeedbackFor(null)
     setError("")
+    window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [])
 
   function goNext() {
@@ -243,18 +249,24 @@ export default function FeedbackPage() {
 
         if (question.type === "matrix_rating" && question.matrixItems) {
           for (const item of question.matrixItems) {
-            answerRows.push({
-              question_key: item.key,
-              question_text: `${question.text} - ${item.label}`,
-              answer_value: answers[item.key] || "",
-            })
+            const value = answers[item.key]?.trim()
+            if (value) {
+              answerRows.push({
+                question_key: item.key,
+                question_text: `${question.text} - ${item.label}`,
+                answer_value: value,
+              })
+            }
           }
         } else {
-          answerRows.push({
-            question_key: question.key,
-            question_text: question.text,
-            answer_value: answers[question.key] || "",
-          })
+          const value = answers[question.key]?.trim()
+          if (value) {
+            answerRows.push({
+              question_key: question.key,
+              question_text: question.text,
+              answer_value: value,
+            })
+          }
         }
       }
 
@@ -381,7 +393,10 @@ export default function FeedbackPage() {
                 safeTimeout(() => {
                   if (!mountedRef.current) return
                   if (currentQ < questions.length - 1) {
-                    animateTransition(true, () => setCurrentQ((prev) => prev + 1))
+                    animateTransition(true, () => setCurrentQ((prev) => prev + 1), {
+                      formPhase: "questions",
+                      formQ: currentQ + 1,
+                    })
                   }
                 }, 350)
               }
@@ -410,13 +425,18 @@ export default function FeedbackPage() {
             )}
             onChange={(key, value) => {
               setAnswer(key, String(value))
+              if (matrixAdvanceTimer.current) {
+                clearTimeout(matrixAdvanceTimer.current)
+                matrixAdvanceTimer.current = null
+              }
               const items = question.matrixItems || []
               const allScored = items.every((item) =>
                 item.key === key ? value > 0 : Number(pendingAnswers.current[item.key]) > 0
               )
               if (allScored) {
-                safeTimeout(() => {
+                matrixAdvanceTimer.current = safeTimeout(() => {
                   if (mountedRef.current) goNextWithAnswers()
+                  matrixAdvanceTimer.current = null
                 }, 350)
               }
             }}
