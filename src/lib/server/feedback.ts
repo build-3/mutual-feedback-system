@@ -64,20 +64,23 @@ function normalizeText(value: string, fieldName: string, maxLength: number) {
 /** Diagnose Google Chat config without sending a message. */
 export async function diagnoseGoogleChat() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? ""
+  const cleanedKey = rawKey.replace(/^"|"$/g, "").replace(/\\n/g, "\n")
   const senderEmail = process.env.GOOGLE_CHAT_SENDER_EMAIL
 
   const config = {
     hasServiceAccountEmail: !!serviceAccountEmail,
     serviceAccountEmail: serviceAccountEmail ? `${serviceAccountEmail.slice(0, 12)}...` : null,
-    hasPrivateKey: !!privateKey,
-    privateKeyLength: privateKey?.length ?? 0,
-    privateKeyStartsWith: privateKey?.slice(0, 27) ?? null,
+    hasPrivateKey: !!cleanedKey,
+    privateKeyLength: cleanedKey.length,
+    rawKeyStartsWith: rawKey.slice(0, 27),
+    cleanedKeyStartsWith: cleanedKey.slice(0, 27),
+    hadWrappingQuotes: rawKey.startsWith('"') || rawKey.endsWith('"'),
     hasSenderEmail: !!senderEmail,
     senderEmail: senderEmail ?? null,
   }
 
-  if (!serviceAccountEmail || !privateKey || !senderEmail) {
+  if (!serviceAccountEmail || !cleanedKey || !senderEmail) {
     return { status: "misconfigured" as const, config, error: "Missing env vars" }
   }
 
@@ -98,7 +101,9 @@ export async function diagnoseGoogleChat() {
 
 async function getGoogleChatClientInner() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n")
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? ""
+  // Strip wrapping quotes (Vercel env vars sometimes get double-quoted)
+  const privateKey = rawKey.replace(/^"|"$/g, "").replace(/\\n/g, "\n") || undefined
   const senderEmail = process.env.GOOGLE_CHAT_SENDER_EMAIL
 
   if (!serviceAccountEmail || !privateKey || !senderEmail) {
