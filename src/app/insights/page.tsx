@@ -4,42 +4,7 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-// Lazy-loaded — defer heavy components until needed
-const LoadingSkeleton = () => <div className="animate-pulse bg-stone-800/50 rounded-2xl h-64" />
-const EmployeeSidebar = dynamic(() => import("@/components/insights/EmployeeSidebar"), {
-  loading: LoadingSkeleton,
-})
-const ProfileHeader = dynamic(() => import("@/components/insights/ProfileHeader"), {
-  loading: LoadingSkeleton,
-})
-const ScoreCardRow = dynamic(() => import("@/components/insights/ScoreCardRow"), {
-  loading: LoadingSkeleton,
-})
-const CompetencyRadar = dynamic(() => import("@/components/insights/CompetencyRadar"), {
-  loading: LoadingSkeleton,
-})
-const ContributionChart = dynamic(() => import("@/components/insights/ContributionChart"), {
-  loading: LoadingSkeleton,
-})
-const FeedbackGivenPanel = dynamic(() => import("@/components/insights/FeedbackGivenPanel"), {
-  loading: LoadingSkeleton,
-})
-const FeedbackTimeline = dynamic(() => import("@/components/insights/FeedbackTimeline"), {
-  loading: LoadingSkeleton,
-})
-const ITPArchetypeBadge = dynamic(() => import("@/components/insights/ITPArchetypeBadge"), {
-  loading: LoadingSkeleton,
-})
-const OrgOverview = dynamic(() => import("@/components/insights/OrgOverview"), {
-  loading: LoadingSkeleton,
-})
-const SelfReflectionsPanel = dynamic(() => import("@/components/insights/SelfReflectionsPanel"), {
-  loading: LoadingSkeleton,
-})
-const TrustBatteryGauge = dynamic(() => import("@/components/insights/TrustBatteryGauge"), {
-  loading: LoadingSkeleton,
-})
-import { EmptyState, PillarMark, buttonClasses } from "@/components/ui/brand"
+import { SectionHeading, EmptyState, buttonClasses } from "@/components/ui/brand"
 import { useEmployeeInsights } from "@/hooks/useEmployeeInsights"
 import { useOrgInsights } from "@/hooks/useOrgInsights"
 import { DATE_RANGE_LABELS, SCREEN_ACCENTS } from "@/lib/brand"
@@ -52,11 +17,72 @@ import {
 import { filterSubmissionsByRange } from "@/lib/insights-helpers"
 import { SubmissionWithDetails } from "./types"
 
+const LoadingSkeleton = () => (
+  <div className="animate-pulse rounded-2xl bg-line/30 h-64" />
+)
+
+const EmployeePicker = dynamic(
+  () => import("@/components/insights/EmployeePicker"),
+  { ssr: false }
+)
+const ProfileHeader = dynamic(
+  () => import("@/components/insights/ProfileHeader"),
+  { loading: LoadingSkeleton }
+)
+const ScoreCardRow = dynamic(
+  () => import("@/components/insights/ScoreCardRow"),
+  { loading: LoadingSkeleton }
+)
+const CompetencyRadar = dynamic(
+  () => import("@/components/insights/CompetencyRadar"),
+  { loading: LoadingSkeleton }
+)
+const ContributionChart = dynamic(
+  () => import("@/components/insights/ContributionChart"),
+  { loading: LoadingSkeleton }
+)
+const FeedbackGivenPanel = dynamic(
+  () => import("@/components/insights/FeedbackGivenPanel"),
+  { loading: LoadingSkeleton }
+)
+const FeedbackTimeline = dynamic(
+  () => import("@/components/insights/FeedbackTimeline"),
+  { loading: LoadingSkeleton }
+)
+const ITPArchetypeBadge = dynamic(
+  () => import("@/components/insights/ITPArchetypeBadge"),
+  { loading: LoadingSkeleton }
+)
+const OrgOverview = dynamic(
+  () => import("@/components/insights/OrgOverview"),
+  { loading: LoadingSkeleton }
+)
+const SelfReflectionsPanel = dynamic(
+  () => import("@/components/insights/SelfReflectionsPanel"),
+  { loading: LoadingSkeleton }
+)
+const TrustBatteryGauge = dynamic(
+  () => import("@/components/insights/TrustBatteryGauge"),
+  { loading: LoadingSkeleton }
+)
+
 const insightsAccent = SCREEN_ACCENTS.insights
+
+const DATE_RANGES = [
+  { key: "month" as const, label: "month" },
+  { key: "3months" as const, label: "3 months" },
+  { key: "all" as const, label: "all time" },
+]
 
 export default function InsightsPage() {
   return (
-    <Suspense fallback={<LoadingSkeleton />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fffaf5] flex items-center justify-center">
+          <div className="animate-pulse text-muted text-sm">loading insights...</div>
+        </div>
+      }
+    >
       <InsightsContent />
     </Suspense>
   )
@@ -71,18 +97,17 @@ function InsightsContent() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [showOrgOverview, setShowOrgOverview] = useState(true)
   const [dateRange, setDateRange] = useState<"month" | "3months" | "all">("all")
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [responsesByAnswer, setResponsesByAnswer] = useState<
     Record<string, (FeedbackResponse & { responderName: string })[]>
   >({})
 
   const buildResponsesByAnswer = useCallback(
-    (
-      employeeRows: Employee[],
-      responseRows: FeedbackResponse[]
-    ) => {
+    (employeeRows: Employee[], responseRows: FeedbackResponse[]) => {
       const empMap = new Map(employeeRows.map((e) => [e.id, e.name]))
-      const grouped: Record<string, (FeedbackResponse & { responderName: string })[]> = {}
+      const grouped: Record<
+        string,
+        (FeedbackResponse & { responderName: string })[]
+      > = {}
 
       for (const response of responseRows) {
         if (!grouped[response.answer_id]) grouped[response.answer_id] = []
@@ -106,7 +131,9 @@ function InsightsContent() {
       const payload = await res.json().catch(() => ({}))
 
       if (!res.ok) {
-        throw new Error(payload.error || "we could not load the latest insight data.")
+        throw new Error(
+          payload.error || "we could not load the latest insight data."
+        )
       }
 
       const employeeRows = (payload.employees || []) as Employee[]
@@ -114,7 +141,9 @@ function InsightsContent() {
       const answerRows = (payload.answers || []) as FeedbackAnswer[]
       const responseRows = (payload.responses || []) as FeedbackResponse[]
 
-      const employeeMap = new Map(employeeRows.map((employee) => [employee.id, employee]))
+      const employeeMap = new Map(
+        employeeRows.map((employee) => [employee.id, employee])
+      )
       const answerMap = new Map<string, FeedbackAnswer[]>()
 
       for (const answer of answerRows) {
@@ -124,12 +153,14 @@ function InsightsContent() {
         answerMap.get(answer.submission_id)!.push(answer)
       }
 
-      const enriched: SubmissionWithDetails[] = submissionRows.map((submission) => ({
-        submission,
-        submitterName:
-          employeeMap.get(submission.submitted_by_id)?.name || "Unknown",
-        answers: answerMap.get(submission.id) || [],
-      }))
+      const enriched: SubmissionWithDetails[] = submissionRows.map(
+        (submission) => ({
+          submission,
+          submitterName:
+            employeeMap.get(submission.submitted_by_id)?.name || "Unknown",
+          answers: answerMap.get(submission.id) || [],
+        })
+      )
 
       setEmployees(employeeRows)
       setAllSubmissions(enriched)
@@ -154,7 +185,7 @@ function InsightsContent() {
     void loadDashboard()
   }, [loadDashboard])
 
-  // Auto-select employee from URL param (e.g. /insights?employee=uuid)
+  // Auto-select employee from URL param
   useEffect(() => {
     const employeeParam = searchParams.get("employee")
     if (employeeParam && employees.length > 0) {
@@ -182,7 +213,7 @@ function InsightsContent() {
   const build3Submissions = useMemo(
     () =>
       filteredSubmissions.filter(
-        (submission) => submission.submission.feedback_type === "build3"
+        (s) => s.submission.feedback_type === "build3"
       ),
     [filteredSubmissions]
   )
@@ -190,26 +221,16 @@ function InsightsContent() {
   const selectedEmployeeBuild3Submissions = useMemo(
     () =>
       build3Submissions.filter(
-        (submission) => submission.submission.submitted_by_id === selectedEmployeeId
+        (s) => s.submission.submitted_by_id === selectedEmployeeId
       ),
     [build3Submissions, selectedEmployeeId]
   )
 
-  const linkButton = buttonClasses({
-    accent: insightsAccent,
-    variant: "ghost",
-    size: "sm",
-  })
-
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-brand-sky/50 bg-brand-sky/25">
-            <PillarMark accent={insightsAccent} />
-          </div>
-          <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-[3px] border-brand-sky border-t-transparent" />
-          <p className="text-sm text-muted">pulling together the latest team signal...</p>
+      <div className="min-h-screen bg-[#fffaf5] flex items-center justify-center">
+        <div className="animate-pulse text-muted text-sm">
+          pulling together the latest team signal...
         </div>
       </div>
     )
@@ -217,171 +238,213 @@ function InsightsContent() {
 
   if (loadError) {
     return (
-      <div className="min-h-screen px-4 py-10 sm:px-6">
-        <EmptyState
-          accent={insightsAccent}
-          title="we hit a snag loading insights"
-          description={loadError}
-        />
+      <div className="min-h-screen bg-[#fffaf5] px-4 py-10 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <EmptyState
+            accent={insightsAccent}
+            title="we hit a snag loading insights"
+            description={loadError}
+          />
+        </div>
       </div>
     )
   }
 
+  const linkButton = buttonClasses({
+    accent: insightsAccent,
+    variant: "ghost",
+    size: "sm",
+  })
+
+  const hasDetailedData =
+    Object.keys(insights.metrics).length > 0 ||
+    Object.keys(insights.contributionCounts).length > 0 ||
+    Object.keys(insights.archetypeCounts).length > 0
+
   return (
-    <div className="flex min-h-screen bg-canvas">
-      <EmployeeSidebar
-        employees={employees}
-        selectedId={selectedEmployeeId}
-        onSelect={(id) => {
-          setSelectedEmployeeId(id)
-          setShowOrgOverview(false)
-        }}
-        showOrgOverview={showOrgOverview}
-        onToggleOrg={() => {
-          setShowOrgOverview(true)
-          setSelectedEmployeeId(null)
-        }}
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-        employeesWithFeedback={orgMetrics.employeeIdsWithFeedback}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        participationByEmployee={orgMetrics.participationByEmployee}
-        totalTeamSize={employees.length}
-      />
-
-      <main className="min-w-0 flex-1">
-        <div className="sticky top-0 z-30 border-b border-line bg-canvas/88 backdrop-blur-xl">
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-full border border-line bg-white p-2 text-ink lg:hidden"
+    <div className="min-h-screen bg-[#fffaf5]">
+      {/* Header */}
+      <div className="mx-auto max-w-5xl px-4 pt-8 sm:px-6">
+        <div className="flex items-center justify-between mb-6">
+          <Link
+            href="/feedback"
+            className="text-xs text-muted hover:text-ink transition-colors"
+          >
+            &larr; give feedback
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/employees"
+              className={linkButton.className}
+              style={linkButton.style}
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
-            <div className="hidden h-11 w-11 items-center justify-center rounded-full border border-line bg-white/82 shadow-brand sm:flex">
-              <PillarMark accent={insightsAccent} />
-            </div>
-
-            <div>
-              <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
-                team view
-              </div>
-              <div className="text-sm font-semibold tracking-[-0.03em] text-ink">
-                clear signal for {DATE_RANGE_LABELS[dateRange]}
-              </div>
-            </div>
-
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <Link href="/feedback" className={linkButton.className} style={linkButton.style}>
-                give feedback
-              </Link>
-              <Link href="/employees" className={linkButton.className} style={linkButton.style}>
-                people
-              </Link>
-            </div>
+              people
+            </Link>
           </div>
         </div>
 
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          {showOrgOverview ? (
-            <OrgOverview orgMetrics={orgMetrics} build3Submissions={build3Submissions} />
-          ) : insights.employee ? (
-            <div className="space-y-6">
-              <ProfileHeader
-                employee={insights.employee}
-                receivedCount={insights.receivedSubmissions.length}
-                givenCount={insights.givenSubmissions.length}
-                selfCount={insights.selfSubmissions.length}
-                lastFeedbackDate={insights.lastFeedbackDate}
-                orgAvgMetrics={orgMetrics.avgMetricsMap}
-              />
+        <SectionHeading
+          accent="sky"
+          eyebrow="insights"
+          title="clear signal"
+          description={`${employees.length} teammates, ${filteredSubmissions.length} submissions in ${DATE_RANGE_LABELS[dateRange]}.`}
+        />
 
-              <ScoreCardRow
-                metrics={insights.metrics}
-                contributionCounts={insights.contributionCounts}
-                orgAvgMetrics={orgMetrics.avgMetricsMap}
-              />
+        {/* Controls bar */}
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-line pb-4">
+          {/* View toggle: org vs person */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowOrgOverview(true)
+              setSelectedEmployeeId(null)
+            }}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+              showOrgOverview
+                ? "border-ink bg-ink text-white"
+                : "border-line bg-white text-muted hover:border-ink/20"
+            }`}
+          >
+            org overview
+          </button>
 
-              {(Object.keys(insights.metrics).length > 0 ||
-                Object.keys(insights.contributionCounts).length > 0 ||
-                Object.keys(insights.archetypeCounts).length > 0) && (
-                <>
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <CompetencyRadar
-                      metrics={insights.metrics}
-                      orgAvgMetrics={orgMetrics.avgMetricsMap}
-                    />
-                    <TrustBatteryGauge metrics={insights.metrics} />
-                  </div>
+          <div className="h-5 w-px bg-line" />
 
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <ContributionChart contributionCounts={insights.contributionCounts} />
-                    <ITPArchetypeBadge archetypeCounts={insights.archetypeCounts} />
-                  </div>
-                </>
-              )}
+          {/* Employee picker */}
+          <EmployeePicker
+            employees={employees}
+            selectedId={showOrgOverview ? null : selectedEmployeeId}
+            onSelect={(id) => {
+              setSelectedEmployeeId(id)
+              setShowOrgOverview(false)
+            }}
+            employeesWithFeedback={orgMetrics.employeeIdsWithFeedback}
+          />
 
-              {insights.receivedSubmissions.length === 0 &&
-                insights.selfSubmissions.length === 0 && (
-                  <EmptyState
-                    accent={insightsAccent}
-                    title="no feedback has landed here yet"
-                    description={
-                      <>
-                        {insights.employee.name} has not received peer notes or logged a self reflection in this range yet.
-                        You can change that from{" "}
-                        <Link href="/feedback" className="font-semibold text-ink underline decoration-brand-sky decoration-2 underline-offset-4">
-                          the feedback form
-                        </Link>
-                        .
-                      </>
-                    }
-                  />
-                )}
-
-              {insights.receivedSubmissions.length > 0 && (
-                <FeedbackTimeline
-                  submissions={insights.receivedSubmissions}
-                  title="feedback received"
-                  responsesByAnswer={responsesByAnswer}
-                  employees={employees}
-                  defaultResponderId={selectedEmployeeId}
-                  onResponseSaved={handleResponseSaved}
-                />
-              )}
-
-              <FeedbackGivenPanel
-                givenFeedbackSummary={insights.givenFeedbackSummary}
-                totalTeamSize={employees.length}
-              />
-
-              <SelfReflectionsPanel submissions={insights.selfSubmissions} />
-
-              {selectedEmployeeBuild3Submissions.length > 0 && (
-                <FeedbackTimeline
-                  submissions={selectedEmployeeBuild3Submissions}
-                  title="their notes about build3"
-                  responsesByAnswer={responsesByAnswer}
-                  employees={employees}
-                  defaultResponderId={selectedEmployeeId}
-                  onResponseSaved={handleResponseSaved}
-                />
-              )}
-            </div>
-          ) : (
-            <EmptyState
-              accent={insightsAccent}
-              title="pick a teammate from the left"
-              description="Or stay on the org view if you want the broad picture first."
-            />
-          )}
+          {/* Date range pills */}
+          <div className="ml-auto flex gap-1 rounded-full border border-line bg-white p-1">
+            {DATE_RANGES.map((range) => (
+              <button
+                key={range.key}
+                type="button"
+                onClick={() => setDateRange(range.key)}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-[0.06em] transition-all ${
+                  dateRange === range.key
+                    ? "bg-ink text-white"
+                    : "text-muted hover:text-ink"
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Content */}
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        {showOrgOverview ? (
+          <OrgOverview
+            orgMetrics={orgMetrics}
+            build3Submissions={build3Submissions}
+          />
+        ) : insights.employee ? (
+          <div className="space-y-6">
+            <ProfileHeader
+              employee={insights.employee}
+              receivedCount={insights.receivedSubmissions.length}
+              givenCount={insights.givenSubmissions.length}
+              selfCount={insights.selfSubmissions.length}
+              lastFeedbackDate={insights.lastFeedbackDate}
+              orgAvgMetrics={orgMetrics.avgMetricsMap}
+            />
+
+            <ScoreCardRow
+              metrics={insights.metrics}
+              contributionCounts={insights.contributionCounts}
+              orgAvgMetrics={orgMetrics.avgMetricsMap}
+            />
+
+            {hasDetailedData && (
+              <>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <CompetencyRadar
+                    metrics={insights.metrics}
+                    orgAvgMetrics={orgMetrics.avgMetricsMap}
+                  />
+                  <TrustBatteryGauge metrics={insights.metrics} />
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <ContributionChart
+                    contributionCounts={insights.contributionCounts}
+                  />
+                  <ITPArchetypeBadge
+                    archetypeCounts={insights.archetypeCounts}
+                  />
+                </div>
+              </>
+            )}
+
+            {insights.receivedSubmissions.length === 0 &&
+              insights.selfSubmissions.length === 0 && (
+                <EmptyState
+                  accent={insightsAccent}
+                  title="no feedback has landed here yet"
+                  description={
+                    <>
+                      {insights.employee.name} has not received peer notes or
+                      logged a self reflection in this range yet. You can change
+                      that from{" "}
+                      <Link
+                        href="/feedback"
+                        className="font-semibold text-ink underline decoration-brand-sky decoration-2 underline-offset-4"
+                      >
+                        the feedback form
+                      </Link>
+                      .
+                    </>
+                  }
+                />
+              )}
+
+            {insights.receivedSubmissions.length > 0 && (
+              <FeedbackTimeline
+                submissions={insights.receivedSubmissions}
+                title="feedback received"
+                responsesByAnswer={responsesByAnswer}
+                employees={employees}
+                defaultResponderId={selectedEmployeeId}
+                onResponseSaved={handleResponseSaved}
+              />
+            )}
+
+            <FeedbackGivenPanel
+              givenFeedbackSummary={insights.givenFeedbackSummary}
+              totalTeamSize={employees.length}
+            />
+
+            <SelfReflectionsPanel submissions={insights.selfSubmissions} />
+
+            {selectedEmployeeBuild3Submissions.length > 0 && (
+              <FeedbackTimeline
+                submissions={selectedEmployeeBuild3Submissions}
+                title="their notes about build3"
+                responsesByAnswer={responsesByAnswer}
+                employees={employees}
+                defaultResponderId={selectedEmployeeId}
+                onResponseSaved={handleResponseSaved}
+              />
+            )}
+          </div>
+        ) : (
+          <EmptyState
+            accent={insightsAccent}
+            title="pick a teammate above"
+            description="Select someone from the dropdown, or stay on org overview for the broad picture."
+          />
+        )}
+      </div>
     </div>
   )
 }
