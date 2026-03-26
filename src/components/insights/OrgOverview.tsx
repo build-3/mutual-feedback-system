@@ -5,14 +5,14 @@ import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { OrgMetrics } from "@/hooks/useOrgInsights"
 import { Employee } from "@/lib/types"
-import { CHART_COLORS, FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
-import { QUESTION_LABELS, getScoreColor } from "@/lib/insights-helpers"
+import { CHART_COLORS } from "@/lib/brand"
+import { getScoreColor } from "@/lib/insights-helpers"
 import {
   BrandPanel,
   Eyebrow,
   SectionHeading,
   StatPill,
-  badgeClasses,
+
 } from "@/components/ui/brand"
 import ChartContainer from "./ChartContainer"
 
@@ -326,97 +326,75 @@ export default function OrgOverview({
         </BrandPanel>
       )}
 
+      {/* ── org activity (build3 feedback) ── */}
       {build3Submissions.length > 0 && (
-        <BrandPanel accent="peach" tone="washed" className="brand-lines p-5 sm:p-6">
-          <Eyebrow accent="peach">notes about build3</Eyebrow>
-          <div className="mt-5 grid gap-4">
-            {build3Submissions.map((submission) => {
-              const badge = badgeClasses({
-                accent: getFeedbackAccent(submission.submission.feedback_type),
-                tone: "soft",
-              })
-
-              return (
-                <div
-                  key={submission.submission.id}
-                  className="rounded-[24px] border border-line bg-white/90 p-5"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-ink">
-                      {submission.submitterName}
-                    </span>
-                    <span className={badge.className} style={badge.style}>
-                      {FEEDBACK_TYPE_LABELS[submission.submission.feedback_type]}
-                    </span>
-                    <span className="text-xs tracking-[0.08em] text-muted">
-                      {timeAgo(new Date(submission.submission.created_at))}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3">
-                    {submission.answers.map((answer) => (
-                      <div
-                        key={answer.id}
-                        className="rounded-[18px] border border-line bg-black/[0.02] p-4"
-                      >
-                        <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
-                          {QUESTION_LABELS[answer.question_key] ||
-                            answer.question_text ||
-                            answer.question_key}
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink">
-                          {answer.answer_value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </BrandPanel>
-      )}
-
-      {recentActivity.length > 0 && (
         <div className="mt-2">
-          <Eyebrow accent="sky">activity</Eyebrow>
-          <div className="mt-4 space-y-0 divide-y divide-line/60">
-            {recentActivity.map((item) => {
-              const type = item.submission.feedback_type
-              const forId = item.submission.feedback_for_id
-              const forName = forId ? employeeNameMap.get(forId) : null
-
-              let action: string
-              if (type === "build3") {
-                action = "gave feedback to build3"
-              } else if (type === "self") {
-                action = "logged a self reflection"
-              } else if (type === "adhoc" && forName) {
-                action = `left a quick note on ${forName}`
-              } else if (forName) {
-                action = `gave feedback on ${forName}`
-              } else {
-                action = "submitted feedback"
-              }
-
-              return (
-                <div
-                  key={item.submission.id}
-                  className="flex items-center justify-between py-3"
-                >
-                  <p className="text-sm text-ink">
-                    <span className="font-semibold">{item.submitterName}</span>
-                    <span className="text-muted"> {action}</span>
-                  </p>
-                  <span className="shrink-0 text-xs tracking-[0.06em] text-muted/60">
-                    {timeAgo(new Date(item.submission.created_at))}
-                  </span>
-                </div>
-              )
-            })}
+          <Eyebrow accent="peach">org activity</Eyebrow>
+          <div className="mt-4 divide-y divide-line/60">
+            {build3Submissions.slice(0, 10).map((item) => (
+              <div
+                key={item.submission.id}
+                className="flex items-center justify-between py-3"
+              >
+                <p className="text-sm text-ink">
+                  <span className="font-semibold">{item.submitterName}</span>
+                  <span className="text-muted"> gave feedback to build3</span>
+                </p>
+                <span className="shrink-0 text-xs tracking-[0.06em] text-muted/60">
+                  {timeAgo(new Date(item.submission.created_at))}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      {/* ── team activity (peer, self, adhoc) ── */}
+      {(() => {
+        const teamItems = recentActivity.filter(
+          (item) => item.submission.feedback_type !== "build3"
+        )
+        if (teamItems.length === 0) return null
+
+        return (
+          <div className="mt-2">
+            <Eyebrow accent="sky">team activity</Eyebrow>
+            <div className="mt-4 divide-y divide-line/60">
+              {teamItems.map((item) => {
+                const type = item.submission.feedback_type
+                const forId = item.submission.feedback_for_id
+                const forName = forId ? employeeNameMap.get(forId) : null
+
+                let action: string
+                if (type === "self") {
+                  action = "logged a self reflection"
+                } else if (type === "adhoc" && forName) {
+                  action = `left a quick note on ${forName}`
+                } else if (forName) {
+                  action = `gave feedback on ${forName}`
+                } else {
+                  action = "submitted feedback"
+                }
+
+                return (
+                  <div
+                    key={item.submission.id}
+                    className="flex items-center justify-between py-3"
+                  >
+                    <p className="text-sm text-ink">
+                      <span className="font-semibold">{item.submitterName}</span>
+                      <span className="text-muted"> {action}</span>
+                    </p>
+                    <span className="shrink-0 text-xs tracking-[0.06em] text-muted/60">
+                      {timeAgo(new Date(item.submission.created_at))}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
