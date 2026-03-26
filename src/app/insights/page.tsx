@@ -174,11 +174,10 @@ function InsightsContent() {
   const insights = useEmployeeInsights(
     selectedEmployeeId,
     employees,
-    allSubmissions,
-    dateRange
+    filteredSubmissions
   )
 
-  const orgMetrics = useOrgInsights(employees, allSubmissions, dateRange)
+  const orgMetrics = useOrgInsights(employees, filteredSubmissions)
 
   const build3Submissions = useMemo(
     () =>

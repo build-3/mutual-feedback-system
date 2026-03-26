@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Employee } from '@/lib/types'
 import { SubmissionWithDetails } from '@/app/insights/types'
-import { parseNumericAnswer, BUILD3_VALUE_KEYWORDS, filterSubmissionsByRange } from '@/lib/insights-helpers'
+import { parseNumericAnswer, BUILD3_VALUE_KEYWORDS } from '@/lib/insights-helpers'
 
 export interface NpsBreakdown {
   promoters: number
@@ -39,12 +39,21 @@ export interface OrgMetrics {
 
 export function useOrgInsights(
   employees: Employee[],
-  allSubmissions: SubmissionWithDetails[],
-  dateRange: 'month' | '3months' | 'all'
+  filtered: SubmissionWithDetails[]
 ): OrgMetrics {
-  return useMemo(() => {
-    const filtered = filterSubmissionsByRange(allSubmissions, dateRange)
+  const employeeCounts = useMemo(() => {
+    let totalInterns = 0
+    let totalFullTimers = 0
 
+    for (const employee of employees) {
+      if (employee.role === 'intern') totalInterns += 1
+      if (employee.role === 'full_timer') totalFullTimers += 1
+    }
+
+    return { totalInterns, totalFullTimers }
+  }, [employees])
+
+  return useMemo(() => {
     const trustScores: number[] = []
     const purposeScores: number[] = []
     const recommendScores: number[] = []
@@ -185,8 +194,8 @@ export function useOrgInsights(
     return {
       totalEmployees: employees.length,
       totalSubmissions: filtered.length,
-      totalInterns: employees.filter(e => e.role === 'intern').length,
-      totalFullTimers: employees.filter(e => e.role === 'full_timer').length,
+      totalInterns: employeeCounts.totalInterns,
+      totalFullTimers: employeeCounts.totalFullTimers,
       avgTrustBattery: avg(trustScores),
       avgPurposeAlignment: avg(purposeScores),
       avgRecommendRating: avg(recommendScores),
@@ -196,9 +205,9 @@ export function useOrgInsights(
       feedbackByType,
       employeesWithFeedback: employeeIdsWithFeedback.size,
       employeesWithoutFeedback: employees.length - employeeIdsWithFeedback.size,
-      recentActivity: [...filtered].sort((a, b) =>
-        new Date(b.submission.created_at).getTime() - new Date(a.submission.created_at).getTime()
-      ).slice(0, 10),
+      recentActivity: [...filtered]
+        .sort((a, b) => b.submission.created_at.localeCompare(a.submission.created_at))
+        .slice(0, 10),
       tealAvg: {
         selfManagement: avg(tealSM),
         wholeness: avg(tealW),
@@ -212,5 +221,5 @@ export function useOrgInsights(
       valueStrengthCounts,
       valueImprovementCounts,
     }
-  }, [employees, allSubmissions, dateRange])
+  }, [employeeCounts, employees, filtered])
 }

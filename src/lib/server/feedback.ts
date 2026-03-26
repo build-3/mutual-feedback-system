@@ -295,6 +295,9 @@ export async function submitFeedback({
   if (!Array.isArray(answers) || answers.length === 0) {
     throw new Error("answers must contain at least one response")
   }
+  if (answers.length > 50) {
+    throw new Error("answers exceeds maximum allowed count")
+  }
 
   const normalizedAnswers = answers.map((answer) => ({
     question_key: normalizeText(answer.question_key, "question_key", 100),

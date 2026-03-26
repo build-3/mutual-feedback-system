@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const rateLimit = consumeRateLimit({
     bucket: "feedback-submit",
     key: ip,
-    limit: 300,
+    limit: 10,
     windowMs: 60_000,
   })
 

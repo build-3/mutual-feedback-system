@@ -42,6 +42,7 @@ export default function FeedbackPage() {
   const mountedRef = useRef(true)
   const skipNextPush = useRef(false)
   const isAnimating = useRef(false)
+  const pendingPopState = useRef<(() => void) | null>(null)
   const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
 
   const safeTimeout = useCallback((fn: () => void, ms: number) => {
@@ -52,9 +53,10 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     mountedRef.current = true
+    const pendingTimeouts = timeoutRefs.current
     return () => {
       mountedRef.current = false
-      timeoutRefs.current.forEach(clearTimeout)
+      pendingTimeouts.forEach(clearTimeout)
     }
   }, [])
 
@@ -77,7 +79,10 @@ export default function FeedbackPage() {
 
   const animateTransition = useCallback(
     (forward: boolean, cb: () => void, historyState?: { formPhase: string; formQ: number }) => {
-      if (isAnimating.current) return
+      if (isAnimating.current) {
+        skipNextPush.current = false
+        return
+      }
       isAnimating.current = true
       setAnimClass(forward ? "slide-exit-active" : "slide-enter")
       safeTimeout(() => {
@@ -92,6 +97,12 @@ export default function FeedbackPage() {
           if (!mountedRef.current) return
           setAnimClass("slide-enter-active")
           isAnimating.current = false
+          // Execute any queued popstate navigation
+          const queued = pendingPopState.current
+          if (queued) {
+            pendingPopState.current = null
+            queued()
+          }
         }, 20)
       }, 280)
     },
@@ -105,12 +116,22 @@ export default function FeedbackPage() {
     const handlePopState = (event: PopStateEvent) => {
       const state = event.state as { formPhase?: Phase; formQ?: number } | null
       if (!state?.formPhase) return
-      skipNextPush.current = true
-      animateTransition(false, () => {
-        setPhase(state.formPhase as Phase)
-        setCurrentQ(state.formQ ?? 0)
-        setError("")
-      })
+
+      const navigate = () => {
+        skipNextPush.current = true
+        animateTransition(false, () => {
+          setPhase(state.formPhase as Phase)
+          setCurrentQ(state.formQ ?? 0)
+          setError("")
+        })
+      }
+
+      if (isAnimating.current) {
+        // Queue this navigation — it will run when current animation finishes
+        pendingPopState.current = navigate
+      } else {
+        navigate()
+      }
     }
 
     window.addEventListener("popstate", handlePopState)

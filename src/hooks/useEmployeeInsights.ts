@@ -5,7 +5,6 @@ import { Employee } from '@/lib/types'
 import {
   parseNumericAnswer,
   contributionToNumber,
-  filterSubmissionsByRange,
   NUMERIC_KEYS,
 } from '@/lib/insights-helpers'
 import { SubmissionWithDetails } from '@/app/insights/types'
@@ -44,24 +43,26 @@ export interface EmployeeInsightsData {
 export function useEmployeeInsights(
   employeeId: string | null,
   employees: Employee[],
-  allSubmissions: SubmissionWithDetails[],
-  dateRange: 'month' | '3months' | 'all'
+  filteredSubmissions: SubmissionWithDetails[]
 ): EmployeeInsightsData {
-  const filteredSubmissions = useMemo(
-    () => filterSubmissionsByRange(allSubmissions, dateRange),
-    [allSubmissions, dateRange]
-  )
+  const { employeeById, nameCounts } = useMemo(() => {
+    const counts: Record<string, number> = {}
+    const byId = new Map<string, Employee>()
 
-  const nameCounts = useMemo(() => {
-    return employees.reduce<Record<string, number>>((counts, current) => {
+    for (const current of employees) {
       const normalized = current.name.trim().toLowerCase()
       counts[normalized] = (counts[normalized] || 0) + 1
-      return counts
-    }, {})
+      byId.set(current.id, current)
+    }
+
+    return {
+      employeeById: byId,
+      nameCounts: counts,
+    }
   }, [employees])
 
   return useMemo(() => {
-    const employee = employees.find(e => e.id === employeeId) || null
+    const employee = employeeId ? employeeById.get(employeeId) || null : null
     if (!employee) {
       return {
         employee: null,
@@ -79,16 +80,9 @@ export function useEmployeeInsights(
       }
     }
 
-    const received = filteredSubmissions.filter(
-      s => s.submission.feedback_for_id === employeeId && s.submission.feedback_type !== 'self'
-    )
-    // FIX #4: Exclude self-feedback from "given" count to avoid double-counting
-    const given = filteredSubmissions.filter(
-      s => s.submission.submitted_by_id === employeeId && s.submission.feedback_type !== 'self'
-    )
-    const self = filteredSubmissions.filter(
-      s => s.submission.submitted_by_id === employeeId && s.submission.feedback_type === 'self'
-    )
+    const received: SubmissionWithDetails[] = []
+    const given: SubmissionWithDetails[] = []
+    const self: SubmissionWithDetails[] = []
 
     // Compute numeric metrics from received feedback
     const metricsMap: Record<string, number[]> = {}
@@ -100,6 +94,30 @@ export function useEmployeeInsights(
 
     // textFeedbackGrouped: group text answers by question_key across all received submissions
     const textFeedbackGrouped: Record<string, string[]> = {}
+
+    let lastFeedbackDate: string | null = null
+
+    for (const sub of filteredSubmissions) {
+      const { feedback_for_id: feedbackForId, submitted_by_id: submittedById, feedback_type: feedbackType, created_at: createdAt } = sub.submission
+
+      if (feedbackForId === employeeId && feedbackType !== 'self') {
+        received.push(sub)
+        if (!lastFeedbackDate || createdAt > lastFeedbackDate) {
+          lastFeedbackDate = createdAt
+        }
+      }
+
+      if (submittedById === employeeId) {
+        if (feedbackType === 'self') {
+          self.push(sub)
+          if (!lastFeedbackDate || createdAt > lastFeedbackDate) {
+            lastFeedbackDate = createdAt
+          }
+        } else {
+          given.push(sub)
+        }
+      }
+    }
 
     for (const sub of received) {
       const submissionDate = sub.submission.created_at
@@ -159,7 +177,7 @@ export function useEmployeeInsights(
     // givenFeedbackSummary: lookup employee name from employees array using feedback_for_id
     const givenFeedbackSummary: GivenFeedbackSummaryItem[] = given.map(sub => {
       const recipientId = sub.submission.feedback_for_id
-      const recipient = recipientId ? employees.find(e => e.id === recipientId) : null
+      const recipient = recipientId ? employeeById.get(recipientId) : null
       const recipientName = recipient?.name ?? 'Unknown'
       const normalizedName = recipientName.trim().toLowerCase()
       const hasDuplicateName = nameCounts[normalizedName] > 1
@@ -172,10 +190,6 @@ export function useEmployeeInsights(
         submissionId: sub.submission.id,
       }
     })
-
-    const allReceived = [...received, ...self]
-    const dates = allReceived.map(s => s.submission.created_at).sort()
-    const lastFeedbackDate = dates.length > 0 ? dates[dates.length - 1] : null
 
     return {
       employee,
@@ -191,5 +205,5 @@ export function useEmployeeInsights(
       scoreTimeline,
       textFeedbackGrouped,
     }
-  }, [employeeId, employees, filteredSubmissions, nameCounts])
+  }, [employeeById, employeeId, filteredSubmissions, nameCounts])
 }
