@@ -4,6 +4,7 @@ import { timeAgo } from "@/lib/date-utils"
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { OrgMetrics } from "@/hooks/useOrgInsights"
+import { Employee } from "@/lib/types"
 import { CHART_COLORS, FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
 import { QUESTION_LABELS, getScoreColor } from "@/lib/insights-helpers"
 import {
@@ -31,6 +32,7 @@ const TOOLTIP_STYLE = {
 interface Props {
   orgMetrics: OrgMetrics
   build3Submissions?: SubmissionWithDetails[]
+  employees?: Employee[]
 }
 
 function NpsBar({
@@ -90,7 +92,9 @@ function getContributionRows(distribution: Record<string, number>) {
 export default function OrgOverview({
   orgMetrics,
   build3Submissions = [],
+  employees = [],
 }: Props) {
+  const employeeNameMap = new Map(employees.map((e) => [e.id, e.name]))
   const {
     totalEmployees,
     avgTrustBattery,
@@ -374,34 +378,44 @@ export default function OrgOverview({
       )}
 
       {recentActivity.length > 0 && (
-        <BrandPanel accent="yellow" tone="soft" className="brand-lines p-5 sm:p-6">
-          <Eyebrow accent="yellow">recent activity</Eyebrow>
-          <div className="mt-5 space-y-3">
+        <div className="mt-2">
+          <Eyebrow accent="sky">activity</Eyebrow>
+          <div className="mt-4 space-y-0 divide-y divide-line/60">
             {recentActivity.map((item) => {
-              const badge = badgeClasses({
-                accent: getFeedbackAccent(item.submission.feedback_type),
-                tone: "soft",
-              })
+              const type = item.submission.feedback_type
+              const forId = item.submission.feedback_for_id
+              const forName = forId ? employeeNameMap.get(forId) : null
+
+              let action: string
+              if (type === "build3") {
+                action = "gave feedback to build3"
+              } else if (type === "self") {
+                action = "logged a self reflection"
+              } else if (type === "adhoc" && forName) {
+                action = `left a quick note on ${forName}`
+              } else if (forName) {
+                action = `gave feedback on ${forName}`
+              } else {
+                action = "submitted feedback"
+              }
 
               return (
                 <div
                   key={item.submission.id}
-                  className="flex flex-wrap items-center gap-3 rounded-[20px] border border-line bg-black/[0.02] px-4 py-3"
+                  className="flex items-center justify-between py-3"
                 >
-                  <span className="text-sm font-semibold text-ink">
-                    {item.submitterName}
-                  </span>
-                  <span className={badge.className} style={badge.style}>
-                    {FEEDBACK_TYPE_LABELS[item.submission.feedback_type]}
-                  </span>
-                  <span className="text-xs tracking-[0.08em] text-muted">
+                  <p className="text-sm text-ink">
+                    <span className="font-semibold">{item.submitterName}</span>
+                    <span className="text-muted"> {action}</span>
+                  </p>
+                  <span className="shrink-0 text-xs tracking-[0.06em] text-muted/60">
                     {timeAgo(new Date(item.submission.created_at))}
                   </span>
                 </div>
               )
             })}
           </div>
-        </BrandPanel>
+        </div>
       )}
     </div>
   )

@@ -347,6 +347,7 @@ function InsightsContent() {
           <OrgOverview
             orgMetrics={orgMetrics}
             build3Submissions={build3Submissions}
+            employees={employees}
           />
         ) : insights.employee ? (
           <div className="space-y-6">
