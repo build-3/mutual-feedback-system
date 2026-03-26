@@ -3,7 +3,12 @@ import {
   hasServerSupabaseConfig,
   SERVER_SETUP_ERROR,
 } from "@/lib/server/supabase-admin"
-import { sendNotificationForSubmission } from "@/lib/server/feedback"
+import { sendNotificationForSubmission, diagnoseGoogleChat } from "@/lib/server/feedback"
+
+export async function GET() {
+  const diagnosis = await diagnoseGoogleChat()
+  return NextResponse.json(diagnosis)
+}
 
 export async function POST(request: Request) {
   if (!hasServerSupabaseConfig()) {

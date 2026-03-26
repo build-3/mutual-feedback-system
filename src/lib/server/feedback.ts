@@ -61,6 +61,41 @@ function normalizeText(value: string, fieldName: string, maxLength: number) {
   return trimmed
 }
 
+/** Diagnose Google Chat config without sending a message. */
+export async function diagnoseGoogleChat() {
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+  const senderEmail = process.env.GOOGLE_CHAT_SENDER_EMAIL
+
+  const config = {
+    hasServiceAccountEmail: !!serviceAccountEmail,
+    serviceAccountEmail: serviceAccountEmail ? `${serviceAccountEmail.slice(0, 12)}...` : null,
+    hasPrivateKey: !!privateKey,
+    privateKeyLength: privateKey?.length ?? 0,
+    privateKeyStartsWith: privateKey?.slice(0, 27) ?? null,
+    hasSenderEmail: !!senderEmail,
+    senderEmail: senderEmail ?? null,
+  }
+
+  if (!serviceAccountEmail || !privateKey || !senderEmail) {
+    return { status: "misconfigured" as const, config, error: "Missing env vars" }
+  }
+
+  try {
+    const chat = await getGoogleChatClient()
+    if (!chat) {
+      return { status: "no_client" as const, config, error: "Client returned null" }
+    }
+    return { status: "ok" as const, config }
+  } catch (err) {
+    return {
+      status: "auth_error" as const,
+      config,
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
 async function getGoogleChatClientInner() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n")
