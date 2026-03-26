@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
+import { waitUntil } from "@vercel/functions"
 import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 import { hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
-import { submitFeedback } from "@/lib/server/feedback"
+import { submitFeedback, sendNotificationForSubmission } from "@/lib/server/feedback"
 import type { FeedbackType } from "@/lib/types"
 
 export async function POST(request: Request) {
@@ -36,7 +37,16 @@ export async function POST(request: Request) {
       answers: body.answers,
     })
 
-    return NextResponse.json({ status: "saved", ...result })
+    // Fire notification in background — Vercel keeps the function alive via waitUntil
+    if (result.feedbackForId) {
+      waitUntil(
+        sendNotificationForSubmission(result.submissionId).catch((err) =>
+          console.error("[notify] Background notification failed:", err)
+        )
+      )
+    }
+
+    return NextResponse.json({ status: "saved", submissionId: result.submissionId })
   } catch (error) {
     console.error("Feedback submit error:", error)
     const rawMessage =

@@ -40,6 +40,7 @@ export default function FeedbackPage() {
   const submittingRef = useRef(false)
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
+  const skipNextPush = useRef(false)
 
   const safeTimeout = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms)
@@ -72,18 +73,44 @@ export default function FeedbackPage() {
       : Math.round((currentStep / totalSteps) * 100)
   const pathOptions = getFeedbackPathOptions()
 
-  const animateTransition = useCallback((forward: boolean, cb: () => void) => {
-    setAnimClass(forward ? "slide-exit-active" : "slide-enter")
-    safeTimeout(() => {
-      if (!mountedRef.current) return
-      cb()
-      setAnimClass("slide-enter")
+  const animateTransition = useCallback(
+    (forward: boolean, cb: () => void, historyState?: { formPhase: string; formQ: number }) => {
+      setAnimClass(forward ? "slide-exit-active" : "slide-enter")
       safeTimeout(() => {
         if (!mountedRef.current) return
-        setAnimClass("slide-enter-active")
-      }, 20)
-    }, 280)
-  }, [safeTimeout])
+        cb()
+        if (historyState && !skipNextPush.current) {
+          window.history.pushState(historyState, "")
+        }
+        skipNextPush.current = false
+        setAnimClass("slide-enter")
+        safeTimeout(() => {
+          if (!mountedRef.current) return
+          setAnimClass("slide-enter-active")
+        }, 20)
+      }, 280)
+    },
+    [safeTimeout]
+  )
+
+  // Browser history integration: back/forward navigates between questions
+  useEffect(() => {
+    window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
+
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state as { formPhase?: Phase; formQ?: number } | null
+      if (!state?.formPhase) return
+      skipNextPush.current = true
+      animateTransition(false, () => {
+        setPhase(state.formPhase as Phase)
+        setCurrentQ(state.formQ ?? 0)
+        setError("")
+      })
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+  }, [animateTransition])
 
   const resetForm = useCallback(() => {
     setPhase("identify")
@@ -104,7 +131,7 @@ export default function FeedbackPage() {
         return
       }
 
-      animateTransition(true, () => setPhase("route"))
+      animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
       return
     }
 
@@ -114,10 +141,14 @@ export default function FeedbackPage() {
         return
       }
 
-      animateTransition(true, () => {
-        setCurrentQ(0)
-        setPhase("questions")
-      })
+      animateTransition(
+        true,
+        () => {
+          setCurrentQ(0)
+          setPhase("questions")
+        },
+        { formPhase: "questions", formQ: 0 }
+      )
       return
     }
 
@@ -126,7 +157,10 @@ export default function FeedbackPage() {
       if (!validateAnswer(question)) return
 
       if (currentQ < questions.length - 1) {
-        animateTransition(true, () => setCurrentQ((previous) => previous + 1))
+        animateTransition(true, () => setCurrentQ((previous) => previous + 1), {
+          formPhase: "questions",
+          formQ: currentQ + 1,
+        })
       } else {
         void handleSubmit()
       }
@@ -136,17 +170,9 @@ export default function FeedbackPage() {
   function goBack() {
     setError("")
 
-    if (phase === "route") {
-      animateTransition(false, () => setPhase("identify"))
+    if (phase === "route" || phase === "questions") {
+      window.history.back()
       return
-    }
-
-    if (phase === "questions") {
-      if (currentQ > 0) {
-        animateTransition(false, () => setCurrentQ((previous) => previous - 1))
-      } else {
-        animateTransition(false, () => setPhase("route"))
-      }
     }
   }
 
@@ -254,6 +280,7 @@ export default function FeedbackPage() {
       }
 
       setPhase("done")
+      window.history.replaceState({ formPhase: "done", formQ: 0 }, "")
     } catch (submissionError) {
       console.error(submissionError)
       setError(
@@ -312,7 +339,10 @@ export default function FeedbackPage() {
       if (!validateAnswerFromRef(question)) return
 
       if (currentQ < questions.length - 1) {
-        animateTransition(true, () => setCurrentQ((previous) => previous + 1))
+        animateTransition(true, () => setCurrentQ((previous) => previous + 1), {
+          formPhase: "questions",
+          formQ: currentQ + 1,
+        })
       } else {
         void handleSubmit()
       }
@@ -378,7 +408,18 @@ export default function FeedbackPage() {
                 Number(answers[item.key]) || 0,
               ])
             )}
-            onChange={(key, value) => setAnswer(key, String(value))}
+            onChange={(key, value) => {
+              setAnswer(key, String(value))
+              const items = question.matrixItems || []
+              const allScored = items.every((item) =>
+                item.key === key ? value > 0 : Number(pendingAnswers.current[item.key]) > 0
+              )
+              if (allScored) {
+                safeTimeout(() => {
+                  if (mountedRef.current) goNextWithAnswers()
+                }, 350)
+              }
+            }}
           />
         )
       case "long_text":
@@ -551,7 +592,7 @@ export default function FeedbackPage() {
                       if (employee) {
                         safeTimeout(() => {
                           if (!mountedRef.current) return
-                          animateTransition(true, () => setPhase("route"))
+                          animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
                         }, 350)
                       }
                     }}
@@ -584,10 +625,14 @@ export default function FeedbackPage() {
                           setError("")
                           safeTimeout(() => {
                             if (!mountedRef.current) return
-                            animateTransition(true, () => {
-                              setCurrentQ(0)
-                              setPhase("questions")
-                            })
+                            animateTransition(
+                              true,
+                              () => {
+                                setCurrentQ(0)
+                                setPhase("questions")
+                              },
+                              { formPhase: "questions", formQ: 0 }
+                            )
                           }, 350)
                         }}
                         className={[

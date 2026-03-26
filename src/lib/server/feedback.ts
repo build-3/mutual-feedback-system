@@ -323,17 +323,7 @@ export async function submitFeedback({
 
   const submissionId = rpcResult as string
 
-  // Await notification so Vercel doesn't kill the function before it completes.
-  // Wrapped in try/catch so a notification failure never breaks the submission.
-  if (normalizedFeedbackForId) {
-    try {
-      await sendNotificationForSubmission(submissionId)
-    } catch (notifyError) {
-      console.error("[notify] Notification failed (submission still saved):", notifyError)
-    }
-  }
-
-  return { submissionId }
+  return { submissionId, feedbackForId: normalizedFeedbackForId }
 }
 
 export async function sendNotificationForSubmission(submissionId: string) {
