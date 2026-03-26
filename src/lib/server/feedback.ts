@@ -94,8 +94,10 @@ async function getGoogleChatClient() {
 }
 
 async function sendDirectMessage(recipientEmail: string, messageText: string) {
+  console.log(`[notify] Getting Google Chat client`)
   const chat = await getGoogleChatClient()
   if (!chat) {
+    console.log(`[notify] Google Chat client not configured (missing credentials)`)
     return false
   }
 
@@ -107,6 +109,7 @@ async function sendDirectMessage(recipientEmail: string, messageText: string) {
       ),
     ])
 
+  console.log(`[notify] Creating DM space for ${recipientEmail}`)
   const spaceResponse = await timeout(
     chat.spaces.setup({
       requestBody: {
@@ -124,6 +127,7 @@ async function sendDirectMessage(recipientEmail: string, messageText: string) {
     throw new Error(`Could not create DM space for ${recipientEmail}`)
   }
 
+  console.log(`[notify] Sending message to space ${spaceName}`)
   await timeout(
     chat.spaces.messages.create({
       parent: spaceName,
@@ -132,6 +136,7 @@ async function sendDirectMessage(recipientEmail: string, messageText: string) {
     "spaces.messages.create"
   )
 
+  console.log(`[notify] Message sent successfully to ${recipientEmail}`)
   return true
 }
 
@@ -278,13 +283,14 @@ export async function submitFeedback({
 
   const submissionId = rpcResult as string
 
-  // Keep user-facing submission latency tied to the database write only.
-  // Notifications are best-effort follow-up work and should not block
-  // the HTTP response.
+  // Await notification so Vercel doesn't kill the function before it completes.
+  // Wrapped in try/catch so a notification failure never breaks the submission.
   if (normalizedFeedbackForId) {
-    void sendNotificationForSubmission(submissionId).catch((notifyError) => {
-      console.error("Notification failed (submission still saved):", notifyError)
-    })
+    try {
+      await sendNotificationForSubmission(submissionId)
+    } catch (notifyError) {
+      console.error("[notify] Notification failed (submission still saved):", notifyError)
+    }
   }
 
   return { submissionId }
@@ -292,45 +298,40 @@ export async function submitFeedback({
 
 export async function sendNotificationForSubmission(submissionId: string) {
   assertUuid(submissionId, "submissionId")
+  console.log(`[notify] Starting notification for submission ${submissionId}`)
 
   const supabaseAdmin = getSupabaseAdmin()
-  const attemptedAt = new Date().toISOString()
 
-  const { data: lockedSubmission, error: lockError } = await supabaseAdmin
+  // Check if already notified (without locking — we set notified_at AFTER send)
+  const { data: submission, error: fetchError } = await supabaseAdmin
     .from("feedback_submissions")
-    .update({ notified_at: attemptedAt })
-    .eq("id", submissionId)
-    .is("notified_at", null)
     .select("*")
+    .eq("id", submissionId)
     .single()
 
-  if (lockError || !lockedSubmission) {
+  if (fetchError || !submission) {
+    console.log(`[notify] Submission ${submissionId} not found`)
+    return { status: "skipped" as const, reason: "submission not found" }
+  }
+
+  const typedSubmission = submission as FeedbackSubmission
+
+  if (typedSubmission.notified_at) {
+    console.log(`[notify] Submission ${submissionId} already notified at ${typedSubmission.notified_at}`)
     return { status: "skipped" as const, reason: "already notified" }
   }
 
-  const submission = lockedSubmission as FeedbackSubmission
-
-  if (!submission.feedback_for_id) {
-    await supabaseAdmin
-      .from("feedback_submissions")
-      .update({ notified_at: null })
-      .eq("id", submission.id)
-      .eq("notified_at", attemptedAt)
-
+  if (!typedSubmission.feedback_for_id) {
+    console.log(`[notify] Submission ${submissionId} has no recipient (self/build3 feedback)`)
     return { status: "skipped" as const, reason: "no recipient" }
   }
 
   const details = await loadEmployeeDetails()
-  const submitterDetail = details.get(submission.submitted_by_id)
-  const recipientDetail = submission.feedback_for_id ? details.get(submission.feedback_for_id) : null
+  const submitterDetail = details.get(typedSubmission.submitted_by_id)
+  const recipientDetail = details.get(typedSubmission.feedback_for_id)
 
   if (!recipientDetail?.email) {
-    await supabaseAdmin
-      .from("feedback_submissions")
-      .update({ notified_at: null })
-      .eq("id", submission.id)
-      .eq("notified_at", attemptedAt)
-
+    console.log(`[notify] Recipient ${typedSubmission.feedback_for_id} has no email`)
     return { status: "skipped" as const, reason: "recipient has no email" }
   }
 
@@ -338,19 +339,21 @@ export async function sendNotificationForSubmission(submissionId: string) {
   const recipientName = recipientDetail.name || "there"
   const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nHead to the insights dashboard to check it out.`
 
-  try {
-    await sendDirectMessage(recipientDetail.email!, message)
-  } catch (error) {
-    await supabaseAdmin
-      .from("feedback_submissions")
-      .update({ notified_at: null })
-      .eq("id", submission.id)
-      .eq("notified_at", attemptedAt)
+  console.log(`[notify] Sending to ${recipientDetail.email}`)
+  await sendDirectMessage(recipientDetail.email, message)
 
-    throw error
+  // Mark as notified AFTER successful send
+  const { error: updateError } = await supabaseAdmin
+    .from("feedback_submissions")
+    .update({ notified_at: new Date().toISOString() })
+    .eq("id", submissionId)
+
+  if (updateError) {
+    console.error(`[notify] Failed to mark submission ${submissionId} as notified:`, updateError)
   }
 
-  return { status: "sent" as const, to: recipientDetail.email! }
+  console.log(`[notify] Done — notified ${recipientDetail.email} for submission ${submissionId}`)
+  return { status: "sent" as const, to: recipientDetail.email }
 }
 
 export async function saveFeedbackResponse({
@@ -441,12 +444,14 @@ export async function saveFeedbackResponse({
           : normalizedResponseText
 
       try {
+        console.log(`[notify] Sending response notification to ${recipientEmail}`)
         await sendDirectMessage(
           recipientEmail,
           `${responderName} replied to feedback:\n\n"${preview}"\n\nHead to the insights dashboard to see the full thread.`
         )
+        console.log(`[notify] Response notification sent to ${recipientEmail}`)
       } catch (error) {
-        console.error("Google Chat notification failed:", error)
+        console.error("[notify] Response notification failed:", error)
       }
     }
   }
