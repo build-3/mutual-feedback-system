@@ -61,43 +61,6 @@ function normalizeText(value: string, fieldName: string, maxLength: number) {
   return trimmed
 }
 
-/** Diagnose Google Chat config without sending a message. */
-export async function diagnoseGoogleChat() {
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? ""
-  const cleanedKey = rawKey.replace(/^"|"$/g, "").replace(/\\n/g, "\n")
-  const senderEmail = process.env.GOOGLE_CHAT_SENDER_EMAIL
-
-  const config = {
-    hasServiceAccountEmail: !!serviceAccountEmail,
-    serviceAccountEmail: serviceAccountEmail ? `${serviceAccountEmail.slice(0, 12)}...` : null,
-    hasPrivateKey: !!cleanedKey,
-    privateKeyLength: cleanedKey.length,
-    rawKeyStartsWith: rawKey.slice(0, 27),
-    cleanedKeyStartsWith: cleanedKey.slice(0, 27),
-    hadWrappingQuotes: rawKey.startsWith('"') || rawKey.endsWith('"'),
-    hasSenderEmail: !!senderEmail,
-    senderEmail: senderEmail ?? null,
-  }
-
-  if (!serviceAccountEmail || !cleanedKey || !senderEmail) {
-    return { status: "misconfigured" as const, config, error: "Missing env vars" }
-  }
-
-  try {
-    const chat = await getGoogleChatClient()
-    if (!chat) {
-      return { status: "no_client" as const, config, error: "Client returned null" }
-    }
-    return { status: "ok" as const, config }
-  } catch (err) {
-    return {
-      status: "auth_error" as const,
-      config,
-      error: err instanceof Error ? err.message : String(err),
-    }
-  }
-}
 
 async function getGoogleChatClientInner() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL

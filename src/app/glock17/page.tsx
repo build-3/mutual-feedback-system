@@ -114,6 +114,23 @@ export default function Glock17Page() {
     return null
   }
 
+  async function handleUpdateEmployee(
+    id: string,
+    updates: { role?: string; name?: string; email?: string }
+  ): Promise<string | null> {
+    const res = await fetch("/api/admin/employees", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...updates }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      return data.error ?? "failed to update"
+    }
+    await loadData()
+    return null
+  }
+
   async function handleDeleteSubmissions(ids: string[]) {
     const res = await fetch("/api/admin/submissions", {
       method: "DELETE",
@@ -226,6 +243,7 @@ export default function Glock17Page() {
             submissions={submissions}
             onAdd={handleAddEmployee}
             onDelete={handleDeleteEmployee}
+            onUpdate={handleUpdateEmployee}
           />
         )}
         {tab === "submissions" && (

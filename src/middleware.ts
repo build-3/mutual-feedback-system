@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isLoginPage = pathname === '/login'
   const isAuthCallback = pathname === '/api/auth/callback'
-  const isPublicApi = pathname.startsWith('/api/public/') || pathname === '/api/notify-chat'
+  const isPublicApi = pathname.startsWith('/api/public/')
   const isApiRoute = pathname.startsWith('/api/')
 
   // Not logged in and not on login/callback/public-api

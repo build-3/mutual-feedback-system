@@ -291,7 +291,7 @@ export default function FeedbackPage() {
         }
       }
 
-      const res = await fetch("/api/public/feedback-submit", {
+      const res = await fetch("/api/feedback-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

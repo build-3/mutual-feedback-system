@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
+import { requireAdmin } from "@/lib/server/require-admin"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 const PAGE_SIZE = 1000
@@ -35,12 +36,8 @@ async function fetchAll<T = Record<string, unknown>>(
 }
 
 export async function GET() {
-  if (!hasServerSupabaseConfig()) {
-    return NextResponse.json(
-      { error: "Server configuration is incomplete." },
-      { status: 503 }
-    )
-  }
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const supabaseAdmin = getSupabaseAdmin()
 

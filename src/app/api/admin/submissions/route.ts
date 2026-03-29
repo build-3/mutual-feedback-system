@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server"
-import { hasServerSupabaseConfig, getSupabaseAdmin } from "@/lib/server/supabase-admin"
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
+import { requireAdmin } from "@/lib/server/require-admin"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function DELETE(request: Request) {
-  if (!hasServerSupabaseConfig()) {
-    return NextResponse.json(
-      { error: "Server configuration is incomplete." },
-      { status: 503 }
-    )
-  }
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   try {
     const body = await request.json()

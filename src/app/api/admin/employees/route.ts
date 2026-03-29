@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
+import { requireAdmin } from "@/lib/server/require-admin"
 
 function normalizeName(name: string) {
   const trimmed = name.trim()
@@ -27,12 +28,8 @@ function normalizeEmail(email: string | null | undefined) {
 }
 
 export async function GET() {
-  if (!hasServerSupabaseConfig()) {
-    return NextResponse.json(
-      { error: "Server configuration is incomplete." },
-      { status: 503 }
-    )
-  }
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
@@ -52,12 +49,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!hasServerSupabaseConfig()) {
-    return NextResponse.json(
-      { error: "Server configuration is incomplete." },
-      { status: 503 }
-    )
-  }
+  const postAuth = await requireAdmin()
+  if (postAuth.error) return postAuth.error
 
   try {
     const body = await request.json()
@@ -88,13 +81,81 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
-  if (!hasServerSupabaseConfig()) {
-    return NextResponse.json(
-      { error: "Server configuration is incomplete." },
-      { status: 503 }
-    )
+export async function PATCH(request: Request) {
+  const patchAuth = await requireAdmin()
+  if (patchAuth.error) return patchAuth.error
+
+  try {
+    const body = await request.json()
+    const { id, role, name, email } = body
+
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    ) {
+      return NextResponse.json({ error: "Employee id is invalid." }, { status: 400 })
+    }
+
+    const updates: Record<string, string | null> = {}
+
+    if (role !== undefined) {
+      if (role !== "intern" && role !== "full_timer" && role !== "admin") {
+        return NextResponse.json({ error: "Role is invalid." }, { status: 400 })
+      }
+      // Prevent removing the last admin
+      if (role !== "admin") {
+        const supabaseAdmin = getSupabaseAdmin()
+        const { data: admins } = await supabaseAdmin
+          .from("employees")
+          .select("id")
+          .eq("role", "admin")
+
+        const isLastAdmin =
+          admins && admins.length === 1 && admins[0].id === id
+        if (isLastAdmin) {
+          return NextResponse.json(
+            { error: "Cannot remove the last admin. Promote someone else first." },
+            { status: 400 }
+          )
+        }
+      }
+      updates.role = role
+    }
+
+    if (name !== undefined) {
+      updates.name = normalizeName(name)
+    }
+
+    if (email !== undefined) {
+      updates.email = normalizeEmail(email)
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "Nothing to update." }, { status: 400 })
+    }
+
+    const supabaseAdmin = getSupabaseAdmin()
+    const { error } = await supabaseAdmin
+      .from("employees")
+      .update(updates)
+      .eq("id", id)
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message || "Update failed." },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({ status: "updated" })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request is invalid."
+    return NextResponse.json({ error: message }, { status: 400 })
   }
+}
+
+export async function DELETE(request: Request) {
+  const delAuth = await requireAdmin()
+  if (delAuth.error) return delAuth.error
 
   try {
     const body = await request.json()

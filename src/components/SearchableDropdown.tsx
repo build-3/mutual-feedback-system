@@ -17,7 +17,7 @@ async function loadAllEmployees(): Promise<Employee[]> {
   if (employeeCache) return employeeCache
   if (employeeCachePromise) return employeeCachePromise
 
-  employeeCachePromise = fetch("/api/public/employee-search?q=*")
+  employeeCachePromise = fetch("/api/employee-search?q=*")
     .then((res) => (res.ok ? res.json() : { employees: [] }))
     .then((data) => {
       employeeCache = (data.employees || []) as Employee[]
