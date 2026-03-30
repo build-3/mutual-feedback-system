@@ -55,6 +55,7 @@ export async function requireAdmin(): Promise<
     }
   }
 
+  // Look up the employee by their auth email
   const supabaseAdmin = getSupabaseAdmin()
   const { data: employee, error: empError } = await supabaseAdmin
     .from("employees")
@@ -122,6 +123,7 @@ export async function requireAuth(): Promise<
     }
   }
 
+  // Try to find their employee record
   const supabaseAdmin = getSupabaseAdmin()
   const { data: employee } = await supabaseAdmin
     .from("employees")
