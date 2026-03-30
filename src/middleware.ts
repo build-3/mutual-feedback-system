@@ -35,7 +35,6 @@ export async function middleware(request: NextRequest) {
   const isPublicApi = pathname.startsWith('/api/public/')
   const isApiRoute = pathname.startsWith('/api/')
 
-  // Not logged in and not on login/callback/public-api
   if (!user && !isLoginPage && !isAuthCallback && !isPublicApi) {
     if (isApiRoute) {
       return NextResponse.json(
@@ -48,7 +47,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Logged in and on login page → redirect to feedback
   if (user && isLoginPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/feedback'
