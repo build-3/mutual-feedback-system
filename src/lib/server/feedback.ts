@@ -99,7 +99,6 @@ async function getGoogleChatClient() {
 async function sendDirectMessage(recipientEmail: string, messageText: string) {
   const chat = await getGoogleChatClient()
   if (!chat) {
-    console.error("[notify] Google Chat client not available")
     return false
   }
 
@@ -326,15 +325,7 @@ export async function sendNotificationForSubmission(submissionId: string) {
   const recipientName = recipientDetail.name || "there"
   const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nCheck it out: https://build3.online/insights?employee=${typedSubmission.feedback_for_id}`
 
-  try {
-    const sent = await sendDirectMessage(recipientDetail.email, message)
-    if (!sent) {
-      console.error("[notify] sendDirectMessage returned false — chat client unavailable")
-    }
-  } catch (sendErr) {
-    console.error("[notify] sendDirectMessage threw:", sendErr instanceof Error ? sendErr.message : String(sendErr))
-    throw sendErr
-  }
+  await sendDirectMessage(recipientDetail.email, message)
 
   // Mark as notified AFTER successful send
   const { error: updateError } = await supabaseAdmin
