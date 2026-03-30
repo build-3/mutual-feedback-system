@@ -97,10 +97,8 @@ async function getGoogleChatClient() {
 }
 
 async function sendDirectMessage(recipientEmail: string, messageText: string) {
-  console.log(`[notify] Getting Google Chat client`)
   const chat = await getGoogleChatClient()
   if (!chat) {
-    console.log(`[notify] Google Chat client not configured (missing credentials)`)
     return false
   }
 
@@ -112,7 +110,6 @@ async function sendDirectMessage(recipientEmail: string, messageText: string) {
       ),
     ])
 
-  console.log(`[notify] Creating DM space for ${recipientEmail}`)
   const spaceResponse = await timeout(
     chat.spaces.setup({
       requestBody: {
@@ -130,7 +127,6 @@ async function sendDirectMessage(recipientEmail: string, messageText: string) {
     throw new Error(`Could not create DM space for ${recipientEmail}`)
   }
 
-  console.log(`[notify] Sending message to space ${spaceName}`)
   await timeout(
     chat.spaces.messages.create({
       parent: spaceName,
@@ -139,7 +135,6 @@ async function sendDirectMessage(recipientEmail: string, messageText: string) {
     "spaces.messages.create"
   )
 
-  console.log(`[notify] Message sent successfully to ${recipientEmail}`)
   return true
 }
 
@@ -294,7 +289,6 @@ export async function submitFeedback({
 
 export async function sendNotificationForSubmission(submissionId: string) {
   assertUuid(submissionId, "submissionId")
-  console.log(`[notify] Starting notification for submission ${submissionId}`)
 
   const supabaseAdmin = getSupabaseAdmin()
 
@@ -306,19 +300,16 @@ export async function sendNotificationForSubmission(submissionId: string) {
     .single()
 
   if (fetchError || !submission) {
-    console.log(`[notify] Submission ${submissionId} not found`)
     return { status: "skipped" as const, reason: "submission not found" }
   }
 
   const typedSubmission = submission as FeedbackSubmission
 
   if (typedSubmission.notified_at) {
-    console.log(`[notify] Submission ${submissionId} already notified at ${typedSubmission.notified_at}`)
     return { status: "skipped" as const, reason: "already notified" }
   }
 
   if (!typedSubmission.feedback_for_id) {
-    console.log(`[notify] Submission ${submissionId} has no recipient (self/build3 feedback)`)
     return { status: "skipped" as const, reason: "no recipient" }
   }
 
@@ -327,7 +318,6 @@ export async function sendNotificationForSubmission(submissionId: string) {
   const recipientDetail = details.get(typedSubmission.feedback_for_id)
 
   if (!recipientDetail?.email) {
-    console.log(`[notify] Recipient ${typedSubmission.feedback_for_id} has no email`)
     return { status: "skipped" as const, reason: "recipient has no email" }
   }
 
@@ -335,7 +325,6 @@ export async function sendNotificationForSubmission(submissionId: string) {
   const recipientName = recipientDetail.name || "there"
   const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nCheck it out: https://build3.online/insights?employee=${typedSubmission.feedback_for_id}`
 
-  console.log(`[notify] Sending to ${recipientDetail.email}`)
   await sendDirectMessage(recipientDetail.email, message)
 
   // Mark as notified AFTER successful send
@@ -348,8 +337,7 @@ export async function sendNotificationForSubmission(submissionId: string) {
     console.error(`[notify] Failed to mark submission ${submissionId} as notified:`, updateError)
   }
 
-  console.log(`[notify] Done — notified ${recipientDetail.email} for submission ${submissionId}`)
-  return { status: "sent" as const, to: recipientDetail.email }
+  return { status: "sent" as const }
 }
 
 export async function saveFeedbackResponse({
@@ -440,14 +428,12 @@ export async function saveFeedbackResponse({
           : normalizedResponseText
 
       try {
-        console.log(`[notify] Sending response notification to ${recipientEmail}`)
         await sendDirectMessage(
           recipientEmail,
           `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${notifyId}`
         )
-        console.log(`[notify] Response notification sent to ${recipientEmail}`)
-      } catch (error) {
-        console.error("[notify] Response notification failed:", error)
+      } catch {
+        // Notification failure is non-critical — response is already saved
       }
     }
   }
