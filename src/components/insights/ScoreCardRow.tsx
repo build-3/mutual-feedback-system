@@ -89,7 +89,7 @@ export default function ScoreCardRow({
   if (cards.length === 0) return null
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => {
         if (card.isContribution && contributionCounts) {
           const totalReviews = Object.values(contributionCounts).reduce(
@@ -102,13 +102,13 @@ export default function ScoreCardRow({
               key={card.key}
               accent={card.accent}
               tone="washed"
-              className="brand-lines p-5"
+              className="brand-lines p-4"
             >
               <Eyebrow accent={card.accent}>{card.label}</Eyebrow>
-              <div className="mt-4 text-2xl font-bold tracking-[-0.05em] capitalize text-ink">
+              <div className="mt-3 text-xl font-bold tracking-[-0.05em] capitalize text-ink">
                 {getContributionMode(contributionCounts)}
               </div>
-              <p className="mt-2 text-sm leading-6 text-muted">
+              <p className="mt-2 text-xs leading-5 text-muted">
                 Most common view across {totalReviews}{" "}
                 {totalReviews === 1 ? "review" : "reviews"}.
               </p>
@@ -128,37 +128,37 @@ export default function ScoreCardRow({
             key={card.key}
             accent={card.accent}
             tone="soft"
-            className="brand-lines p-5"
+            className="brand-lines p-4"
           >
             <Eyebrow accent={card.accent}>{card.label}</Eyebrow>
 
-            <div className="mt-4 flex items-end gap-1">
+            <div className="mt-3 flex items-end gap-1">
               <span
-                className="text-4xl font-bold tracking-[-0.08em]"
+                className="text-3xl font-bold tracking-[-0.08em]"
                 style={{ color }}
               >
                 {metric.avg.toFixed(1)}
               </span>
               {card.suffix && (
-                <span className="pb-1 text-sm font-semibold text-muted">
+                <span className="pb-0.5 text-xs font-semibold text-muted">
                   {card.suffix}
                 </span>
               )}
             </div>
 
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/[0.06]">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${percentage}%`, backgroundColor: color }}
               />
             </div>
 
-            <div className="mt-3 text-sm text-muted">
+            <div className="mt-2 text-xs text-muted">
               Based on {metric.count} {metric.count === 1 ? "review" : "reviews"}.
             </div>
 
             {orgAvgMetrics && orgAvgMetrics[card.key] !== undefined && (
-              <div className="mt-1 text-xs tracking-[0.08em] text-muted">
+              <div className="mt-1 text-[11px] tracking-[0.08em] text-muted">
                 team avg {orgAvgMetrics[card.key].toFixed(1)}
               </div>
             )}

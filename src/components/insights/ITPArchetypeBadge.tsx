@@ -17,24 +17,24 @@ export default function ITPArchetypeBadge({ archetypeCounts }: Props) {
   const badgeColor = ITP_BADGE_COLORS[topArchetype] || "bg-gray-100 text-gray-800"
 
   return (
-    <BrandPanel accent="yellow" tone="soft" className="brand-lines p-5 sm:p-6">
+    <BrandPanel accent="yellow" tone="soft" className="brand-lines p-4 sm:p-5">
       <Eyebrow accent="yellow">archetype</Eyebrow>
-      <h3 className="mt-3 text-2xl font-bold tracking-[-0.05em] text-ink">
+      <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
         ideal team player read
       </h3>
-      <p className="mt-2 text-sm leading-6 text-muted">
+      <p className="mt-1 text-xs leading-5 text-muted">
         the most common archetype based on the scores submitted in this range.
       </p>
 
-      <div className="mt-6 text-center">
-        <span className={`inline-flex rounded-full px-5 py-3 text-lg font-semibold ${badgeColor}`}>
+      <div className="mt-4 text-center">
+        <span className={`inline-flex rounded-full px-4 py-2.5 text-base font-semibold ${badgeColor}`}>
           {topArchetype}
         </span>
-        <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-muted">
+        <p className="mx-auto mt-3 max-w-sm text-xs leading-6 text-muted">
           {description}
         </p>
 
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
           {sorted.map(([name, count]) => (
             <span
               key={name}

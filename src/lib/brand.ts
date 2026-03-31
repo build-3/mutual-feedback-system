@@ -156,7 +156,22 @@ export const CONTRIBUTION_LEVEL_LABELS: Record<string, string> = {
 
 export function getContributionLabel(value: string) {
   const normalized = value.toLowerCase().trim()
-  return CONTRIBUTION_LEVEL_LABELS[normalized] ?? value
+
+  // Direct key match (e.g. "a", "b", "c", "d")
+  if (CONTRIBUTION_LEVEL_LABELS[normalized]) {
+    return CONTRIBUTION_LEVEL_LABELS[normalized]
+  }
+
+  // Match against known labels for legacy data that stored full text
+  for (const label of Object.values(CONTRIBUTION_LEVEL_LABELS)) {
+    if (normalized.startsWith(label)) {
+      return label
+    }
+  }
+
+  // Last resort: return first two words to avoid text blobs
+  const words = value.trim().split(/\s+/)
+  return words.length > 2 ? words.slice(0, 2).join(" ").toLowerCase() : value
 }
 
 export const CHART_COLORS = {

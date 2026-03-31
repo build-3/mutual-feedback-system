@@ -73,16 +73,16 @@ export default function ContributionChart({ contributionCounts }: Props) {
   if (data.every((entry) => entry.count === 0)) return null
 
   return (
-    <BrandPanel accent="lavender" tone="soft" className="brand-lines p-5 sm:p-6">
+    <BrandPanel accent="lavender" tone="soft" className="brand-lines p-4 sm:p-5">
       <Eyebrow accent="lavender">contribution view</Eyebrow>
-      <h3 className="mt-3 text-2xl font-bold tracking-[-0.05em] text-ink">
+      <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
         how peers rate contribution
       </h3>
-      <p className="mt-2 text-sm leading-6 text-muted">
+      <p className="mt-1 text-xs leading-5 text-muted">
         this shows the shape of peer feedback, not a single final verdict.
       </p>
 
-      <div className="mt-5 h-[230px]">
+      <div className="mt-4 h-[190px]">
         <ChartContainer height="100%">
           <BarChart data={data} layout="vertical" margin={{ left: 10, right: 16 }}>
             <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fill: "#9d9b9a" }} />

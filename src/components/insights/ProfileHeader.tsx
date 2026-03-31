@@ -28,19 +28,19 @@ export default function ProfileHeader({
     : "not yet"
 
   return (
-    <BrandPanel accent="sky" tone="plain" className="brand-lines p-6 sm:p-8">
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+    <BrandPanel accent="sky" tone="plain" className="brand-lines p-5 sm:p-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex items-center gap-4">
           <div
-            className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white shadow-brand"
+            className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white shadow-brand"
             style={{ backgroundColor: getAvatarColor(employee.name) }}
           >
             {getInitials(employee.name)}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Eyebrow accent="sky">profile</Eyebrow>
-            <h1 className="text-3xl font-bold tracking-[-0.06em] text-ink">
+            <h1 className="text-2xl font-bold tracking-[-0.06em] text-ink">
               {employee.name}
             </h1>
             <span

@@ -22,17 +22,17 @@ export default function TrustBatteryGauge({ metrics }: Props) {
   ]
 
   return (
-    <BrandPanel accent="sage" tone="soft" className="brand-lines p-5 sm:p-6">
+    <BrandPanel accent="sage" tone="soft" className="brand-lines p-4 sm:p-5">
       <Eyebrow accent="sage">trust battery</Eyebrow>
 
-      <h3 className="mt-3 text-2xl font-bold tracking-[-0.05em] text-ink">
+      <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
         current charge
       </h3>
-      <p className="mt-2 text-sm leading-6 text-muted">
+      <p className="mt-1 text-xs leading-5 text-muted">
         Trust starts in the middle and moves with each interaction.
       </p>
 
-      <div className="relative mt-5 h-[210px]">
+      <div className="relative mt-4 h-[180px]">
         <ChartContainer height="100%">
           <PieChart>
             <Pie

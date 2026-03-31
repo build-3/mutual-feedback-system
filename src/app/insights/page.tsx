@@ -342,7 +342,7 @@ function InsightsContent() {
       </div>
 
       {/* Content */}
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}
@@ -350,7 +350,7 @@ function InsightsContent() {
             employees={employees}
           />
         ) : insights.employee ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <ProfileHeader
               employee={insights.employee}
               receivedCount={insights.receivedSubmissions.length}
@@ -368,7 +368,7 @@ function InsightsContent() {
 
             {hasDetailedData && (
               <>
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <CompetencyRadar
                     metrics={insights.metrics}
                     orgAvgMetrics={orgMetrics.avgMetricsMap}
@@ -376,7 +376,7 @@ function InsightsContent() {
                   <TrustBatteryGauge metrics={insights.metrics} />
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <ContributionChart
                     contributionCounts={insights.contributionCounts}
                   />
