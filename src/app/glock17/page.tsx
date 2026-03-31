@@ -16,14 +16,16 @@ const ActivityFeed = dynamic(() => import("@/components/admin/ActivityFeed"), { 
 const EmployeeTable = dynamic(() => import("@/components/admin/EmployeeTable"), { ssr: false })
 const SubmissionBrowser = dynamic(() => import("@/components/admin/SubmissionBrowser"), { ssr: false })
 const DangerZone = dynamic(() => import("@/components/admin/DangerZone"), { ssr: false })
+const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "danger"
+type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
   { key: "activity", label: "activity" },
   { key: "employees", label: "employees" },
   { key: "submissions", label: "submissions" },
+  { key: "usage", label: "usage" },
   { key: "danger", label: "danger zone" },
 ]
 
@@ -252,6 +254,12 @@ export default function Glock17Page() {
             answers={answers}
             employees={employees}
             onDelete={handleDeleteSubmissions}
+          />
+        )}
+        {tab === "usage" && (
+          <UsageDashboard
+            submissionCount={submissions.length}
+            employeeCount={employees.length}
           />
         )}
         {tab === "danger" && (

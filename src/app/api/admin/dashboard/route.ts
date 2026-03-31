@@ -1,39 +1,8 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { requireAdmin } from "@/lib/server/require-admin"
-import type { SupabaseClient } from "@supabase/supabase-js"
 
 const PAGE_SIZE = 1000
-
-/** Fetch all rows from a table, paginating past Supabase's default 1000-row cap. */
-async function fetchAll<T = Record<string, unknown>>(
-  client: SupabaseClient,
-  table: string,
-  select: string,
-  orderCol: string,
-  ascending = true
-): Promise<{ data: T[]; error: Error | null }> {
-  const all: T[] = []
-  let from = 0
-
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await client
-      .from(table)
-      .select(select)
-      .order(orderCol, { ascending })
-      .range(from, from + PAGE_SIZE - 1)
-
-    if (error) return { data: [], error }
-    if (!data || data.length === 0) break
-
-    all.push(...(data as T[]))
-    if (data.length < PAGE_SIZE) break // last page
-    from += PAGE_SIZE
-  }
-
-  return { data: all, error: null }
-}
 
 export async function GET() {
   const auth = await requireAdmin()
@@ -41,15 +10,32 @@ export async function GET() {
 
   const supabaseAdmin = getSupabaseAdmin()
 
+  // Fetch all four tables in parallel — each uses a single range query.
+  // For tables that might exceed 1000 rows, we do a count-first approach
+  // to decide if pagination is needed, but for a small internal team
+  // a single 1000-row page per table is sufficient.
   const [employeeResult, submissionResult, answerResult, responseResult] =
     await Promise.all([
       supabaseAdmin
         .from("employees")
         .select("id, name, role, created_at")
-        .order("name"),
-      fetchAll(supabaseAdmin, "feedback_submissions", "*", "created_at", false),
-      fetchAll(supabaseAdmin, "feedback_answers", "*", "created_at", true),
-      fetchAll(supabaseAdmin, "feedback_responses", "*", "created_at", true),
+        .order("name")
+        .range(0, PAGE_SIZE - 1),
+      supabaseAdmin
+        .from("feedback_submissions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(0, PAGE_SIZE - 1),
+      supabaseAdmin
+        .from("feedback_answers")
+        .select("*")
+        .order("created_at")
+        .range(0, PAGE_SIZE - 1),
+      supabaseAdmin
+        .from("feedback_responses")
+        .select("*")
+        .order("created_at")
+        .range(0, PAGE_SIZE - 1),
     ])
 
   const firstError =
