@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
+import { requireAuth } from "@/lib/server/require-admin"
 import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 
-// This route is behind middleware auth (requires @build3.org login).
-// No need for explicit auth check here — middleware handles it.
-
 export async function GET(request: Request) {
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   if (!hasServerSupabaseConfig()) {
     return NextResponse.json(
       { error: "Server configuration is incomplete." },

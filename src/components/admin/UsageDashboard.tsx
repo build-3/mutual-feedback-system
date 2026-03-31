@@ -14,7 +14,6 @@ interface UsageData {
     totalRows: number
   }
   supabase: {
-    projectRef: string
     plan: string
     limits: Record<string, string>
   }
@@ -99,7 +98,7 @@ export default function UsageDashboard({
           database usage
         </h3>
         <p className="mt-1 text-xs text-muted">
-          project: {usage?.supabase.projectRef} · plan: {usage?.supabase.plan}
+          plan: {usage?.supabase.plan}
         </p>
 
         <div className="mt-4 space-y-2">
@@ -146,7 +145,7 @@ export default function UsageDashboard({
         <p className="mt-4 text-[11px] text-muted">
           for full supabase metrics, visit{" "}
           <a
-            href={`https://supabase.com/dashboard/project/${usage?.supabase.projectRef ?? ""}/reports`}
+            href="https://supabase.com/dashboard"
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-ink underline decoration-brand-sage decoration-2 underline-offset-4"

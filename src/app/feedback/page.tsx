@@ -319,7 +319,6 @@ export default function FeedbackPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          submittedById: submitter!.id,
           feedbackForId:
             feedbackPath === "build3" || feedbackPath === "self"
               ? null

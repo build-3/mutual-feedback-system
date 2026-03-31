@@ -29,8 +29,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  console.log('[middleware]', request.nextUrl.pathname, 'user:', user?.email ?? 'NONE')
-
   const pathname = request.nextUrl.pathname
   const isLoginPage = pathname === '/login'
   const isAuthCallback = pathname === '/api/auth/callback'

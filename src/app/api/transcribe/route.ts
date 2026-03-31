@@ -1,9 +1,34 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
+import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
+
+const ALLOWED_AUDIO_TYPES = [
+  "audio/webm",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/x-m4a",
+  "audio/mp3",
+]
 
 export async function POST(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
+
+  const ip = getRequestIp(request)
+  const rateLimit = consumeRateLimit({
+    bucket: "transcribe",
+    key: ip,
+    limit: 10,
+    windowMs: 60_000,
+  })
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many transcription requests. Please wait a moment." },
+      { status: 429 }
+    )
+  }
 
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
@@ -36,6 +61,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Audio file too large (max 25 MB)." },
       { status: 413 }
+    )
+  }
+
+  if (audio.type && !ALLOWED_AUDIO_TYPES.includes(audio.type)) {
+    return NextResponse.json(
+      { error: "Unsupported audio format." },
+      { status: 415 }
     )
   }
 

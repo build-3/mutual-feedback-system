@@ -31,9 +31,6 @@ export async function GET() {
       totalRows,
     },
     supabase: {
-      projectRef: process.env.NEXT_PUBLIC_SUPABASE_URL?.match(
-        /https:\/\/([^.]+)\./
-      )?.[1] ?? "unknown",
       plan: "free",
       limits: {
         dbSize: "500 MB",
