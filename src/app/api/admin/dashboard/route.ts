@@ -10,10 +10,8 @@ export async function GET() {
 
   const supabaseAdmin = getSupabaseAdmin()
 
-  // Fetch all four tables in parallel — each uses a single range query.
-  // For tables that might exceed 1000 rows, we do a count-first approach
-  // to decide if pagination is needed, but for a small internal team
-  // a single 1000-row page per table is sufficient.
+  // Fetch all four tables in parallel — select only columns the client needs.
+  // Smaller payloads = faster serialization + transfer + parsing.
   const [employeeResult, submissionResult, answerResult, responseResult] =
     await Promise.all([
       supabaseAdmin
@@ -23,17 +21,17 @@ export async function GET() {
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_submissions")
-        .select("*")
+        .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
         .order("created_at", { ascending: false })
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_answers")
-        .select("*")
+        .select("id, submission_id, question_key, question_text, answer_value, created_at")
         .order("created_at")
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_responses")
-        .select("*")
+        .select("id, answer_id, responder_id, response_text, created_at")
         .order("created_at")
         .range(0, PAGE_SIZE - 1),
     ])

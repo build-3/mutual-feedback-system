@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { saveFeedbackResponse } from "@/lib/server/feedback"
+import { waitUntil } from "@vercel/functions"
+import { saveFeedbackResponse, sendResponseNotification } from "@/lib/server/feedback"
 import {
   consumeRateLimit,
   getRequestIp,
@@ -8,6 +9,17 @@ import { hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { requireAuth } from "@/lib/server/require-admin"
 
 export async function POST(request: Request) {
+  // Auth first (fast — uses cached header from middleware)
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
+  if (!hasServerSupabaseConfig()) {
+    return NextResponse.json(
+      { error: "Server configuration is incomplete." },
+      { status: 503 }
+    )
+  }
+
   const ip = getRequestIp(request)
   const rateLimit = consumeRateLimit({
     bucket: "feedback-response",
@@ -22,17 +34,6 @@ export async function POST(request: Request) {
       { status: 429 }
     )
   }
-
-  if (!hasServerSupabaseConfig()) {
-    return NextResponse.json(
-      { error: "Server configuration is incomplete." },
-      { status: 503 }
-    )
-  }
-
-  // C4 fix: bind responderId to session user's employee record
-  const auth = await requireAuth()
-  if (auth.error) return auth.error
 
   if (!auth.employee) {
     return NextResponse.json(
@@ -53,11 +54,18 @@ export async function POST(request: Request) {
     }
 
     // Always use the session user's employee ID — ignore any body.responderId
-    const response = await saveFeedbackResponse({
+    const { response, notificationContext } = await saveFeedbackResponse({
       answerId,
       responderId: auth.employee.id,
       responseText,
     })
+
+    // Fire notification in background — don't block the response
+    waitUntil(
+      sendResponseNotification(notificationContext).catch((err) =>
+        console.error("[notify] Background response notification failed:", err)
+      )
+    )
 
     return NextResponse.json({ status: "saved", response })
   } catch (err) {

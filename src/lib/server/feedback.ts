@@ -301,7 +301,7 @@ export async function sendNotificationForSubmission(submissionId: string) {
   // Check if already notified (without locking — we set notified_at AFTER send)
   const { data: submission, error: fetchError } = await supabaseAdmin
     .from("feedback_submissions")
-    .select("*")
+    .select("id, submitted_by_id, feedback_for_id, feedback_type, notified_at")
     .eq("id", submissionId)
     .single()
 
@@ -365,21 +365,25 @@ export async function saveFeedbackResponse({
   )
   const supabaseAdmin = getSupabaseAdmin()
 
-  const { data: answer, error: answerError } = await supabaseAdmin
-    .from("feedback_answers")
-    .select("*")
-    .eq("id", answerId)
-    .single()
+  // Fetch answer and validate responder in parallel
+  const [answerResult] = await Promise.all([
+    supabaseAdmin
+      .from("feedback_answers")
+      .select("id, submission_id, question_key, question_text, answer_value")
+      .eq("id", answerId)
+      .single(),
+    ensureEmployeeExists(responderId, "responderId"),
+  ])
 
-  if (answerError || !answer) {
+  if (answerResult.error || !answerResult.data) {
     throw new Error("answer not found")
   }
 
-  const typedAnswer = answer as FeedbackAnswer
+  const typedAnswer = answerResult.data as FeedbackAnswer
 
   const { data: submission, error: submissionError } = await supabaseAdmin
     .from("feedback_submissions")
-    .select("*")
+    .select("id, submitted_by_id, feedback_for_id, feedback_type")
     .eq("id", typedAnswer.submission_id)
     .single()
 
@@ -388,7 +392,6 @@ export async function saveFeedbackResponse({
   }
 
   const typedSubmission = submission as FeedbackSubmission
-  await ensureEmployeeExists(responderId, "responderId")
 
   const isAllowedResponder =
     responderId === typedSubmission.submitted_by_id ||
@@ -414,35 +417,53 @@ export async function saveFeedbackResponse({
     )
   }
 
-  const notifyId =
-    responderId === typedSubmission.feedback_for_id
-      ? typedSubmission.submitted_by_id
-      : typedSubmission.feedback_for_id
-
-  if (notifyId) {
-    const details = await loadEmployeeDetails()
-    const responderDetail = details.get(responderId)
-    const recipientDetail = details.get(notifyId)
-
-    const responderName = responderDetail?.name || "Someone"
-    const recipientEmail = recipientDetail?.email
-
-    if (recipientEmail) {
-      const preview =
-        normalizedResponseText.length > 100
-          ? normalizedResponseText.slice(0, 100) + "..."
-          : normalizedResponseText
-
-      try {
-        await sendDirectMessage(
-          recipientEmail,
-          `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${notifyId}`
-        )
-      } catch {
-        // Notification failure is non-critical — don't block the response save
-      }
-    }
+  return {
+    response,
+    // Return notification context so caller can fire-and-forget
+    notificationContext: {
+      responderId,
+      submittedById: typedSubmission.submitted_by_id,
+      feedbackForId: typedSubmission.feedback_for_id,
+      responseText: normalizedResponseText,
+    },
   }
+}
 
-  return response
+/**
+ * Send notification for a feedback response — meant to be called via waitUntil().
+ */
+export async function sendResponseNotification({
+  responderId,
+  submittedById,
+  feedbackForId,
+  responseText,
+}: {
+  responderId: string
+  submittedById: string
+  feedbackForId: string | null
+  responseText: string
+}) {
+  const notifyId =
+    responderId === feedbackForId ? submittedById : feedbackForId
+
+  if (!notifyId) return
+
+  const details = await loadEmployeeDetails()
+  const responderDetail = details.get(responderId)
+  const recipientDetail = details.get(notifyId)
+
+  const responderName = responderDetail?.name || "Someone"
+  const recipientEmail = recipientDetail?.email
+
+  if (!recipientEmail) return
+
+  const preview =
+    responseText.length > 100
+      ? responseText.slice(0, 100) + "..."
+      : responseText
+
+  await sendDirectMessage(
+    recipientEmail,
+    `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${notifyId}`
+  )
 }

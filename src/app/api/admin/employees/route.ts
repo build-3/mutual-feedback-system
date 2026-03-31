@@ -34,7 +34,7 @@ export async function GET() {
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("employees")
-    .select("*")
+    .select("id, name, role, email, created_at")
     .order("role")
     .order("name")
 
