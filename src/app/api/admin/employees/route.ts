@@ -45,7 +45,12 @@ export async function GET() {
     )
   }
 
-  return NextResponse.json({ employees: data || [] })
+  const response = NextResponse.json({ employees: data || [] })
+  response.headers.set(
+    "Cache-Control",
+    "private, max-age=15, stale-while-revalidate=30"
+  )
+  return response
 }
 
 export async function POST(request: Request) {

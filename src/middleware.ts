@@ -55,6 +55,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Pass verified user email to downstream route handlers via header
+  // so they can skip the expensive second getUser() call
+  if (user?.email) {
+    supabaseResponse.headers.set('x-verified-email', user.email)
+  }
+
   return supabaseResponse
 }
 

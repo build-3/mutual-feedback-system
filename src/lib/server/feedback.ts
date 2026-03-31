@@ -215,11 +215,13 @@ export async function submitFeedback({
   feedbackForId,
   feedbackType,
   answers,
+  submitterVerified = false,
 }: {
   submittedById: string
   feedbackForId: string | null
   feedbackType: FeedbackType
   answers: FeedbackAnswerInput[]
+  submitterVerified?: boolean
 }) {
   if (!FEEDBACK_TYPES.has(feedbackType)) {
     throw new Error("feedbackType is invalid")
@@ -237,13 +239,19 @@ export async function submitFeedback({
     if (normalizedFeedbackForId === submittedById) {
       throw new Error("Use the self reflection path for self feedback")
     }
-    // Validate both employees in parallel
-    await Promise.all([
-      ensureEmployeeExists(submittedById, "submittedById"),
-      ensureEmployeeExists(normalizedFeedbackForId, "feedbackForId"),
-    ])
+    // Skip submitter check if already verified by requireAuth
+    if (submitterVerified) {
+      await ensureEmployeeExists(normalizedFeedbackForId, "feedbackForId")
+    } else {
+      await Promise.all([
+        ensureEmployeeExists(submittedById, "submittedById"),
+        ensureEmployeeExists(normalizedFeedbackForId, "feedbackForId"),
+      ])
+    }
   } else if (feedbackType === "build3" || feedbackType === "self") {
-    await ensureEmployeeExists(submittedById, "submittedById")
+    if (!submitterVerified) {
+      await ensureEmployeeExists(submittedById, "submittedById")
+    }
   } else {
     throw new Error("feedbackForId is required for this feedback type")
   }

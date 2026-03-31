@@ -38,7 +38,7 @@ export default function EmployeesPage() {
   async function loadEmployees() {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/employees", { cache: "no-store" })
+      const res = await fetch("/api/admin/employees")
       const payload = await res.json().catch(() => ({}))
 
       if (!res.ok) {
