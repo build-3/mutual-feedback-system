@@ -32,11 +32,10 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isLoginPage = pathname === '/login'
   const isAuthCallback = pathname === '/api/auth/callback'
-  const isPublicApi = pathname.startsWith('/api/public/')
   const isApiRoute = pathname.startsWith('/api/')
 
-  // Not logged in and not on login/callback/public-api
-  if (!user && !isLoginPage && !isAuthCallback && !isPublicApi) {
+  // Not logged in and not on login/callback
+  if (!user && !isLoginPage && !isAuthCallback) {
     if (isApiRoute) {
       return NextResponse.json(
         { error: 'Authentication required.' },

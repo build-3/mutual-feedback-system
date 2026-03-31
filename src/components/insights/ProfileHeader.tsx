@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Employee } from "@/lib/types"
 import { getAvatarColor, getInitials } from "@/lib/insights-helpers"
 import { getRoleAccent, getRoleLabel } from "@/lib/brand"
@@ -15,7 +16,7 @@ interface Props {
   orgAvgMetrics?: Record<string, number>
 }
 
-export default function ProfileHeader({
+export default memo(function ProfileHeader({
   employee,
   receivedCount,
   givenCount,
@@ -90,4 +91,4 @@ export default function ProfileHeader({
       </div>
     </BrandPanel>
   )
-}
+})

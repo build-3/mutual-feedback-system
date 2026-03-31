@@ -51,7 +51,6 @@ export async function DELETE(request: Request) {
       )
     }
 
-    console.log(`[admin/submissions] Deleted ${ids.length} submissions`)
     return NextResponse.json({ status: "deleted", deleted: ids.length })
   } catch (error) {
     console.error("[admin/submissions] Error:", error)

@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { NumericMetric } from "@/hooks/useEmployeeInsights"
 import { getContributionLabel as formatContributionLevel } from "@/lib/brand"
 import { getScoreColor } from "@/lib/insights-helpers"
@@ -73,7 +74,7 @@ function getContributionMode(counts: Record<string, number>) {
   return formatContributionLevel(winner)
 }
 
-export default function ScoreCardRow({
+export default memo(function ScoreCardRow({
   metrics,
   contributionCounts,
   orgAvgMetrics,
@@ -167,4 +168,4 @@ export default function ScoreCardRow({
       })}
     </div>
   )
-}
+})

@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -28,7 +29,7 @@ const DIMENSIONS = [
   { key: "itp_smart", label: "People-Smart" },
 ]
 
-export default function CompetencyRadar({ metrics, orgAvgMetrics }: Props) {
+export default memo(function CompetencyRadar({ metrics, orgAvgMetrics }: Props) {
   // Only show dimensions that have actual data — full_timer only has teal,
   // interns have both teal + ITP
   const activeDimensions = DIMENSIONS.filter((d) => metrics[d.key]?.count > 0)
@@ -126,4 +127,4 @@ export default function CompetencyRadar({ metrics, orgAvgMetrics }: Props) {
       </div>
     </BrandPanel>
   )
-}
+})

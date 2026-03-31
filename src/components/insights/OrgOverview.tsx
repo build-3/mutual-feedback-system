@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { timeAgo } from "@/lib/date-utils"
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts"
 import { SubmissionWithDetails } from "@/app/insights/types"
@@ -89,7 +90,7 @@ function getContributionRows(distribution: Record<string, number>) {
     .filter((row) => row.value > 0)
 }
 
-export default function OrgOverview({
+export default memo(function OrgOverview({
   orgMetrics,
   build3Submissions = [],
   employees = [],
@@ -397,4 +398,4 @@ export default function OrgOverview({
       })()}
     </div>
   )
-}
+})

@@ -52,7 +52,6 @@ export async function DELETE(request: Request) {
       deleted.employees = "cleared"
     }
 
-    console.log(`[admin/clear] Cleared scope=${scope}:`, deleted)
     return NextResponse.json({ status: "cleared", deleted })
   } catch (error) {
     console.error("[admin/clear] Error:", error)

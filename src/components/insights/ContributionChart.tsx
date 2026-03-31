@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
 import ChartContainer from "./ChartContainer"
@@ -52,7 +53,7 @@ function resolveIndex(value: string) {
   return null
 }
 
-export default function ContributionChart({ contributionCounts }: Props) {
+export default memo(function ContributionChart({ contributionCounts }: Props) {
   if (Object.keys(contributionCounts).length === 0) return null
 
   const data = LEVELS.map((level, index) => {
@@ -110,4 +111,4 @@ export default function ContributionChart({ contributionCounts }: Props) {
       </div>
     </BrandPanel>
   )
-}
+})
