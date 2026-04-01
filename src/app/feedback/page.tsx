@@ -602,7 +602,7 @@ export default function FeedbackPage() {
               max={question.max}
               value={answers[question.key] || ""}
               onChange={(event) => setAnswer(question.key, event.target.value)}
-              className={`${fieldClasses({ size: "lg" })} max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em]`}
+              className={`${fieldClasses({ size: "lg" })} max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em] placeholder:text-gray-300 placeholder:font-light placeholder:italic`}
               placeholder="50"
             />
             <span className="pb-3 text-sm text-muted">out of 100</span>
