@@ -403,13 +403,13 @@ const TimelineItem = memo(function TimelineItem({
   )
 
   return (
-    <div className="flex gap-4">
-      <div className="flex flex-col items-center">
+    <div className="flex gap-2.5 sm:gap-4">
+      <div className="hidden sm:flex flex-col items-center">
         <div className="mt-2 h-3 w-3 rounded-full bg-brand-sky" />
         <div className="mt-2 min-h-[3.5rem] w-px flex-1 bg-black/[0.08]" />
       </div>
 
-      <div className="flex-1 pb-4">
+      <div className="flex-1 pb-3 sm:pb-4">
         <BrandPanel accent={accent} tone="washed" className="brand-lines overflow-hidden">
           <button
             type="button"

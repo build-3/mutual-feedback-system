@@ -30,12 +30,13 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-line/80 bg-canvas/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <Link href="/feedback" className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5 sm:px-6 sm:py-3">
+        {/* Logo — compact on mobile */}
+        <Link href="/feedback" className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
             <PillarMark accent="peach" />
           </div>
-          <div>
+          <div className="hidden sm:block">
             <div className="text-lg font-bold tracking-[-0.06em] text-ink">build3</div>
             <div className="text-xs tracking-[0.08em] text-muted">
               we keep feedback clear
@@ -43,7 +44,8 @@ export default function Navbar() {
           </div>
         </Link>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Nav links — smaller on mobile */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {links.map((link) => {
             const accent = LINK_ACCENTS[link.href] ?? SCREEN_ACCENTS.insights
 
@@ -61,7 +63,7 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={button.className}
+                className={`${button.className} !px-2.5 !py-1.5 !text-xs sm:!px-3.5 sm:!py-2 sm:!text-sm`}
                 style={button.style}
               >
                 {link.label}
@@ -71,7 +73,7 @@ export default function Navbar() {
 
           <button
             onClick={handleSignOut}
-            className="ml-2 rounded-xl px-3 py-1.5 text-xs text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
+            className="ml-1 sm:ml-2 rounded-xl px-2 py-1.5 text-[11px] sm:text-xs text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
           >
             sign out
           </button>

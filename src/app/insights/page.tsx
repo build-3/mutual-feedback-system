@@ -264,8 +264,8 @@ function InsightsContent() {
   return (
     <div className="min-h-screen bg-[#fffaf5]">
       {/* Header */}
-      <div className="mx-auto max-w-5xl px-4 pt-8 sm:px-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="mx-auto max-w-5xl px-4 pt-6 sm:pt-8 sm:px-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <Link
             href="/feedback"
             className="text-xs text-muted hover:text-ink transition-colors"
@@ -290,59 +290,63 @@ function InsightsContent() {
           description={`${employees.length} teammates, ${filteredSubmissions.length} submissions in ${DATE_RANGE_LABELS[dateRange]}.`}
         />
 
-        {/* Controls bar */}
-        <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-line pb-4">
-          {/* View toggle: org vs person */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowOrgOverview(true)
-              setSelectedEmployeeId(null)
-            }}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
-              showOrgOverview
-                ? "border-ink bg-ink text-white"
-                : "border-line bg-white text-muted hover:border-ink/20"
-            }`}
-          >
-            org overview
-          </button>
+        {/* Controls bar — stacks cleanly on mobile */}
+        <div className="mt-5 sm:mt-6 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3 border-b border-line pb-4">
+          {/* Row 1 on mobile: org toggle + date pills */}
+          <div className="flex items-center justify-between gap-2 sm:contents">
+            <button
+              type="button"
+              onClick={() => {
+                setShowOrgOverview(true)
+                setSelectedEmployeeId(null)
+              }}
+              className={`rounded-full border px-3.5 py-2 text-[13px] sm:text-sm font-semibold transition-all ${
+                showOrgOverview
+                  ? "border-ink bg-ink text-white"
+                  : "border-line bg-white text-muted hover:border-ink/20"
+              }`}
+            >
+              org overview
+            </button>
 
-          <div className="h-5 w-px bg-line" />
+            <div className="hidden sm:block h-5 w-px bg-line" />
 
-          {/* Employee picker */}
-          <EmployeePicker
-            employees={employees}
-            selectedId={showOrgOverview ? null : selectedEmployeeId}
-            onSelect={(id) => {
-              setSelectedEmployeeId(id)
-              setShowOrgOverview(false)
-            }}
-            employeesWithFeedback={orgMetrics.employeeIdsWithFeedback}
-          />
+            {/* Date range pills */}
+            <div className="sm:ml-auto flex gap-0.5 sm:gap-1 rounded-full border border-line bg-white p-0.5 sm:p-1">
+              {DATE_RANGES.map((range) => (
+                <button
+                  key={range.key}
+                  type="button"
+                  onClick={() => setDateRange(range.key)}
+                  className={`rounded-full px-2.5 sm:px-3 py-1.5 text-[11px] font-semibold tracking-[0.06em] transition-all ${
+                    dateRange === range.key
+                      ? "bg-ink text-white"
+                      : "text-muted hover:text-ink"
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          {/* Date range pills */}
-          <div className="ml-auto flex gap-1 rounded-full border border-line bg-white p-1">
-            {DATE_RANGES.map((range) => (
-              <button
-                key={range.key}
-                type="button"
-                onClick={() => setDateRange(range.key)}
-                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-[0.06em] transition-all ${
-                  dateRange === range.key
-                    ? "bg-ink text-white"
-                    : "text-muted hover:text-ink"
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
+          {/* Row 2 on mobile: employee picker (full width) */}
+          <div className="sm:contents">
+            <EmployeePicker
+              employees={employees}
+              selectedId={showOrgOverview ? null : selectedEmployeeId}
+              onSelect={(id) => {
+                setSelectedEmployeeId(id)
+                setShowOrgOverview(false)
+              }}
+              employeesWithFeedback={orgMetrics.employeeIdsWithFeedback}
+            />
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
+      <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-5">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}

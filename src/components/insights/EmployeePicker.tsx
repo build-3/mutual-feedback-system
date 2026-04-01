@@ -53,11 +53,11 @@ export default function EmployeePicker({
   )
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative w-full sm:w-auto" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2.5 rounded-full border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition-all hover:border-ink/20 hover:shadow-md"
+        className="flex w-full sm:w-auto items-center gap-2.5 rounded-full border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition-all hover:border-ink/20 hover:shadow-md"
       >
         {selected ? (
           <>
@@ -90,7 +90,7 @@ export default function EmployeePicker({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-2xl border border-line bg-white py-2 shadow-xl">
+        <div className="absolute left-0 right-0 sm:right-auto top-full z-50 mt-2 sm:w-72 rounded-2xl border border-line bg-white py-2 shadow-xl">
           <div className="px-3 pb-2">
             <input
               type="text"

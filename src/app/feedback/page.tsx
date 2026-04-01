@@ -675,25 +675,25 @@ export default function FeedbackPage() {
     <div className="min-h-screen" onKeyDown={handleKeyDown}>
       <Navbar />
 
-      <div className="sticky top-[72px] z-40 border-b border-line bg-canvas backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="text-xs font-semibold tracking-[0.08em] text-muted">
-              step {Math.min(currentStep, totalSteps)} of {totalSteps}
+      <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
+        <div className="mx-auto max-w-6xl px-4 py-2.5 sm:py-3 sm:px-6">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            <div className="text-[11px] sm:text-xs font-semibold tracking-[0.08em] text-muted whitespace-nowrap">
+              {Math.min(currentStep, totalSteps)}/{totalSteps}
             </div>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
+            <div className="h-1.5 sm:h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
               <div
                 className="h-full rounded-full bg-brand-peach transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
+            <div className="text-[13px] sm:text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-12">
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
           <div className={`space-y-6 ${animClass}`}>
             {phase !== "identify" && phase !== "submitting" && (
               <button type="button" className={backButton.className} style={backButton.style} onClick={goBack}>
@@ -815,14 +815,14 @@ export default function FeedbackPage() {
                     ? "send it"
                     : "keep going"}
                 </button>
-                <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
+                <div className="hidden sm:block rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
                   press enter to keep moving
                 </div>
               </div>
             )}
           </div>
 
-          <div className="space-y-4 lg:sticky lg:top-[142px] lg:self-start">
+          <div className="hidden lg:block space-y-4 lg:sticky lg:top-[142px] lg:self-start">
             <BrandPanel accent={feedbackAccent} tone="soft" className="brand-lines brand-pillars p-6">
               <div className="flex items-center gap-2">
                 <PillarMark accent={feedbackAccent} />

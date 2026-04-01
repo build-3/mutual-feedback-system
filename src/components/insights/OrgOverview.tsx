@@ -146,7 +146,7 @@ export default memo(function OrgOverview({
         description="a broad read across participation, health, and the notes people are actually leaving behind."
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatPill
           accent="sky"
           label="nps"
@@ -187,7 +187,7 @@ export default memo(function OrgOverview({
           <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div
-                className="text-6xl font-bold tracking-[-0.09em]"
+                className="text-4xl sm:text-6xl font-bold tracking-[-0.09em]"
                 style={{
                   color:
                     npsScore >= 30
@@ -221,7 +221,7 @@ export default memo(function OrgOverview({
           tealAvg.purpose !== null) && (
           <BrandPanel accent="sage" tone="soft" className="brand-lines p-5 sm:p-6">
             <Eyebrow accent="sage">team health</Eyebrow>
-            <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
               {[
                 {
                   label: "self-management",
@@ -244,11 +244,11 @@ export default memo(function OrgOverview({
                 return (
                   <div
                     key={item.label}
-                    className="rounded-[22px] border p-4 text-center"
+                    className="rounded-[16px] sm:rounded-[22px] border p-3 sm:p-4 text-center"
                     style={{ backgroundColor: palette.bg, borderColor: palette.border }}
                   >
                     <div
-                      className="text-3xl font-bold tracking-[-0.08em]"
+                      className="text-2xl sm:text-3xl font-bold tracking-[-0.08em]"
                       style={{
                         color:
                           item.value !== null
