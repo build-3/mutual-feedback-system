@@ -1,8 +1,11 @@
 import "server-only"
 
-import { google } from "googleapis"
 import type { PostgrestError } from "@supabase/supabase-js"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
+import {
+  sendDirectMessage,
+  isNotificationsEnabled,
+} from "@/lib/server/google-chat"
 import type {
   FeedbackAnswer,
   FeedbackSubmission,
@@ -23,15 +26,6 @@ const FEEDBACK_TYPES = new Set<FeedbackType>([
   "adhoc",
 ])
 
-const GOOGLE_CHAT_SCOPES = [
-  "https://www.googleapis.com/auth/chat.messages.create",
-  "https://www.googleapis.com/auth/chat.spaces",
-  "https://www.googleapis.com/auth/chat.messages",
-]
-
-let googleChatClientPromise: ReturnType<typeof getGoogleChatClientInner> | null = null
-
-const NOTIFICATION_TIMEOUT_MS = 10_000 // 10 second timeout
 
 function assertUuid(value: string, fieldName: string) {
   if (
@@ -62,79 +56,6 @@ function normalizeText(value: string, fieldName: string, maxLength: number) {
 }
 
 
-async function getGoogleChatClientInner() {
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY ?? ""
-  // Strip wrapping quotes (Vercel env vars sometimes get double-quoted)
-  const privateKey = rawKey.replace(/^"|"$/g, "").replace(/\\n/g, "\n") || undefined
-  const senderEmail = process.env.GOOGLE_CHAT_SENDER_EMAIL
-
-  if (!serviceAccountEmail || !privateKey || !senderEmail) {
-    return null
-  }
-
-  const auth = new google.auth.JWT({
-    email: serviceAccountEmail,
-    key: privateKey,
-    scopes: GOOGLE_CHAT_SCOPES,
-    subject: senderEmail,
-  })
-
-  return google.chat({ version: "v1", auth })
-}
-
-async function getGoogleChatClient() {
-  if (!googleChatClientPromise) {
-    googleChatClientPromise = getGoogleChatClientInner().catch((err) => {
-      googleChatClientPromise = null // Clear cache on failure
-      throw err
-    }).then((client) => {
-      if (!client) googleChatClientPromise = null // Clear cache if null
-      return client
-    })
-  }
-  return googleChatClientPromise
-}
-
-async function sendDirectMessage(recipientEmail: string, messageText: string) {
-  const chat = await getGoogleChatClient()
-  if (!chat) return false
-
-  const timeout = <T>(promise: Promise<T>, label: string): Promise<T> =>
-    Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out after ${NOTIFICATION_TIMEOUT_MS}ms`)), NOTIFICATION_TIMEOUT_MS)
-      ),
-    ])
-
-  const spaceResponse = await timeout(
-    chat.spaces.setup({
-      requestBody: {
-        space: { spaceType: "DIRECT_MESSAGE" },
-        memberships: [
-          { member: { name: `users/${recipientEmail}`, type: "HUMAN" } },
-        ],
-      },
-    }),
-    "spaces.setup"
-  )
-
-  const spaceName = spaceResponse.data.name
-  if (!spaceName) {
-    throw new Error("Could not create DM space")
-  }
-
-  await timeout(
-    chat.spaces.messages.create({
-      parent: spaceName,
-      requestBody: { text: messageText },
-    }),
-    "spaces.messages.create"
-  )
-
-  return true
-}
 
 // Cache employee IDs in memory — employees rarely change
 let employeeIdCache: Set<string> | null = null
@@ -296,6 +217,12 @@ export async function submitFeedback({
 export async function sendNotificationForSubmission(submissionId: string) {
   assertUuid(submissionId, "submissionId")
 
+  // Check DB toggle — skip if notifications are disabled
+  const enabled = await isNotificationsEnabled()
+  if (!enabled) {
+    return { status: "skipped" as const, reason: "notifications disabled" }
+  }
+
   const supabaseAdmin = getSupabaseAdmin()
 
   // Check if already notified (without locking — we set notified_at AFTER send)
@@ -443,6 +370,10 @@ export async function sendResponseNotification({
   feedbackForId: string | null
   responseText: string
 }) {
+  // Check DB toggle
+  const enabled = await isNotificationsEnabled()
+  if (!enabled) return
+
   const notifyId =
     responderId === feedbackForId ? submittedById : feedbackForId
 

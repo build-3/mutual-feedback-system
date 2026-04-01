@@ -602,10 +602,13 @@ export default function FeedbackPage() {
               max={question.max}
               value={answers[question.key] || ""}
               onChange={(event) => setAnswer(question.key, event.target.value)}
-              className={`${fieldClasses({ size: "lg" })} max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em] placeholder:text-gray-300 placeholder:font-light placeholder:italic`}
+              className={`${fieldClasses({ size: "lg" })} max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em] placeholder:text-gray-300 placeholder:font-light`}
               placeholder="50"
             />
-            <span className="pb-3 text-sm text-muted">out of 100</span>
+            <div className="flex flex-col pb-2">
+              <span className="text-[11px] text-gray-400">50 by default</span>
+              <span className="text-sm text-muted">out of 100</span>
+            </div>
           </div>
         )
       case "dropdown":

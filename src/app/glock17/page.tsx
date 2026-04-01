@@ -17,6 +17,7 @@ const EmployeeTable = dynamic(() => import("@/components/admin/EmployeeTable"), 
 const SubmissionBrowser = dynamic(() => import("@/components/admin/SubmissionBrowser"), { ssr: false })
 const DangerZone = dynamic(() => import("@/components/admin/DangerZone"), { ssr: false })
 const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard"), { ssr: false })
+const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { ssr: false })
 
 type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "danger"
 
@@ -229,12 +230,15 @@ export default function Glock17Page() {
       {/* Content */}
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {tab === "overview" && (
-          <AdminOverview
-            employees={employees}
-            submissions={submissions}
-            answers={answers}
-            responses={responses}
-          />
+          <div className="space-y-6">
+            <ChatSettings />
+            <AdminOverview
+              employees={employees}
+              submissions={submissions}
+              answers={answers}
+              responses={responses}
+            />
+          </div>
         )}
         {tab === "activity" && (
           <ActivityFeed submissions={submissions} employees={employees} />

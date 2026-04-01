@@ -8,6 +8,9 @@ import { FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
 import { QUESTION_LABELS, parseNumericAnswer, getInitials, getAvatarColor } from "@/lib/insights-helpers"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
 import type { Employee, FeedbackResponse } from "@/lib/types"
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder"
+
+const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
 /** Text question keys that support responses (intern + full_timer paths) */
 const RESPONDABLE_KEYS = new Set([
@@ -101,6 +104,15 @@ function ReplyBox({
   const [error, setError] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const pickerRef = useRef<HTMLDivElement>(null)
+
+  const handleTranscript = useCallback((transcript: string) => {
+    setText((prev) => {
+      const separator = prev && !prev.endsWith(" ") ? " " : ""
+      return prev + separator + transcript
+    })
+  }, [])
+
+  const voice = useVoiceRecorder(handleTranscript)
 
   const selectedEmployee = employees.find((e) => e.id === responderId)
 
@@ -224,19 +236,60 @@ function ReplyBox({
         </div>
       </div>
 
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="write your response..."
-        rows={3}
-        className="w-full resize-none rounded-2xl border border-line bg-white p-3 text-sm leading-6 text-ink placeholder:text-muted/50 focus:border-brand-sky focus:outline-none focus:ring-1 focus:ring-brand-sky"
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            handleSubmit()
-          }
-        }}
-      />
+      <div className="relative">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="write your response..."
+          rows={3}
+          className={`w-full resize-none rounded-2xl border border-line bg-white p-3 text-sm leading-6 text-ink placeholder:text-muted/50 focus:border-brand-sky focus:outline-none focus:ring-1 focus:ring-brand-sky${VOICE_ENABLED ? " pr-12" : ""}`}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              handleSubmit()
+            }
+          }}
+        />
+        {VOICE_ENABLED && (
+          <button
+            type="button"
+            onClick={voice.toggle}
+            disabled={voice.state === "transcribing"}
+            aria-label={voice.state === "recording" ? "Stop recording" : "Start voice recording"}
+            className={`absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full transition-all ${
+              voice.state === "recording"
+                ? "bg-[#d35b52] text-white animate-pulse"
+                : voice.state === "transcribing"
+                ? "bg-gray-100 text-muted"
+                : "bg-white/60 border border-line text-muted hover:text-ink hover:border-black/20"
+            }`}
+          >
+            {voice.state === "transcribing" ? (
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            ) : voice.state === "recording" ? (
+              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 01-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
+          </button>
+        )}
+      </div>
+      {voice.error && (
+        <p className="text-xs text-[#d35b52]">
+          {voice.error}
+          <button type="button" onClick={voice.clearError} className="ml-2 text-xs text-muted underline">dismiss</button>
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <button
           type="button"

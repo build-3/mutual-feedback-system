@@ -2,6 +2,22 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // ── Fast paths: skip auth entirely for routes that don't need it ──
+  // Root always redirects to /login, no auth needed
+  if (pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  // Auth callback handles its own token exchange — no getUser() needed
+  if (pathname === '/api/auth/callback') {
+    return NextResponse.next({ request })
+  }
+
+  // ── Auth check for everything else ──
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -29,13 +45,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
   const isLoginPage = pathname === '/login'
-  const isAuthCallback = pathname === '/api/auth/callback'
   const isApiRoute = pathname.startsWith('/api/')
 
-  // Not logged in and not on login/callback
-  if (!user && !isLoginPage && !isAuthCallback) {
+  // Not logged in and not on login page
+  if (!user && !isLoginPage) {
     if (isApiRoute) {
       return NextResponse.json(
         { error: 'Authentication required.' },

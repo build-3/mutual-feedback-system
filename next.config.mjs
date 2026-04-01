@@ -4,7 +4,7 @@ const nextConfig = {
   poweredByHeader: false,
   experimental: {
     optimizePackageImports: ["recharts", "framer-motion"],
-    serverComponentsExternalPackages: ["googleapis", "google-auth-library"],
+    serverComponentsExternalPackages: ["google-auth-library"],
   },
   headers: async () => [
     {
