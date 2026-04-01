@@ -41,35 +41,15 @@ export default function Glock17Page() {
 
   const loadData = useCallback(async () => {
     try {
-      const [dashRes, empRes] = await Promise.all([
-        fetch("/api/admin/dashboard", { cache: "no-store" }),
-        fetch("/api/admin/employees", { cache: "no-store" }),
-      ])
+      const res = await fetch("/api/admin/dashboard", { cache: "no-store" })
 
-      if (!dashRes.ok || !empRes.ok) {
+      if (!res.ok) {
         throw new Error("failed to load data")
       }
 
-      const dash = await dashRes.json()
-      const empData = await empRes.json()
+      const dash = await res.json()
 
-      // Merge: dashboard has all employees (id, name, role, created_at)
-      // employees endpoint has email too — merge emails in
-      const emailMap = new Map<string, string | null>()
-      if (Array.isArray(empData.employees)) {
-        for (const e of empData.employees) {
-          emailMap.set(e.id, e.email ?? null)
-        }
-      }
-
-      const mergedEmployees: Employee[] = (dash.employees ?? []).map(
-        (e: Employee) => ({
-          ...e,
-          email: emailMap.get(e.id) ?? e.email ?? null,
-        })
-      )
-
-      setEmployees(mergedEmployees)
+      setEmployees(dash.employees ?? [])
       setSubmissions(dash.submissions ?? [])
       setAnswers(dash.answers ?? [])
       setResponses(dash.responses ?? [])

@@ -16,7 +16,7 @@ export async function GET() {
     await Promise.all([
       supabaseAdmin
         .from("employees")
-        .select("id, name, role, created_at")
+        .select("id, name, role, email, created_at")
         .order("name")
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
@@ -26,13 +26,11 @@ export async function GET() {
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_answers")
-        .select("id, submission_id, question_key, question_text, answer_value, created_at")
-        .order("created_at")
+        .select("id, submission_id, question_key, question_text, answer_value")
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_responses")
         .select("id, answer_id, responder_id, response_text, created_at")
-        .order("created_at")
         .range(0, PAGE_SIZE - 1),
     ])
 
