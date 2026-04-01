@@ -278,15 +278,15 @@ export default memo(function OrgOverview({
           <p className="mt-2 text-sm leading-6 text-muted">
             strength mentions vs. improvement mentions across the build3 values.
           </p>
-          <div className="mt-5 h-[240px]">
+          <div className="mt-5 h-[200px] sm:h-[240px]">
             <ChartContainer height="100%">
               <BarChart
                 data={valueAlignmentData}
-                margin={{ top: 0, right: 12, left: -16, bottom: 0 }}
+                margin={{ top: 0, right: 8, left: -20, bottom: 0 }}
                 layout="vertical"
               >
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#9d9b9a" }} />
-                <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 11, fill: "#1d1d1b" }} />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: "#9d9b9a" }} />
+                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10, fill: "#1d1d1b" }} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
                 />

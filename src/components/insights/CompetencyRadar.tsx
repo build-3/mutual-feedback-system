@@ -53,7 +53,7 @@ export default memo(function CompetencyRadar({ metrics, orgAvgMetrics }: Props) 
         a quick read on core teal and team-player signals.
       </p>
 
-      <div className="mt-4 h-[260px]">
+      <div className="mt-4 h-[220px] sm:h-[260px]">
         <ChartContainer height="100%">
           <RadarChart data={data} cx="50%" cy="50%" outerRadius="73%">
             <PolarGrid stroke="rgba(29, 29, 27, 0.1)" />

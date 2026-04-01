@@ -595,19 +595,19 @@ export default function FeedbackPage() {
         )
       case "number_input":
         return (
-          <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
             <input
               type="number"
               min={question.min}
               max={question.max}
               value={answers[question.key] || ""}
               onChange={(event) => setAnswer(question.key, event.target.value)}
-              className={`${fieldClasses({ size: "lg" })} max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em] placeholder:text-gray-300 placeholder:font-light`}
+              className={`${fieldClasses({ size: "lg" })} w-full max-w-[11rem] text-center text-3xl font-semibold tracking-[-0.06em] placeholder:text-gray-300 placeholder:font-light`}
               placeholder="50"
             />
-            <div className="flex flex-col pb-2">
-              <span className="text-[11px] text-gray-400">50 by default</span>
-              <span className="text-sm text-muted">out of 100</span>
+            <div className="flex gap-2 text-sm text-muted sm:flex-col sm:gap-0 sm:pb-2">
+              <span className="text-xs text-gray-400">50 by default ·</span>
+              <span>out of 100</span>
             </div>
           </div>
         )
@@ -643,7 +643,7 @@ export default function FeedbackPage() {
     return (
       <div className="min-h-screen">
         <Navbar />
-        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-12 sm:px-6">
+        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-6 sm:px-6 sm:py-12">
           <BrandPanel accent={feedbackAccent} tone="plain" className="w-full p-8 sm:p-12">
             <div className="mx-auto max-w-xl text-center">
               <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-full border border-brand-peach/50 bg-brand-peach/25">
@@ -676,24 +676,24 @@ export default function FeedbackPage() {
       <Navbar />
 
       <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 py-2.5 sm:py-3 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-3 sm:py-3 sm:px-6">
           <div className="flex items-center justify-between gap-3 sm:gap-4">
-            <div className="text-[11px] sm:text-xs font-semibold tracking-[0.08em] text-muted whitespace-nowrap">
+            <div className="text-xs font-semibold tracking-[0.08em] text-muted whitespace-nowrap">
               {Math.min(currentStep, totalSteps)}/{totalSteps}
             </div>
-            <div className="h-1.5 sm:h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
               <div
                 className="h-full rounded-full bg-brand-peach transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="text-[13px] sm:text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
+            <div className="text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-12">
-        <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+      <main className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-12">
+        <div className="grid gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
           <div className={`space-y-6 ${animClass}`}>
             {phase !== "identify" && phase !== "submitting" && (
               <button type="button" className={backButton.className} style={backButton.style} onClick={goBack}>

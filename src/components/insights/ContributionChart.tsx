@@ -83,11 +83,11 @@ export default memo(function ContributionChart({ contributionCounts }: Props) {
         this shows the shape of peer feedback, not a single final verdict.
       </p>
 
-      <div className="mt-4 h-[190px]">
+      <div className="mt-4 h-[175px] sm:h-[190px]">
         <ChartContainer height="100%">
-          <BarChart data={data} layout="vertical" margin={{ left: 10, right: 16 }}>
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fill: "#9d9b9a" }} />
-            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: "#5f5b58" }} />
+          <BarChart data={data} layout="vertical" margin={{ left: 0, right: 12, top: 0, bottom: 0 }}>
+            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#9d9b9a" }} />
+            <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 11, fill: "#5f5b58" }} />
             <Tooltip
               contentStyle={{
                 backgroundColor: "#ffffff",

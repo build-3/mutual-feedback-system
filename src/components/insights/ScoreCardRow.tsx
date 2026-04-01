@@ -90,7 +90,7 @@ export default memo(function ScoreCardRow({
   if (cards.length === 0) return null
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => {
         if (card.isContribution && contributionCounts) {
           const totalReviews = Object.values(contributionCounts).reduce(

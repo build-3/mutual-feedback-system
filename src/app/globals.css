@@ -114,22 +114,35 @@ textarea {
   background: transparent;
 }
 
-/* Typeform-style transitions */
+/* Typeform-style transitions — GPU-accelerated */
 .slide-enter {
   opacity: 0;
-  transform: translateY(24px);
+  transform: translate3d(0, 20px, 0);
+  will-change: opacity, transform;
 }
 .slide-enter-active {
   opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .slide-exit {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
+  will-change: opacity, transform;
 }
 .slide-exit-active {
   opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translate3d(0, -16px, 0);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .slide-enter,
+  .slide-enter-active,
+  .slide-exit,
+  .slide-exit-active {
+    transition: none;
+    transform: none;
+  }
 }

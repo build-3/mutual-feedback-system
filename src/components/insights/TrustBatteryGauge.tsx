@@ -46,7 +46,7 @@ export default memo(function TrustBatteryGauge({ metrics }: Props) {
         Everyone starts at 50. Moves with each interaction.
       </p>
 
-      <div className="relative mt-4 h-[180px]">
+      <div className="relative mt-4 h-[160px] sm:h-[180px]">
         <ChartContainer height="100%">
           <PieChart>
             <Pie

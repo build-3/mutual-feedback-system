@@ -97,12 +97,12 @@ export default function EmployeePicker({
               placeholder="search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm placeholder:text-muted/50 focus:border-ink/20 focus:outline-none"
+              className="w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm placeholder:text-muted/50 focus:border-ink/20 focus:outline-none"
               autoFocus
             />
           </div>
 
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-[50vh] sm:max-h-64 overflow-y-auto">
             {fullTimers.length > 0 && (
               <div>
                 <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted/60">
@@ -172,7 +172,7 @@ function PickerRow({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
         isSelected
           ? "bg-brand-sky/10"
           : "hover:bg-black/[0.03]"

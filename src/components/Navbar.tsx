@@ -30,10 +30,10 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-line/80 bg-canvas/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5 sm:px-6 sm:py-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 sm:px-6 sm:py-3">
         {/* Logo — compact on mobile */}
         <Link href="/feedback" className="flex items-center gap-2 sm:gap-3">
-          <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
+          <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
             <PillarMark accent="peach" />
           </div>
           <div className="hidden sm:block">
@@ -44,8 +44,8 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Nav links — smaller on mobile */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Nav links */}
+        <div className="flex items-center gap-1 sm:gap-2">
           {links.map((link) => {
             const accent = LINK_ACCENTS[link.href] ?? SCREEN_ACCENTS.insights
 
@@ -63,7 +63,7 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`${button.className} !px-2.5 !py-1.5 !text-xs sm:!px-3.5 sm:!py-2 sm:!text-sm`}
+                className={`${button.className} !min-h-[40px] !px-3 !py-2 !text-xs sm:!px-3.5 sm:!py-2 sm:!text-sm`}
                 style={button.style}
               >
                 {link.label}
@@ -73,7 +73,7 @@ export default function Navbar() {
 
           <button
             onClick={handleSignOut}
-            className="ml-1 sm:ml-2 rounded-xl px-2 py-1.5 text-[11px] sm:text-xs text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
+            className="ml-1 sm:ml-2 flex min-h-[40px] items-center rounded-xl px-3 py-2 text-xs text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
           >
             sign out
           </button>

@@ -19,7 +19,7 @@ export default function StarRating({
   return (
     <div className="space-y-3">
       {label && <p className="text-sm text-muted">{label}</p>}
-      <div className="grid grid-cols-5 gap-2 sm:max-w-sm">
+      <div className="grid grid-cols-5 gap-2.5 sm:max-w-sm">
         {Array.from({ length: max }, (_, index) => index + 1).map((score) => {
           const selected = score <= value
 
@@ -31,7 +31,7 @@ export default function StarRating({
             onClick={() => onChange(score)}
             aria-pressed={selected}
             className={clsx(
-              "rounded-[22px] border px-3 py-3 text-center text-sm font-semibold transition-all",
+              "rounded-[22px] border px-2 py-4 text-center text-base font-semibold transition-all",
               selected
                 ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                 : "border-line bg-white text-muted hover:-translate-y-0.5 hover:border-black/15"

@@ -62,7 +62,7 @@ export default memo(function ProfileHeader({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           <StatPill
             accent="sky"
             label="received"

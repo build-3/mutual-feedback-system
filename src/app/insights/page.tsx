@@ -300,7 +300,7 @@ function InsightsContent() {
                 setShowOrgOverview(true)
                 setSelectedEmployeeId(null)
               }}
-              className={`rounded-full border px-3.5 py-2 text-[13px] sm:text-sm font-semibold transition-all ${
+              className={`flex min-h-[40px] items-center rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
                 showOrgOverview
                   ? "border-ink bg-ink text-white"
                   : "border-line bg-white text-muted hover:border-ink/20"
@@ -312,13 +312,13 @@ function InsightsContent() {
             <div className="hidden sm:block h-5 w-px bg-line" />
 
             {/* Date range pills */}
-            <div className="sm:ml-auto flex gap-0.5 sm:gap-1 rounded-full border border-line bg-white p-0.5 sm:p-1">
+            <div className="sm:ml-auto flex gap-0.5 sm:gap-1 rounded-full border border-line bg-white p-1">
               {DATE_RANGES.map((range) => (
                 <button
                   key={range.key}
                   type="button"
                   onClick={() => setDateRange(range.key)}
-                  className={`rounded-full px-2.5 sm:px-3 py-1.5 text-[11px] font-semibold tracking-[0.06em] transition-all ${
+                  className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
                     dateRange === range.key
                       ? "bg-ink text-white"
                       : "text-muted hover:text-ink"
@@ -346,7 +346,7 @@ function InsightsContent() {
       </div>
 
       {/* Content */}
-      <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-5">
+      <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}
