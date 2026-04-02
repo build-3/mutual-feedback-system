@@ -74,7 +74,7 @@ export default memo(function ContributionChart({ contributionCounts }: Props) {
   if (data.every((entry) => entry.count === 0)) return null
 
   return (
-    <BrandPanel accent="lavender" tone="soft" className="brand-lines p-4 sm:p-5">
+    <BrandPanel accent="lavender" tone="soft" className="brand-lines p-5 sm:p-6">
       <Eyebrow accent="lavender">contribution view</Eyebrow>
       <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
         how peers rate contribution

@@ -43,7 +43,7 @@ export default memo(function CompetencyRadar({ metrics, orgAvgMetrics }: Props) 
   }))
 
   return (
-    <BrandPanel accent="sky" tone="soft" className="brand-lines p-4 sm:p-5">
+    <BrandPanel accent="sky" tone="soft" className="brand-lines p-5 sm:p-6">
       <Eyebrow accent="sky">competency map</Eyebrow>
 
       <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">

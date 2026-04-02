@@ -146,7 +146,7 @@ export default memo(function OrgOverview({
         description="a broad read across participation, health, and the notes people are actually leaving behind."
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-4">
         <StatPill
           accent="sky"
           label="nps"
@@ -221,7 +221,7 @@ export default memo(function OrgOverview({
           tealAvg.purpose !== null) && (
           <BrandPanel accent="sage" tone="soft" className="brand-lines p-5 sm:p-6">
             <Eyebrow accent="sage">team health</Eyebrow>
-            <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="mt-5 grid grid-cols-1 gap-2 min-[360px]:grid-cols-3 sm:gap-3">
               {[
                 {
                   label: "self-management",

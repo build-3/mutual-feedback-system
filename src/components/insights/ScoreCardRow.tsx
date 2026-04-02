@@ -110,7 +110,7 @@ export default memo(function ScoreCardRow({
                 {getContributionMode(contributionCounts)}
               </div>
               <p className="mt-2 text-xs leading-5 text-muted">
-                Most common view across {totalReviews}{" "}
+                most common view across {totalReviews}{" "}
                 {totalReviews === 1 ? "review" : "reviews"}.
               </p>
             </BrandPanel>
@@ -155,7 +155,7 @@ export default memo(function ScoreCardRow({
             </div>
 
             <div className="mt-2 text-xs text-muted">
-              Based on {metric.count} {metric.count === 1 ? "review" : "reviews"}.
+              based on {metric.count} {metric.count === 1 ? "review" : "reviews"}.
             </div>
 
             {orgAvgMetrics && orgAvgMetrics[card.key] !== undefined && (

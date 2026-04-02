@@ -643,7 +643,7 @@ export default function FeedbackPage() {
     return (
       <div className="min-h-screen">
         <Navbar />
-        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-6 sm:px-6 sm:py-12">
+        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-6 pb-safe sm:px-6 sm:py-12">
           <BrandPanel accent={feedbackAccent} tone="plain" className="w-full p-8 sm:p-12">
             <div className="mx-auto max-w-xl text-center">
               <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-full border border-brand-peach/50 bg-brand-peach/25">
@@ -692,7 +692,7 @@ export default function FeedbackPage() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-12">
+      <main className="mx-auto max-w-6xl px-4 py-4 pb-safe sm:px-6 sm:py-12">
         <div className="grid gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
           <div className={`space-y-6 ${animClass}`}>
             {phase !== "identify" && phase !== "submitting" && (

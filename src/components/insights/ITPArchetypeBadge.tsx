@@ -17,7 +17,7 @@ export default function ITPArchetypeBadge({ archetypeCounts }: Props) {
   const badgeColor = ITP_BADGE_COLORS[topArchetype] || "bg-gray-100 text-gray-800"
 
   return (
-    <BrandPanel accent="yellow" tone="soft" className="brand-lines p-4 sm:p-5">
+    <BrandPanel accent="yellow" tone="soft" className="brand-lines p-5 sm:p-6">
       <Eyebrow accent="yellow">archetype</Eyebrow>
       <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
         ideal team player read

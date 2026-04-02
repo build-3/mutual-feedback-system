@@ -36,14 +36,14 @@ export default memo(function TrustBatteryGauge({ metrics }: Props) {
   const direction = score > 50 ? "above" : score < 50 ? "below" : "at"
 
   return (
-    <BrandPanel accent="sage" tone="soft" className="brand-lines p-4 sm:p-5">
+    <BrandPanel accent="sage" tone="soft" className="brand-lines p-5 sm:p-6">
       <Eyebrow accent="sage">trust battery</Eyebrow>
 
       <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
         current charge
       </h3>
       <p className="mt-1 text-xs leading-5 text-muted">
-        Everyone starts at 50. Moves with each interaction.
+        everyone starts at 50. moves with each interaction.
       </p>
 
       <div className="relative mt-4 h-[160px] sm:h-[180px]">
@@ -124,7 +124,7 @@ export default memo(function TrustBatteryGauge({ metrics }: Props) {
       </div>
 
       <div className="text-sm text-muted">
-        Averaged across {metric.count} {metric.count === 1 ? "reviewer" : "reviewers"}.
+        averaged across {metric.count} {metric.count === 1 ? "reviewer" : "reviewers"}.
       </div>
     </BrandPanel>
   )

@@ -30,7 +30,7 @@ export default memo(function ProfileHeader({
 
   return (
     <BrandPanel accent="sky" tone="plain" className="brand-lines p-5 sm:p-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between min-w-0">
         <div className="flex items-center gap-4">
           <div
             className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white shadow-brand"
@@ -62,7 +62,7 @@ export default memo(function ProfileHeader({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 min-w-0 w-full overflow-hidden">
           <StatPill
             accent="sky"
             label="received"

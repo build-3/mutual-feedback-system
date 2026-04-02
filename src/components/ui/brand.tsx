@@ -125,7 +125,7 @@ export function fieldClasses({
   hasError?: boolean
 } = {}) {
   return clsx(
-    "w-full rounded-[18px] sm:rounded-[24px] border bg-white/88 text-[15px] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-sm transition-all duration-200",
+    "w-full rounded-[22px] border bg-white/88 text-[15px] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-sm transition-all duration-200",
     "placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-canvas)]",
     size === "sm" ? "px-3.5 py-2.5" : size === "lg" ? "px-5 py-4" : "px-4 py-3",
     hasError ? "border-[#d35b52]" : "border-line"
@@ -261,7 +261,7 @@ export function SectionHeading({
         {eyebrow && (
           <Eyebrow accent={accent}>{eyebrow}</Eyebrow>
         )}
-        <h1 className="text-[clamp(1.6rem,5vw,3.2rem)] font-bold leading-[0.96] tracking-[-0.05em] text-ink">
+        <h1 className="text-[clamp(1.35rem,5vw,3.2rem)] font-bold leading-[0.96] tracking-[-0.05em] text-ink">
           {title}
         </h1>
         {description && (
@@ -318,8 +318,8 @@ export function StatPill({
       <div className="text-[10px] sm:text-[11px] font-semibold tracking-[0.08em] text-muted">
         {lowerLabel(label)}
       </div>
-      <div className="mt-0.5 sm:mt-1 text-base sm:text-lg font-semibold text-ink">{value}</div>
-      {detail && <div className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted leading-snug">{detail}</div>}
+      <div className="mt-0.5 sm:mt-1 text-base sm:text-lg font-semibold text-ink leading-tight">{value}</div>
+      {detail && <div className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted leading-snug break-words min-w-0">{detail}</div>}
     </div>
   )
 }

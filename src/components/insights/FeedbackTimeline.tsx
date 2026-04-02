@@ -403,9 +403,9 @@ const TimelineItem = memo(function TimelineItem({
   )
 
   return (
-    <div className="flex gap-2.5 sm:gap-4">
-      <div className="hidden sm:flex flex-col items-center">
-        <div className="mt-2 h-3 w-3 rounded-full bg-brand-sky" />
+    <div className="flex gap-2 sm:gap-3.5">
+      <div className="flex flex-col items-center pt-0.5">
+        <div className="mt-2 h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 rounded-full bg-brand-sky" />
         <div className="mt-2 min-h-[3.5rem] w-px flex-1 bg-black/[0.08]" />
       </div>
 

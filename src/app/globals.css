@@ -61,6 +61,15 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* iOS safe area bottom padding — keeps buttons above home indicator */
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .pb-safe-sm {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
 }
 
 a {
