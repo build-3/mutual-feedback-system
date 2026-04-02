@@ -141,23 +141,19 @@ export default function FeedbackPage() {
           window.history.pushState(historyState, "")
         }
         skipNextPush.current = false
-        // Scroll to just below the progress bar so the question is fully visible.
-        // Uses smooth scroll on desktop, instant on mobile for snappiness.
-        const isMobile = window.innerWidth < 640
-        window.scrollTo({ top: 0, behavior: isMobile ? "instant" : "smooth" })
+        window.scrollTo({ top: 0, behavior: "instant" })
         setAnimClass("slide-enter")
         safeTimeout(() => {
           if (!mountedRef.current) return
           setAnimClass("slide-enter-active")
           isAnimating.current = false
-          // Execute any queued popstate navigation
           const queued = pendingPopState.current
           if (queued) {
             pendingPopState.current = null
             queued()
           }
-        }, 20)
-      }, 280)
+        }, 10)
+      }, 130)
     },
     [safeTimeout]
   )
@@ -309,41 +305,45 @@ export default function FeedbackPage() {
   async function handleSubmit() {
     if (submittingRef.current) return
     submittingRef.current = true
-    setPhase("submitting")
 
-    try {
-      const answerRows: Array<{
-        question_key: string
-        question_text: string
-        answer_value: string
-      }> = []
+    // Build payload synchronously
+    const answerRows: Array<{
+      question_key: string
+      question_text: string
+      answer_value: string
+    }> = []
 
-      for (const question of questions) {
-        if (question.type === "employee_search") continue
+    for (const question of questions) {
+      if (question.type === "employee_search") continue
 
-        if (question.type === "matrix_rating" && question.matrixItems) {
-          for (const item of question.matrixItems) {
-            const value = answers[item.key]?.trim()
-            if (value) {
-              answerRows.push({
-                question_key: item.key,
-                question_text: `${question.text} - ${item.label}`,
-                answer_value: value,
-              })
-            }
-          }
-        } else {
-          const value = answers[question.key]?.trim()
+      if (question.type === "matrix_rating" && question.matrixItems) {
+        for (const item of question.matrixItems) {
+          const value = answers[item.key]?.trim()
           if (value) {
             answerRows.push({
-              question_key: question.key,
-              question_text: question.text,
+              question_key: item.key,
+              question_text: `${question.text} - ${item.label}`,
               answer_value: value,
             })
           }
         }
+      } else {
+        const value = answers[question.key]?.trim()
+        if (value) {
+          answerRows.push({
+            question_key: question.key,
+            question_text: question.text,
+            answer_value: value,
+          })
+        }
       }
+    }
 
+    // Optimistic: show success immediately, submit in background
+    setPhase("done")
+    window.history.replaceState({ formPhase: "done", formQ: 0 }, "")
+
+    try {
       const res = await fetch("/api/feedback-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -359,22 +359,17 @@ export default function FeedbackPage() {
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}))
-        throw new Error(
-          payload.error || "that did not send cleanly. please give it one more go."
-        )
+        console.error("Submit failed:", payload.error)
+        // Show error on the done screen — don't yank user back to form
+        if (mountedRef.current) {
+          setError(payload.error || "your feedback may not have saved. try sending another one.")
+        }
       }
-
-      setPhase("done")
-      window.history.replaceState({ formPhase: "done", formQ: 0 }, "")
     } catch (submissionError) {
-      console.error(submissionError)
-      setError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "that did not send cleanly. please give it one more go."
-      )
-      setPhase("questions")
-      setCurrentQ(Math.max(questions.length - 1, 0))
+      console.error("Submit error:", submissionError)
+      if (mountedRef.current) {
+        setError("your feedback may not have saved. check your connection and try again.")
+      }
     } finally {
       submittingRef.current = false
     }
@@ -388,6 +383,23 @@ export default function FeedbackPage() {
       goNext()
     }
   }
+
+  // Global Enter key listener — works even when no input is focused
+  useEffect(() => {
+    function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Enter") return
+      if (phase === "submitting" || phase === "done") return
+      // Don't intercept if user is typing in an input/textarea/select
+      const tag = (event.target as HTMLElement)?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      const question = phase === "questions" ? questions[currentQ] : null
+      if (question && question.type === "long_text") return
+      event.preventDefault()
+      goNext()
+    }
+    window.addEventListener("keydown", handleGlobalKeyDown)
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown)
+  })
 
   // Pending answers ref so goNext() can validate against the latest value
   // even before React flushes the state update.
@@ -409,7 +421,7 @@ export default function FeedbackPage() {
     safeTimeout(() => {
       if (!mountedRef.current) return
       goNextWithAnswers()
-    }, 350)
+    }, 200)
   }
 
   /**
@@ -471,7 +483,7 @@ export default function FeedbackPage() {
                       formQ: currentQ + 1,
                     })
                   }
-                }, 350)
+                }, 200)
               }
             }}
             filterRole={question.employeeRole}
@@ -510,7 +522,7 @@ export default function FeedbackPage() {
                 matrixAdvanceTimer.current = safeTimeout(() => {
                   if (mountedRef.current) goNextWithAnswers()
                   matrixAdvanceTimer.current = null
-                }, 350)
+                }, 200)
               }
             }}
           />
@@ -685,6 +697,11 @@ export default function FeedbackPage() {
                 description="thanks. clear notes make the next step easier for all of us."
                 align="center"
               />
+              {error && (
+                <div className="mt-4 rounded-[18px] border border-brand-danger/30 bg-brand-danger/10 px-4 py-3 text-sm text-brand-danger">
+                  {error}
+                </div>
+              )}
               <div className="mt-8 flex justify-center">
                 <button type="button" className={restartButton.className} style={restartButton.style} onClick={resetForm}>
                   send another one
@@ -763,7 +780,7 @@ export default function FeedbackPage() {
                           safeTimeout(() => {
                             if (!mountedRef.current) return
                             animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
-                          }, 350)
+                          }, 200)
                         }
                       }}
                       placeholder="search for your name..."
@@ -804,7 +821,7 @@ export default function FeedbackPage() {
                               },
                               { formPhase: "questions", formQ: 0 }
                             )
-                          }, 350)
+                          }, 200)
                         }}
                         className={[
                           "w-full rounded-[26px] border px-5 py-5 text-left transition-all",

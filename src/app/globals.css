@@ -123,16 +123,16 @@ textarea {
   background: transparent;
 }
 
-/* Typeform-style transitions — GPU-accelerated */
+/* Typeform-style transitions — GPU-accelerated, snappy */
 .slide-enter {
   opacity: 0;
-  transform: translate3d(0, 20px, 0);
+  transform: translate3d(0, 12px, 0);
   will-change: opacity, transform;
 }
 .slide-enter-active {
   opacity: 1;
   transform: translate3d(0, 0, 0);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
 }
 .slide-exit {
   opacity: 1;
@@ -141,8 +141,8 @@ textarea {
 }
 .slide-exit-active {
   opacity: 0;
-  transform: translate3d(0, -16px, 0);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform: translate3d(0, -8px, 0);
+  transition: opacity 0.12s ease-in, transform 0.12s ease-in;
 }
 
 /* Reduce motion for accessibility */
