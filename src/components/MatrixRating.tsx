@@ -25,7 +25,7 @@ export default function MatrixRating({
             <span className="text-sm font-medium text-ink sm:max-w-[18rem]">
             {item.label}
             </span>
-            <div className="grid grid-cols-5 gap-2.5">
+            <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((score) => (
               <button
                 key={score}
@@ -33,7 +33,7 @@ export default function MatrixRating({
                 onClick={() => onChange(item.key, score)}
                 aria-pressed={score === values[item.key]}
                 className={clsx(
-                  "rounded-[18px] border px-2 py-4 text-base font-semibold transition-all",
+                  "flex h-11 w-11 items-center justify-center rounded-full border text-sm font-semibold transition-all",
                   score === values[item.key]
                     ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                     : "border-line bg-white text-muted hover:-translate-y-0.5 hover:border-black/15"
