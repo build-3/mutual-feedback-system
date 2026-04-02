@@ -84,7 +84,7 @@ export default function FeedbackPage() {
     }
   }, [])
 
-  // Auto-select the signed-in user as submitter so they skip the "who are you?" step
+  // Pre-fill the signed-in user as submitter — stay on identify screen for confirmation
   const autoSelectedRef = useRef(false)
   useEffect(() => {
     if (autoSelectedRef.current) return
@@ -102,9 +102,7 @@ export default function FeedbackPage() {
           created_at: "",
         }
         setSubmitter(me)
-        // Skip straight to route selection
-        setPhase("route")
-        window.history.replaceState({ formPhase: "route", formQ: 0 }, "")
+        // Stay on identify phase — user confirms or switches before moving on
       })
       .catch(() => {
         // Silently fall back to manual name selection
@@ -737,47 +735,46 @@ export default function FeedbackPage() {
                 <SectionHeading
                   accent={feedbackAccent}
                   eyebrow="who are we hearing from?"
-                  title="start with your name"
-                  description="we keep it simple. pick yourself first, then we will route the rest."
+                  title={submitter ? `hey, ${submitter.name.split(" ")[0]}` : "start with your name"}
+                  description={submitter
+                    ? "this is you, right? hit keep going to start, or switch below."
+                    : "we keep it simple. pick yourself first, then we will route the rest."}
                 />
                 <div className="mt-8">
-                  <SearchableDropdown
-                    value={submitter}
-                    onChange={(employee) => {
-                      setSubmitter(employee)
-                      if (employee) {
-                        safeTimeout(() => {
-                          if (!mountedRef.current) return
-                          animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
-                        }, 350)
-                      }
-                    }}
-                    placeholder="search for your name..."
-                  />
+                  {submitter ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 rounded-[24px] border border-brand-peach/40 bg-brand-peach/10 px-5 py-4">
+                        <span className="text-lg font-semibold text-ink">{submitter.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSubmitter(null)}
+                        className="text-sm text-muted underline decoration-line underline-offset-4 hover:text-ink"
+                      >
+                        not you? pick someone else
+                      </button>
+                    </div>
+                  ) : (
+                    <SearchableDropdown
+                      value={submitter}
+                      onChange={(employee) => {
+                        setSubmitter(employee)
+                        if (employee) {
+                          safeTimeout(() => {
+                            if (!mountedRef.current) return
+                            animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+                          }, 350)
+                        }
+                      }}
+                      placeholder="search for your name..."
+                    />
+                  )}
                 </div>
               </BrandPanel>
             )}
 
             {phase === "route" && (
               <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                {submitter && (
-                  <div className="mb-5 flex items-center gap-2 text-sm text-muted">
-                    <span>
-                      logged in as <span className="font-semibold text-ink">{submitter.name}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSubmitter(null)
-                        setPhase("identify")
-                        window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
-                      }}
-                      className="text-xs text-muted underline decoration-line underline-offset-4 hover:text-ink"
-                    >
-                      not you?
-                    </button>
-                  </div>
-                )}
                 <SectionHeading
                   accent={feedbackAccent}
                   eyebrow="what are we writing?"
