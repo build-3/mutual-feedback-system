@@ -84,6 +84,33 @@ export default function FeedbackPage() {
     }
   }, [])
 
+  // Auto-select the signed-in user as submitter so they skip the "who are you?" step
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (autoSelectedRef.current) return
+    autoSelectedRef.current = true
+
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!mountedRef.current || !data?.employee) return
+        const me: Employee = {
+          id: data.employee.id,
+          name: data.employee.name,
+          role: data.employee.role,
+          email: null,
+          created_at: "",
+        }
+        setSubmitter(me)
+        // Skip straight to route selection
+        setPhase("route")
+        window.history.replaceState({ formPhase: "route", formQ: 0 }, "")
+      })
+      .catch(() => {
+        // Silently fall back to manual name selection
+      })
+  }, [])
+
   const questions: Question[] = useMemo(
     () => (feedbackPath ? getQuestionsForPath(feedbackPath) : []),
     [feedbackPath]
@@ -116,6 +143,10 @@ export default function FeedbackPage() {
           window.history.pushState(historyState, "")
         }
         skipNextPush.current = false
+        // Scroll to just below the progress bar so the question is fully visible.
+        // Uses smooth scroll on desktop, instant on mobile for snappiness.
+        const isMobile = window.innerWidth < 640
+        window.scrollTo({ top: 0, behavior: isMobile ? "instant" : "smooth" })
         setAnimClass("slide-enter")
         safeTimeout(() => {
           if (!mountedRef.current) return
@@ -729,6 +760,24 @@ export default function FeedbackPage() {
 
             {phase === "route" && (
               <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                {submitter && (
+                  <div className="mb-5 flex items-center gap-2 text-sm text-muted">
+                    <span>
+                      logged in as <span className="font-semibold text-ink">{submitter.name}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubmitter(null)
+                        setPhase("identify")
+                        window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
+                      }}
+                      className="text-xs text-muted underline decoration-line underline-offset-4 hover:text-ink"
+                    >
+                      not you?
+                    </button>
+                  </div>
+                )}
                 <SectionHeading
                   accent={feedbackAccent}
                   eyebrow="what are we writing?"

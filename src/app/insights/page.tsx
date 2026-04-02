@@ -127,7 +127,7 @@ function InsightsContent() {
     setLoadError(null)
 
     try {
-      const res = await fetch("/api/admin/dashboard")
+      const res = await fetch("/api/insights/data")
       const payload = await res.json().catch(() => ({}))
 
       if (!res.ok) {
