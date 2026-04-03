@@ -16,6 +16,22 @@ import { Employee } from "@/lib/types"
 
 const employeesAccent = SCREEN_ACCENTS.employees
 
+const CANCEL_BTN = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
+const CONFIRM_BTN = buttonClasses({ accent: employeesAccent, variant: "solid", size: "sm" })
+
+function ModalDeleteActions({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      <button type="button" className={CANCEL_BTN.className} style={CANCEL_BTN.style} onClick={onCancel}>
+        keep them
+      </button>
+      <button type="button" className={CONFIRM_BTN.className} style={CONFIRM_BTN.style} onClick={onConfirm}>
+        remove from roster
+      </button>
+    </div>
+  )
+}
+
 type NoticeState = {
   tone: "success" | "error"
   message: string
@@ -160,7 +176,7 @@ export default function EmployeesPage() {
     <div className="min-h-screen">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-12 sm:pb-12">
         <div className="space-y-6">
           <SectionHeading
             accent={employeesAccent}
@@ -349,30 +365,10 @@ export default function EmployeesPage() {
             : undefined
         }
       >
-        {(() => {
-          const cancelBtn = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
-          const confirmBtn = buttonClasses({ accent: employeesAccent, variant: "solid", size: "sm" })
-          return (
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                className={cancelBtn.className}
-                style={cancelBtn.style}
-                onClick={() => setPendingDelete(null)}
-              >
-                keep them
-              </button>
-              <button
-                type="button"
-                className={confirmBtn.className}
-                style={confirmBtn.style}
-                onClick={() => void confirmDelete()}
-              >
-                remove from roster
-              </button>
-            </div>
-          )
-        })()}
+        <ModalDeleteActions
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void confirmDelete()}
+        />
       </Modal>
     </div>
   )

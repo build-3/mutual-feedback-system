@@ -4,7 +4,8 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { SectionHeading, EmptyState, buttonClasses } from "@/components/ui/brand"
+import Navbar from "@/components/Navbar"
+import { SectionHeading, EmptyState } from "@/components/ui/brand"
 import { useEmployeeInsights } from "@/hooks/useEmployeeInsights"
 import { useOrgInsights } from "@/hooks/useOrgInsights"
 import { DATE_RANGE_LABELS, SCREEN_ACCENTS } from "@/lib/brand"
@@ -250,12 +251,6 @@ function InsightsContent() {
     )
   }
 
-  const linkButton = buttonClasses({
-    accent: insightsAccent,
-    variant: "ghost",
-    size: "sm",
-  })
-
   const hasDetailedData =
     Object.keys(insights.metrics).length > 0 ||
     Object.keys(insights.contributionCounts).length > 0 ||
@@ -263,25 +258,10 @@ function InsightsContent() {
 
   return (
     <div className="min-h-screen bg-[#fffaf5]">
+      <Navbar />
+
       {/* Header */}
-      <div className="mx-auto max-w-5xl px-4 pt-6 sm:pt-8 sm:px-6">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <Link
-            href="/feedback"
-            className="text-xs text-muted hover:text-ink transition-colors"
-          >
-            &larr; give feedback
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/employees"
-              className={linkButton.className}
-              style={linkButton.style}
-            >
-              people
-            </Link>
-          </div>
-        </div>
+      <div className="mx-auto max-w-5xl px-4 pt-4 sm:pt-8 sm:px-6">
 
         <SectionHeading
           accent="sky"
@@ -345,8 +325,8 @@ function InsightsContent() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
+      {/* Content — pb-20 on mobile for bottom tab bar clearance */}
+      <div className="mx-auto max-w-5xl px-4 py-4 pb-24 sm:px-6 sm:py-5 sm:pb-5">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}
