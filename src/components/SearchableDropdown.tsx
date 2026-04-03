@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyboardEvent, useState, useEffect, useRef, useMemo } from "react"
+import { KeyboardEvent, memo, useState, useEffect, useRef, useMemo } from "react"
 import type { Employee } from "@/lib/types"
 import { getRoleAccent, getRoleLabel } from "@/lib/brand"
 import {
@@ -40,7 +40,7 @@ type SearchableDropdownProps = {
   placeholder?: string
 }
 
-export default function SearchableDropdown({
+const SearchableDropdown = memo(function SearchableDropdown({
   value,
   onChange,
   filterRole,
@@ -261,4 +261,6 @@ export default function SearchableDropdown({
       )}
     </div>
   )
-}
+})
+
+export default SearchableDropdown

@@ -5,6 +5,8 @@ import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 // Whisper hallucinates these phrases on short/silent audio
 const WHISPER_HALLUCINATIONS = [
   "transcribed by otter",
+  "transcribed by https://otter.ai",
+  "transcribed by http",
   "thanks for watching",
   "thank you for watching",
   "subscribe",
@@ -15,6 +17,9 @@ const WHISPER_HALLUCINATIONS = [
   "you",
   "thank you.",
   "thanks.",
+  "...",
+  "the end",
+  "silence",
 ]
 
 const ALLOWED_AUDIO_TYPES = [

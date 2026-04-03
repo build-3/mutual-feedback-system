@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import clsx from "clsx"
 import { badgeClasses } from "@/components/ui/brand"
 
@@ -10,7 +11,9 @@ type StarRatingProps = {
   label?: string
 }
 
-export default function StarRating({
+const BADGE = badgeClasses({ accent: "peach", tone: "soft" })
+
+const StarRating = memo(function StarRating({
   value,
   onChange,
   max = 5,
@@ -42,16 +45,15 @@ export default function StarRating({
           )
         })}
       </div>
-      {value > 0 && (() => {
-        const badge = badgeClasses({ accent: "peach", tone: "soft" })
-        return (
-          <p>
-            <span className={badge.className} style={badge.style}>
-              {value} / {max}
-            </span>
-          </p>
-        )
-      })()}
+      {value > 0 && (
+        <p>
+          <span className={BADGE.className} style={BADGE.style}>
+            {value} / {max}
+          </span>
+        </p>
+      )}
     </div>
   )
-}
+})
+
+export default StarRating

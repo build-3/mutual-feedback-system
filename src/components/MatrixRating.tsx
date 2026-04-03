@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import clsx from "clsx"
 import { badgeClasses } from "@/components/ui/brand"
 
@@ -9,7 +10,9 @@ type MatrixRatingProps = {
   onChange: (key: string, val: number) => void
 }
 
-export default function MatrixRating({
+const BADGE = badgeClasses({ accent: "peach", tone: "soft" })
+
+const MatrixRating = memo(function MatrixRating({
   items,
   values,
   onChange,
@@ -43,17 +46,16 @@ export default function MatrixRating({
               </button>
             ))}
           </div>
-          {values[item.key] > 0 && (() => {
-            const badge = badgeClasses({ accent: "peach", tone: "soft" })
-            return (
-              <span className={badge.className} style={badge.style}>
-                {values[item.key]}/5
-              </span>
-            )
-          })()}
+          {values[item.key] > 0 && (
+            <span className={BADGE.className} style={BADGE.style}>
+              {values[item.key]}/5
+            </span>
+          )}
           </div>
         </div>
       ))}
     </div>
   )
-}
+})
+
+export default MatrixRating

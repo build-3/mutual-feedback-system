@@ -584,7 +584,7 @@ export default function FeedbackPage() {
                   type="button"
                   onClick={() => setAnswerAndAdvance(question.key, option.key)}
                   className={[
-                    "w-full rounded-[24px] border px-5 py-4 text-left transition-all",
+                    "w-full rounded-[24px] border px-5 py-[18px] text-left transition-all",
                     active
                       ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                       : "border-line bg-white text-ink hover:-translate-y-0.5 hover:border-black/15",
@@ -845,8 +845,8 @@ export default function FeedbackPage() {
               </NoticeCard>
             )}
 
-            {/* Spacer for sticky bottom bar on mobile */}
-            {phase !== "submitting" && <div className="h-20 sm:hidden" />}
+            {/* Spacer for sticky bottom bar + tab bar on mobile */}
+            {phase !== "submitting" && <div className="h-32 sm:hidden" />}
 
             {/* Desktop inline action bar */}
             {phase !== "submitting" && (
@@ -924,9 +924,9 @@ export default function FeedbackPage() {
         </div>
       </main>
 
-      {/* Mobile sticky bottom action bar */}
+      {/* Mobile sticky bottom action bar — sits above the tab bar */}
       {phase !== "submitting" && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-canvas/95 backdrop-blur-xl px-4 py-3 pb-safe sm:hidden">
+        <div className="fixed bottom-[calc(52px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 border-t border-line bg-canvas/95 backdrop-blur-xl px-4 py-2.5 sm:hidden">
           <button
             type="button"
             className={`${nextButton.className} w-full !py-3.5 !text-base`}

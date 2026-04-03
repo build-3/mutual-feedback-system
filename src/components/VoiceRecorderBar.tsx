@@ -286,7 +286,7 @@ const VoiceRecorderBar = forwardRef<VoiceRecorderBarHandle, VoiceRecorderBarProp
             type="button"
             onClick={cancelRecording}
             aria-label="Cancel recording"
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-black/5 hover:text-ink"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-black/5 hover:text-ink"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="4" y1="4" x2="12" y2="12" />
@@ -320,7 +320,7 @@ const VoiceRecorderBar = forwardRef<VoiceRecorderBarHandle, VoiceRecorderBarProp
             type="button"
             onClick={() => void stopAndTranscribe()}
             aria-label="Send voice message"
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#007AFF] text-white shadow-sm transition-all hover:bg-[#0066DD] active:scale-95"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-[#007AFF] text-white shadow-sm transition-all hover:bg-[#0066DD] active:scale-95"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="4 9 7.5 12.5 14 5.5" />

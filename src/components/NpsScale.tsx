@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import clsx from "clsx"
 
 type NpsScaleProps = {
@@ -7,7 +8,7 @@ type NpsScaleProps = {
   onChange: (val: number) => void
 }
 
-export default function NpsScale({ value, onChange }: NpsScaleProps) {
+const NpsScale = memo(function NpsScale({ value, onChange }: NpsScaleProps) {
   return (
     <div className="space-y-3">
       {/* Mobile: two rows (0-5, 6-10). Desktop: single row of 11 */}
@@ -21,7 +22,7 @@ export default function NpsScale({ value, onChange }: NpsScaleProps) {
               aria-pressed={value === n}
               onClick={() => onChange(n)}
               className={clsx(
-                "rounded-[14px] border py-3.5 text-center text-sm font-semibold transition-all",
+                "rounded-[14px] border py-4 text-center text-sm font-semibold transition-all",
                 value === n
                   ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                   : "border-[#e8c2bd] bg-[#fff4f2] text-ink"
@@ -40,7 +41,7 @@ export default function NpsScale({ value, onChange }: NpsScaleProps) {
               aria-pressed={value === n}
               onClick={() => onChange(n)}
               className={clsx(
-                "rounded-[14px] border py-3.5 text-center text-sm font-semibold transition-all",
+                "rounded-[14px] border py-4 text-center text-sm font-semibold transition-all",
                 value === n
                   ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                   : n <= 8
@@ -82,4 +83,6 @@ export default function NpsScale({ value, onChange }: NpsScaleProps) {
       </div>
     </div>
   )
-}
+})
+
+export default NpsScale
