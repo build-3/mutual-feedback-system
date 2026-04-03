@@ -11,9 +11,9 @@ export function filterSubmissionsByRange(
 ): SubmissionWithDetails[] {
   if (dateRange === 'all') return submissions
   const now = new Date()
-  const cutoff = new Date(now)
-  if (dateRange === 'month') cutoff.setMonth(now.getMonth() - 1)
-  else cutoff.setMonth(now.getMonth() - 3)
+  const monthsBack = dateRange === 'month' ? 1 : 3
+  // Use timestamp math to avoid setMonth year-wraparound bugs
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate())
   return submissions.filter(s => new Date(s.submission.created_at) >= cutoff)
 }
 

@@ -9,18 +9,21 @@ import {
   fieldClasses,
 } from "@/components/ui/brand"
 
-/** Module-level cache — load employees once across all dropdown instances. */
+/** Module-level cache with 5-minute TTL — auto-refreshes when new employees are added. */
 let employeeCache: Employee[] | null = null
 let employeeCachePromise: Promise<Employee[]> | null = null
+let employeeCacheExpiry = 0
+const EMPLOYEE_CACHE_TTL_MS = 300_000 // 5 minutes
 
 async function loadAllEmployees(): Promise<Employee[]> {
-  if (employeeCache) return employeeCache
+  if (employeeCache && Date.now() < employeeCacheExpiry) return employeeCache
   if (employeeCachePromise) return employeeCachePromise
 
   employeeCachePromise = fetch("/api/employee-search?q=*")
     .then((res) => (res.ok ? res.json() : { employees: [] }))
     .then((data) => {
       employeeCache = (data.employees || []) as Employee[]
+      employeeCacheExpiry = Date.now() + EMPLOYEE_CACHE_TTL_MS
       employeeCachePromise = null
       return employeeCache
     })

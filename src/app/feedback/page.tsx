@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
 import SearchableDropdown from "@/components/SearchableDropdown"
@@ -392,15 +392,6 @@ export default function FeedbackPage() {
     }
   }
 
-  function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === "Enter" && phase !== "submitting" && phase !== "done") {
-      const question = phase === "questions" ? questions[currentQ] : null
-      if (question && question.type === "long_text") return
-      event.preventDefault()
-      goNext()
-    }
-  }
-
   // Global Enter key listener — works even when no input is focused
   useEffect(() => {
     function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
@@ -692,7 +683,7 @@ export default function FeedbackPage() {
   const backButton = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
 
   return (
-    <div className="min-h-screen" onKeyDown={handleKeyDown}>
+    <div className="min-h-screen">
       <Navbar />
 
       <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">

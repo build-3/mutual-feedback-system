@@ -46,7 +46,7 @@ const MatrixRating = memo(function MatrixRating({
               </button>
             ))}
           </div>
-          {values[item.key] > 0 && (
+          {values[item.key] !== undefined && values[item.key] > 0 && (
             <span className={BADGE.className} style={BADGE.style}>
               {values[item.key]}/5
             </span>

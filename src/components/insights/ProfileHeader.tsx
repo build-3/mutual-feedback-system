@@ -13,7 +13,6 @@ interface Props {
   givenCount: number
   selfCount: number
   lastFeedbackDate: string | null
-  orgAvgMetrics?: Record<string, number>
 }
 
 export default memo(function ProfileHeader({

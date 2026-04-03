@@ -60,7 +60,8 @@ export default memo(function ContributionChart({ contributionCounts }: Props) {
     let count = 0
 
     for (const [key, value] of Object.entries(contributionCounts)) {
-      if (resolveIndex(key) === index) count += value
+      const resolved = resolveIndex(key)
+      if (resolved !== null && resolved === index) count += value
     }
 
     return {

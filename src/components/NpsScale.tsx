@@ -25,7 +25,7 @@ const NpsScale = memo(function NpsScale({ value, onChange }: NpsScaleProps) {
                 "rounded-[14px] border py-4 text-center text-sm font-semibold transition-all",
                 value === n
                   ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
-                  : "border-[#e8c2bd] bg-[#fff4f2] text-ink"
+                  : "border-brand-peach/40 bg-brand-peach/10 text-ink"
               )}
             >
               {n}
@@ -45,8 +45,8 @@ const NpsScale = memo(function NpsScale({ value, onChange }: NpsScaleProps) {
                 value === n
                   ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                   : n <= 8
-                  ? "border-[#efe0af] bg-[#fffcee] text-ink"
-                  : "border-[#b9d9cc] bg-[#f4fbf7] text-ink"
+                  ? "border-brand-yellow/40 bg-brand-yellow/10 text-ink"
+                  : "border-brand-sage/40 bg-brand-sage/10 text-ink"
               )}
             >
               {n}
@@ -67,10 +67,10 @@ const NpsScale = memo(function NpsScale({ value, onChange }: NpsScaleProps) {
               value === n
                 ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                 : n <= 6
-                ? "border-[#e8c2bd] bg-[#fff4f2] text-ink"
+                ? "border-brand-peach/40 bg-brand-peach/10 text-ink"
                 : n <= 8
-                ? "border-[#efe0af] bg-[#fffcee] text-ink"
-                : "border-[#b9d9cc] bg-[#f4fbf7] text-ink"
+                ? "border-brand-yellow/40 bg-brand-yellow/10 text-ink"
+                : "border-brand-sage/40 bg-brand-sage/10 text-ink"
             )}
           >
             {n}

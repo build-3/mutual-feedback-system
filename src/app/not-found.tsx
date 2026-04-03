@@ -6,9 +6,9 @@ export default function NotFound() {
       <div className="mx-auto max-w-md text-center">
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-brand-peach/50 bg-brand-peach/25">
           <span className="inline-flex items-end gap-1" aria-hidden>
-            <span className="w-1 rounded-full bg-brand-peach" style={{ height: 14 }} />
-            <span className="w-1 rounded-full bg-brand-peach" style={{ height: 24 }} />
-            <span className="w-1 rounded-full bg-brand-peach" style={{ height: 18 }} />
+            <span className="w-1 h-3.5 rounded-full bg-brand-peach" />
+            <span className="w-1 h-6 rounded-full bg-brand-peach" />
+            <span className="w-1 h-[18px] rounded-full bg-brand-peach" />
           </span>
         </div>
         <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
@@ -23,23 +23,13 @@ export default function NotFound() {
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
             href="/feedback"
-            className="inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold tracking-[-0.02em] shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5"
-            style={{
-              backgroundColor: "#f5bb9f",
-              borderColor: "#f5bb9f",
-              color: "#1d1d1b",
-            }}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-peach bg-brand-peach px-5 py-3 text-sm font-semibold tracking-[-0.02em] text-ink shadow-brand transition-all hover:-translate-y-0.5"
           >
             give feedback
           </Link>
           <Link
             href="/insights"
-            className="inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold tracking-[-0.02em] transition-all hover:-translate-y-0.5"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.64)",
-              borderColor: "rgba(29, 29, 27, 0.08)",
-              color: "#1d1d1b",
-            }}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-line bg-white/64 px-5 py-3 text-sm font-semibold tracking-[-0.02em] text-ink transition-all hover:-translate-y-0.5"
           >
             team view
           </Link>

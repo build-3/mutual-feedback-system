@@ -341,7 +341,6 @@ function InsightsContent() {
               givenCount={insights.givenSubmissions.length}
               selfCount={insights.selfSubmissions.length}
               lastFeedbackDate={insights.lastFeedbackDate}
-              orgAvgMetrics={orgMetrics.avgMetricsMap}
             />
 
             <ScoreCardRow

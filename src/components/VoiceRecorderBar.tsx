@@ -66,11 +66,14 @@ const VoiceRecorderBar = forwardRef<VoiceRecorderBarHandle, VoiceRecorderBarProp
       }
       mediaRecorderRef.current = null
 
+      if (analyserRef.current) {
+        try { analyserRef.current.disconnect() } catch { /* already disconnected */ }
+        analyserRef.current = null
+      }
       if (audioCtxRef.current) {
         audioCtxRef.current.close().catch(() => {})
         audioCtxRef.current = null
       }
-      analyserRef.current = null
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
