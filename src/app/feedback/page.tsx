@@ -23,7 +23,7 @@ import {
   getQuestionsForPath,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
-import { useVoiceRecorder } from "@/hooks/useVoiceRecorder"
+import VoiceRecorderBar from "@/components/VoiceRecorderBar"
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
@@ -48,7 +48,7 @@ export default function FeedbackPage() {
   const pendingPopState = useRef<(() => void) | null>(null)
   const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Voice recorder — appends transcribed text to the current textarea
+  // Voice recorder — track which question key the recorder targets
   const voiceQuestionKeyRef = useRef<string>("")
   const voiceAnswersRef = useRef(answers)
   voiceAnswersRef.current = answers
@@ -59,15 +59,10 @@ export default function FeedbackPage() {
       const current = voiceAnswersRef.current[key] || ""
       const separator = current && !current.endsWith(" ") ? " " : ""
       const updated = current + separator + text
-      // Use setAnswer-like pattern to keep pendingAnswers ref in sync
-      setAnswers((prev) => {
-        const next = { ...prev, [key]: updated }
-        return next
-      })
+      setAnswers((prev) => ({ ...prev, [key]: updated }))
     },
     []
   )
-  const voice = useVoiceRecorder(handleVoiceTranscript)
 
   const safeTimeout = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms)
@@ -533,67 +528,17 @@ export default function FeedbackPage() {
         return (
           <>
             {question.showValues && <ValuesCard />}
-            <div className="relative">
-              <textarea
-                value={answers[question.key] || ""}
-                onChange={(event) => setAnswer(question.key, event.target.value)}
-                rows={6}
-                className={fieldClasses({ size: "lg" }) + (VOICE_ENABLED ? " pr-14" : "")}
-                placeholder="write it how you would say it."
-              />
-              {VOICE_ENABLED && (
-                <button
-                  type="button"
-                  onClick={voice.toggle}
-                  disabled={voice.state === "transcribing"}
-                  aria-label={
-                    voice.state === "recording"
-                      ? "Stop recording"
-                      : voice.state === "transcribing"
-                      ? "Transcribing..."
-                      : "Record voice"
-                  }
-                  className={`absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200 ${
-                    voice.state === "recording"
-                      ? "animate-pulse border-[#d35b52] bg-[#d35b52] text-white shadow-md"
-                      : voice.state === "transcribing"
-                      ? "border-line bg-white/60 text-muted"
-                      : "border-line bg-white/60 text-muted hover:bg-white/90 hover:border-ink/20"
-                  }`}
-                >
-                  {voice.state === "recording" ? (
-                    /* Stop icon */
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                      <rect x="1" y="1" width="12" height="12" rx="2" />
-                    </svg>
-                  ) : voice.state === "transcribing" ? (
-                    /* Spinner */
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
-                      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-                    </svg>
-                  ) : (
-                    /* Mic icon */
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="2" width="6" height="12" rx="3" />
-                      <path d="M5 10a7 7 0 0 0 14 0" />
-                      <line x1="12" y1="17" x2="12" y2="22" />
-                    </svg>
-                  )}
-                </button>
-              )}
-            </div>
-            {voice.error && (
-              <p className="mt-2 text-sm text-[#d35b52]">
-                {voice.error}
-                <button
-                  type="button"
-                  onClick={voice.clearError}
-                  className="ml-2 text-xs text-muted underline"
-                >
-                  dismiss
-                </button>
-              </p>
+            <textarea
+              value={answers[question.key] || ""}
+              onChange={(event) => setAnswer(question.key, event.target.value)}
+              rows={5}
+              className={fieldClasses({ size: "lg" })}
+              placeholder="write it how you would say it."
+            />
+            {VOICE_ENABLED && (
+              <div className="mt-3">
+                <VoiceRecorderBar onTranscript={handleVoiceTranscript} />
+              </div>
             )}
           </>
         )
@@ -871,14 +816,18 @@ export default function FeedbackPage() {
               </NoticeCard>
             )}
 
+            {/* Spacer for sticky bottom bar on mobile */}
+            {phase !== "submitting" && <div className="h-20 sm:hidden" />}
+
+            {/* Desktop inline action bar */}
             {phase !== "submitting" && (
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="hidden sm:flex flex-wrap items-center gap-3">
                 <button type="button" className={nextButton.className} style={nextButton.style} onClick={goNext}>
                   {phase === "questions" && currentQ === questions.length - 1
                     ? "send it"
                     : "keep going"}
                 </button>
-                <div className="hidden sm:block rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
+                <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
                   press enter to keep moving
                 </div>
               </div>
@@ -933,6 +882,22 @@ export default function FeedbackPage() {
           </div>
         </div>
       </main>
+
+      {/* Mobile sticky bottom action bar */}
+      {phase !== "submitting" && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-canvas/95 backdrop-blur-xl px-4 py-3 pb-safe sm:hidden">
+          <button
+            type="button"
+            className={`${nextButton.className} w-full !py-3.5 !text-base`}
+            style={nextButton.style}
+            onClick={goNext}
+          >
+            {phase === "questions" && currentQ === questions.length - 1
+              ? "send it"
+              : "keep going"}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
