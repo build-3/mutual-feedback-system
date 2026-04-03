@@ -23,7 +23,10 @@ import {
   getQuestionsForPath,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
-import VoiceRecorderBar from "@/components/VoiceRecorderBar"
+import VoiceRecorderBar, {
+  type VoiceBarState,
+  type VoiceRecorderBarHandle,
+} from "@/components/VoiceRecorderBar"
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
@@ -47,6 +50,15 @@ export default function FeedbackPage() {
   const isAnimating = useRef(false)
   const pendingPopState = useRef<(() => void) | null>(null)
   const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // Voice recorder state — shared with parent for navigation gating
+  const [voiceState, setVoiceState] = useState<VoiceBarState>("idle")
+  const voiceBarRef = useRef<VoiceRecorderBarHandle>(null)
+
+  // Reset voice state when question changes (new question = new recorder instance)
+  useEffect(() => {
+    setVoiceState("idle")
+  }, [currentQ])
 
   // Voice recorder — track which question key the recorder targets
   const voiceQuestionKeyRef = useRef<string>("")
@@ -224,6 +236,16 @@ export default function FeedbackPage() {
     }
 
     if (phase === "questions") {
+      // Gate navigation while voice is active
+      if (voiceState === "recording") {
+        void voiceBarRef.current?.stopAndTranscribe()
+        return
+      }
+      if (voiceState === "transcribing") {
+        setError("hang on — still transcribing your voice note.")
+        return
+      }
+
       const question = questions[currentQ]
       if (!validateAnswer(question)) return
 
@@ -427,6 +449,9 @@ export default function FeedbackPage() {
     setError("")
 
     if (phase === "questions") {
+      // Gate navigation while voice is active
+      if (voiceState === "recording" || voiceState === "transcribing") return
+
       const question = questions[currentQ]
       if (!validateAnswerFromRef(question)) return
 
@@ -537,7 +562,11 @@ export default function FeedbackPage() {
             />
             {VOICE_ENABLED && (
               <div className="mt-3">
-                <VoiceRecorderBar onTranscript={handleVoiceTranscript} />
+                <VoiceRecorderBar
+                  ref={voiceBarRef}
+                  onTranscript={handleVoiceTranscript}
+                  onStateChange={setVoiceState}
+                />
               </div>
             )}
           </>
@@ -822,14 +851,26 @@ export default function FeedbackPage() {
             {/* Desktop inline action bar */}
             {phase !== "submitting" && (
               <div className="hidden sm:flex flex-wrap items-center gap-3">
-                <button type="button" className={nextButton.className} style={nextButton.style} onClick={goNext}>
-                  {phase === "questions" && currentQ === questions.length - 1
+                <button
+                  type="button"
+                  className={nextButton.className}
+                  style={nextButton.style}
+                  onClick={goNext}
+                  disabled={voiceState === "transcribing"}
+                >
+                  {voiceState === "recording"
+                    ? "finish recording"
+                    : voiceState === "transcribing"
+                    ? "transcribing..."
+                    : phase === "questions" && currentQ === questions.length - 1
                     ? "send it"
                     : "keep going"}
                 </button>
-                <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
-                  press enter to keep moving
-                </div>
+                {voiceState === "idle" && (
+                  <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
+                    press enter to keep moving
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -891,8 +932,13 @@ export default function FeedbackPage() {
             className={`${nextButton.className} w-full !py-3.5 !text-base`}
             style={nextButton.style}
             onClick={goNext}
+            disabled={voiceState === "transcribing"}
           >
-            {phase === "questions" && currentQ === questions.length - 1
+            {voiceState === "recording"
+              ? "finish recording"
+              : voiceState === "transcribing"
+              ? "transcribing..."
+              : phase === "questions" && currentQ === questions.length - 1
               ? "send it"
               : "keep going"}
           </button>
