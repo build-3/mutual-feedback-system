@@ -64,7 +64,12 @@ const SearchableDropdown = memo(function SearchableDropdown({
     let list = allEmployees
 
     if (filterRole) {
-      list = list.filter((e) => e.role === filterRole)
+      // Admins are treated as full-timers for feedback purposes
+      if (filterRole === "full_timer") {
+        list = list.filter((e) => e.role === "full_timer" || e.role === "admin")
+      } else {
+        list = list.filter((e) => e.role === filterRole)
+      }
     }
 
     if (excludeEmployeeId) {
