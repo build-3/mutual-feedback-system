@@ -176,7 +176,7 @@ export default function EmployeesPage() {
     <div className="min-h-screen">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-12 sm:pb-12">
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 sm:py-12 sm:pb-12">
         <div className="space-y-6">
           <SectionHeading
             accent={employeesAccent}

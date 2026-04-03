@@ -326,7 +326,7 @@ function InsightsContent() {
       </div>
 
       {/* Content — pb-20 on mobile for bottom tab bar clearance */}
-      <div className="mx-auto max-w-5xl px-4 py-4 pb-24 sm:px-6 sm:py-5 sm:pb-5">
+      <div className="mx-auto max-w-5xl px-4 py-4 pb-16 sm:px-6 sm:py-5 sm:pb-5">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}

@@ -649,7 +649,7 @@ export default function FeedbackPage() {
     return (
       <div className="min-h-screen">
         <Navbar />
-        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-6 pb-24 sm:px-6 sm:py-12 sm:pb-12">
+        <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-4xl items-center px-4 py-6 pb-16 sm:px-6 sm:py-12 sm:pb-12">
           <BrandPanel accent={feedbackAccent} tone="plain" className="w-full p-8 sm:p-12">
             <div className="mx-auto max-w-xl text-center">
               <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-full border border-brand-peach/50 bg-brand-peach/25">
@@ -837,7 +837,7 @@ export default function FeedbackPage() {
             )}
 
             {/* Spacer for sticky bottom bar + tab bar on mobile */}
-            {phase !== "submitting" && <div className="h-32 sm:hidden" />}
+            {phase !== "submitting" && <div className="h-24 sm:hidden" />}
 
             {/* Desktop inline action bar */}
             {phase !== "submitting" && (

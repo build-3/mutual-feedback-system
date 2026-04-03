@@ -119,7 +119,7 @@ export default function Navbar() {
       </nav>
 
       {/* ── Mobile bottom tab bar ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/80 bg-canvas/95 backdrop-blur-xl pb-safe sm:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/80 bg-canvas/95 backdrop-blur-xl sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-stretch">
           {links.map((link) => {
             const active =
@@ -130,19 +130,17 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
-                  active
-                    ? "text-ink"
-                    : "text-muted"
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-colors ${
+                  active ? "text-ink" : "text-muted"
                 }`}
               >
+                {active && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full bg-brand-peach" />
+                )}
                 <NavIcon icon={link.icon} className={`h-5 w-5 ${active ? "stroke-[2.5]" : ""}`} />
                 <span className={`text-[10px] tracking-wide ${active ? "font-bold" : "font-medium"}`}>
                   {link.label}
                 </span>
-                {active && (
-                  <div className="absolute bottom-[calc(env(safe-area-inset-bottom,0px)+2px)] h-[3px] w-5 rounded-full bg-brand-peach" />
-                )}
               </Link>
             )
           })}
