@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       answerId,
       responderId: auth.employee.id,
       responseText,
+      isAdmin: auth.employee.role === "admin",
     })
 
     // Fire notification in background — don't block the response

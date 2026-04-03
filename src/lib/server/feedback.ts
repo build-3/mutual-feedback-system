@@ -277,10 +277,12 @@ export async function saveFeedbackResponse({
   answerId,
   responderId,
   responseText,
+  isAdmin = false,
 }: {
   answerId: string
   responderId: string
   responseText: string
+  isAdmin?: boolean
 }) {
   assertUuid(answerId, "answerId")
   assertUuid(responderId, "responderId")
@@ -320,11 +322,11 @@ export async function saveFeedbackResponse({
 
   const typedSubmission = submission as FeedbackSubmission
 
-  const isAllowedResponder =
+  const isParticipant =
     responderId === typedSubmission.submitted_by_id ||
     responderId === typedSubmission.feedback_for_id
 
-  if (!isAllowedResponder) {
+  if (!isParticipant && !isAdmin) {
     throw new Error("responder must be one of the feedback participants")
   }
 
@@ -352,6 +354,7 @@ export async function saveFeedbackResponse({
       submittedById: typedSubmission.submitted_by_id,
       feedbackForId: typedSubmission.feedback_for_id,
       responseText: normalizedResponseText,
+      isAdmin: isAdmin && !isParticipant,
     },
   }
 }
@@ -364,37 +367,44 @@ export async function sendResponseNotification({
   submittedById,
   feedbackForId,
   responseText,
+  isAdmin = false,
 }: {
   responderId: string
   submittedById: string
   feedbackForId: string | null
   responseText: string
+  isAdmin?: boolean
 }) {
   // Check DB toggle
   const enabled = await isNotificationsEnabled()
   if (!enabled) return
 
-  const notifyId =
-    responderId === feedbackForId ? submittedById : feedbackForId
-
-  if (!notifyId) return
-
   const details = await loadEmployeeDetails()
   const responderDetail = details.get(responderId)
-  const recipientDetail = details.get(notifyId)
-
   const responderName = responderDetail?.name || "Someone"
-  const recipientEmail = recipientDetail?.email
-
-  if (!recipientEmail) return
 
   const preview =
     responseText.length > 100
       ? responseText.slice(0, 100) + "..."
       : responseText
 
-  await sendDirectMessage(
-    recipientEmail,
-    `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${notifyId}`
+  // When an admin (non-participant) responds, notify both participants
+  const notifyIds: string[] = isAdmin
+    ? [submittedById, feedbackForId].filter((id): id is string => !!id)
+    : [responderId === feedbackForId ? submittedById : feedbackForId].filter(
+        (id): id is string => !!id
+      )
+
+  await Promise.all(
+    notifyIds.map(async (notifyId) => {
+      const recipientDetail = details.get(notifyId)
+      const recipientEmail = recipientDetail?.email
+      if (!recipientEmail) return
+
+      await sendDirectMessage(
+        recipientEmail,
+        `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${feedbackForId ?? notifyId}`
+      )
+    })
   )
 }
