@@ -917,7 +917,7 @@ export default function FeedbackPage() {
 
       {/* Mobile sticky bottom action bar — sits above the tab bar */}
       {phase !== "submitting" && (
-        <div className="fixed bottom-[calc(52px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 flex justify-center px-4 py-2 sm:hidden">
+        <div className="fixed bottom-[calc(44px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 flex justify-center px-4 pb-1 sm:hidden">
           <button
             type="button"
             className={`${nextButton.className} !px-10 !py-2.5 !text-sm`}
