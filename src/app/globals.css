@@ -44,7 +44,7 @@ html {
 }
 
 body {
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   color: var(--foreground);
   background:
     radial-gradient(circle at top left, rgba(198, 229, 248, 0.38), transparent 24rem),

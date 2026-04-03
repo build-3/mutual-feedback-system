@@ -7,7 +7,7 @@ import { PillarMark, buttonClasses } from "@/components/ui/brand"
 import { createClient } from "@/lib/supabase/client"
 
 const links = [
-  { href: "/feedback", label: "feedback", icon: "mic" },
+  { href: "/feedback", label: "feedback", icon: "chat" },
   { href: "/insights", label: "insights", icon: "chart" },
   { href: "/employees", label: "people", icon: "people" },
 ]
@@ -21,12 +21,10 @@ const LINK_ACCENTS: Record<string, typeof SCREEN_ACCENTS[keyof typeof SCREEN_ACC
 function NavIcon({ icon, className }: { icon: string; className?: string }) {
   const cn = className || "h-5 w-5"
   switch (icon) {
-    case "mic":
+    case "chat":
       return (
         <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-          <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
-          <line x1="12" y1="18" x2="12" y2="22" />
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       )
     case "chart":
