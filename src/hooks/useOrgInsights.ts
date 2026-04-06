@@ -93,44 +93,55 @@ export function useOrgInsights(
         participationByEmployee[submitterId] = (participationByEmployee[submitterId] || 0) + 1
       }
 
+      // Team avg metrics must only use peer feedback directed at someone (same
+      // as how individual metrics are computed) — exclude self and build3 types
+      // so org averages and individual scores are directly comparable.
+      const isPeerFeedback =
+        type !== 'self' && type !== 'build3' && sub.submission.feedback_for_id != null
+
       for (const ans of sub.answers) {
         const num = parseNumericAnswer(ans.answer_value)
 
-        // Collect into scoreDistributions for all numeric answers
-        if (num !== null) {
+        // Collect into scoreDistributions only for peer feedback answers
+        if (num !== null && isPeerFeedback) {
           if (!scoreDistributions[ans.question_key]) scoreDistributions[ans.question_key] = []
           scoreDistributions[ans.question_key].push(num)
         }
 
         switch (ans.question_key) {
           case 'trust_battery':
-            if (num !== null) trustScores.push(num)
+            if (num !== null && isPeerFeedback) trustScores.push(num)
             break
           case 'purpose_alignment':
-            if (num !== null) purposeScores.push(num)
+            if (num !== null && isPeerFeedback) purposeScores.push(num)
             break
           case 'recommend_rating':
-            if (num !== null) recommendScores.push(num)
+            if (num !== null && isPeerFeedback) recommendScores.push(num)
             break
           case 'nps_score':
+            // NPS is always build3 type — keep as-is
             if (num !== null) npsScores.push(num)
             break
           case 'teal_self_management':
-            if (num !== null) tealSM.push(num)
+            if (num !== null && isPeerFeedback) tealSM.push(num)
             break
           case 'teal_wholeness':
-            if (num !== null) tealW.push(num)
+            if (num !== null && isPeerFeedback) tealW.push(num)
             break
           case 'teal_evolutionary_purpose':
-            if (num !== null) tealEP.push(num)
+            if (num !== null && isPeerFeedback) tealEP.push(num)
             break
           case 'contribution_level': {
-            const label = ans.answer_value
-            contributionDist[label] = (contributionDist[label] || 0) + 1
+            if (isPeerFeedback) {
+              const label = ans.answer_value
+              contributionDist[label] = (contributionDist[label] || 0) + 1
+            }
             break
           }
           case 'ideal_team_player_type':
-            archetypeDist[ans.answer_value] = (archetypeDist[ans.answer_value] || 0) + 1
+            if (isPeerFeedback) {
+              archetypeDist[ans.answer_value] = (archetypeDist[ans.answer_value] || 0) + 1
+            }
             break
           case 'value_strength': {
             const text = ans.answer_value.toLowerCase()

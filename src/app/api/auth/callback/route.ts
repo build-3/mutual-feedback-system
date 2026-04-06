@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin, hasServerSupabaseConfig } from '@/lib/server/supabase-admin'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -19,6 +20,29 @@ export async function GET(request: Request) {
         return NextResponse.redirect(
           `${origin}/login?error=unauthorized`
         )
+      }
+
+      // Auto-create employee record from Google profile so the user is
+      // immediately usable in the app without manual roster entry.
+      // Only inserts if no existing employee already has this email.
+      if (hasServerSupabaseConfig()) {
+        const displayName =
+          user?.user_metadata?.full_name ||
+          user?.user_metadata?.name ||
+          email.split('@')[0]
+
+        const supabaseAdmin = getSupabaseAdmin()
+        const { data: existing } = await supabaseAdmin
+          .from('employees')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle()
+
+        if (!existing) {
+          await supabaseAdmin
+            .from('employees')
+            .insert({ email, name: displayName, role: 'full_timer' })
+        }
       }
 
       return NextResponse.redirect(`${origin}/feedback`)

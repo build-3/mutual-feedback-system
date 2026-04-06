@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
-import { requireAdmin } from "@/lib/server/require-admin"
+import { requireAdmin, requireAuth } from "@/lib/server/require-admin"
 
 function normalizeName(name: string) {
   const trimmed = name.trim()
@@ -28,7 +28,7 @@ function normalizeEmail(email: string | null | undefined) {
 }
 
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requireAuth()
   if (auth.error) return auth.error
 
   const supabaseAdmin = getSupabaseAdmin()
@@ -167,9 +167,7 @@ export async function DELETE(request: Request) {
     const id = body.id
 
     if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        id
-      )
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
     ) {
       return NextResponse.json({ error: "Employee id is invalid." }, { status: 400 })
     }

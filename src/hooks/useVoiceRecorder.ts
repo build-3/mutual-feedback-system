@@ -133,8 +133,9 @@ export function useVoiceRecorder(
       void stopAndTranscribe()
     } else if (state === "idle") {
       void startRecording()
+    } else if (state === "transcribing") {
+      setError("Still transcribing, hang on a sec...")
     }
-    // If transcribing, ignore taps
   }, [state, startRecording, stopAndTranscribe])
 
   const clearError = useCallback(() => setError(null), [])

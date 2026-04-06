@@ -57,6 +57,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "recipientEmail is required." }, { status: 400 })
   }
 
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailPattern.test(recipientEmail.trim())) {
+    return NextResponse.json({ error: "recipientEmail must be a valid email address." }, { status: 400 })
+  }
+
   if (!isGoogleChatConfigured()) {
     return NextResponse.json(
       { error: "Google Chat is not configured. Check env vars: GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_CHAT_SENDER_EMAIL." },
