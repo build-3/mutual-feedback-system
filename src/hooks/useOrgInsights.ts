@@ -78,6 +78,9 @@ export function useOrgInsights(
     const employeeIdsWithFeedback = new Set<string>()
 
     for (const sub of filtered) {
+      // Skip ghost submissions — no answers means the form was never completed
+      if (sub.answers.length === 0) continue
+
       const type = sub.submission.feedback_type
       feedbackByType[type] = (feedbackByType[type] || 0) + 1
 

@@ -100,7 +100,10 @@ export function useEmployeeInsights(
     for (const sub of filteredSubmissions) {
       const { feedback_for_id: feedbackForId, submitted_by_id: submittedById, feedback_type: feedbackType, created_at: createdAt } = sub.submission
 
-      if (feedbackForId === employeeId && feedbackType !== 'self') {
+      // Skip ghost submissions — submission row exists but no answers were saved
+      const hasAnswers = sub.answers.length > 0
+
+      if (feedbackForId === employeeId && feedbackType !== 'self' && hasAnswers) {
         received.push(sub)
         if (!lastFeedbackDate || createdAt > lastFeedbackDate) {
           lastFeedbackDate = createdAt
@@ -109,11 +112,13 @@ export function useEmployeeInsights(
 
       if (submittedById === employeeId) {
         if (feedbackType === 'self') {
-          self.push(sub)
-          if (!lastFeedbackDate || createdAt > lastFeedbackDate) {
-            lastFeedbackDate = createdAt
+          if (hasAnswers) {
+            self.push(sub)
+            if (!lastFeedbackDate || createdAt > lastFeedbackDate) {
+              lastFeedbackDate = createdAt
+            }
           }
-        } else {
+        } else if (hasAnswers) {
           given.push(sub)
         }
       }
