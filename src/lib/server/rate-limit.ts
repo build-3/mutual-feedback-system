@@ -82,7 +82,7 @@ export function consumeRateLimit({
   }
 
   entry.count += 1
-  if (entry.count > limit) {
+  if (entry.count >= limit) {
     return {
       allowed: false,
       retryAfterMs: Math.max(entry.resetAt - now, 0),

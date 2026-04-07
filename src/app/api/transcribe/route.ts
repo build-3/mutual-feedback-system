@@ -14,7 +14,6 @@ const WHISPER_HALLUCINATIONS = [
   "please subscribe",
   "see you next time",
   "bye bye",
-  "you",
   "thank you.",
   "thanks.",
   "...",

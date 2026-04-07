@@ -156,8 +156,12 @@ export function useEmployeeInsights(
         }
 
         // Collect text answers grouped by question_key
-        if (ans.answer_value && typeof ans.answer_value === 'string' && ans.answer_value.trim()) {
-          // Include text answers (non-numeric, non-empty)
+        // Skip keys that are already handled as structured data
+        const isStructuredKey =
+          NUMERIC_KEYS.has(ans.question_key) ||
+          ans.question_key === 'contribution_level' ||
+          ans.question_key === 'ideal_team_player_type'
+        if (!isStructuredKey && ans.answer_value && typeof ans.answer_value === 'string' && ans.answer_value.trim()) {
           const num = parseNumericAnswer(ans.answer_value)
           if (num === null) {
             if (!textFeedbackGrouped[ans.question_key]) textFeedbackGrouped[ans.question_key] = []
