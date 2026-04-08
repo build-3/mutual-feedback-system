@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
 import SearchableDropdown from "@/components/SearchableDropdown"
@@ -30,14 +31,20 @@ import VoiceRecorderBar, {
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
+const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc"])
+
 type Phase = "identify" | "route" | "questions" | "submitting" | "done"
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
 
 export default function FeedbackPage() {
+  const searchParams = useSearchParams()
+  const pathParam = searchParams.get("path") as FeedbackPath | null
+  const deepLinkedPath = pathParam && VALID_PATHS.has(pathParam) ? pathParam : null
+
   const [phase, setPhase] = useState<Phase>("identify")
   const [submitter, setSubmitter] = useState<Employee | null>(null)
-  const [feedbackPath, setFeedbackPath] = useState<FeedbackPath | null>(null)
+  const [feedbackPath, setFeedbackPath] = useState<FeedbackPath | null>(deepLinkedPath)
   const [currentQ, setCurrentQ] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
@@ -110,6 +117,7 @@ export default function FeedbackPage() {
         }
         setSubmitter(me)
         // Stay on identify phase — user confirms or switches before moving on
+        // (deep-linked path: still show identify so user can confirm it's them)
       })
       .catch(() => {
         // Silently fall back to manual name selection
@@ -197,13 +205,13 @@ export default function FeedbackPage() {
   const resetForm = useCallback(() => {
     setPhase("identify")
     setSubmitter(null)
-    setFeedbackPath(null)
+    setFeedbackPath(deepLinkedPath)
     setCurrentQ(0)
     setAnswers({})
     setFeedbackFor(null)
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
-  }, [])
+  }, [deepLinkedPath])
 
   function goNext() {
     setError("")
@@ -214,7 +222,15 @@ export default function FeedbackPage() {
         return
       }
 
-      animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+      if (deepLinkedPath) {
+        // Skip route screen — jump straight to questions
+        animateTransition(true, () => {
+          setCurrentQ(0)
+          setPhase("questions")
+        }, { formPhase: "questions", formQ: 0 })
+      } else {
+        animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+      }
       return
     }
 

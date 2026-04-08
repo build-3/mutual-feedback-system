@@ -199,7 +199,6 @@ export function getFeedbackPathOptions() {
     { key: "build3" as const, label: "build3", blurb: "how the studio feels, works, and can improve" },
     { key: "full_timer" as const, label: "full timer", blurb: "feedback for someone already in the thick of it" },
     { key: "self" as const, label: "self reflection", blurb: "a quick check-in with yourself" },
-    { key: "adhoc" as const, label: "adhoc", blurb: "a quick note for someone — what went well or what could be better" },
   ]
 }
 
