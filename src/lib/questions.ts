@@ -337,6 +337,16 @@ export const ADHOC_QUESTIONS: Question[] = [
   },
 ]
 
+export const SELF_REVIEW_KEYS = [
+  "proud_contribution",
+  "proactive_efforts",
+  "value_upheld",
+  "value_to_improve",
+  "self_improvement",
+] as const
+
+export type SelfReviewKey = (typeof SELF_REVIEW_KEYS)[number]
+
 export function getQuestionsForPath(
   path: "intern" | "build3" | "full_timer" | "self" | "adhoc"
 ): Question[] {

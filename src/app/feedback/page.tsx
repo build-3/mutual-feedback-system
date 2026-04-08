@@ -22,18 +22,30 @@ import { SCREEN_ACCENTS, getFeedbackPathOptions, type FeedbackPath } from "@/lib
 import {
   Question,
   getQuestionsForPath,
+  SELF_REVIEW_KEYS,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
 import VoiceRecorderBar, {
   type VoiceBarState,
   type VoiceRecorderBarHandle,
 } from "@/components/VoiceRecorderBar"
+import SelfReviewStep, { SelfReviewSidebar } from "@/components/SelfReviewStep"
+
+type SelfFeedbackAnswer = {
+  question_key: string
+  question_text: string
+  answer_value: string
+}
+
+type SelfFeedbackData = {
+  answers: SelfFeedbackAnswer[]
+}
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
 const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc"])
 
-type Phase = "identify" | "route" | "questions" | "submitting" | "done"
+type Phase = "identify" | "route" | "self_gate" | "questions" | "self_review" | "submitting" | "done"
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
 
@@ -48,6 +60,9 @@ export default function FeedbackPage() {
   const [currentQ, setCurrentQ] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
+  const [hasSelfFeedback, setHasSelfFeedback] = useState<boolean | null>(null)
+  const [selfFeedbackForTarget, setSelfFeedbackForTarget] = useState<SelfFeedbackData | null>(null)
+  const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
   const [animClass, setAnimClass] = useState("slide-enter-active")
   const [error, setError] = useState("")
   const submittingRef = useRef(false)
@@ -69,9 +84,30 @@ export default function FeedbackPage() {
     setCurrentQ(0)
     setAnswers({})
     setFeedbackFor(null)
+    setSelfFeedbackForTarget(null)
+    setReviewAnswers({})
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
+
+  // Check if the current user has completed self-feedback
+  const selfCheckFetchedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!submitter) return
+    if (selfCheckFetchedFor.current === submitter.id) return
+    selfCheckFetchedFor.current = submitter.id
+    setHasSelfFeedback(null)
+    fetch("/api/self-feedback-check")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!mountedRef.current) return
+        setHasSelfFeedback(data?.hasSelfFeedback ?? false)
+      })
+      .catch(() => {
+        // On error, allow through (don't block with false gate)
+        if (mountedRef.current) setHasSelfFeedback(true)
+      })
+  }, [submitter])
 
   // Voice recorder state — shared with parent for navigation gating
   const [voiceState, setVoiceState] = useState<VoiceBarState>("idle")
@@ -147,9 +183,13 @@ export default function FeedbackPage() {
   // Progress: identify & route are setup steps, then questions fill the rest.
   // Before a path is chosen, questions.length is 0 — clamp progress so it
   // doesn't jump to 100% on the route screen.
-  const totalSteps = 2 + questions.length
+  const hasReviewStep = feedbackPath === "full_timer" && selfFeedbackForTarget != null
+  const totalSteps = 2 + questions.length + (hasReviewStep ? 1 : 0)
   const currentStep =
-    phase === "identify" ? 1 : phase === "route" ? 2 : 2 + currentQ + 1
+    phase === "identify" ? 1
+    : phase === "route" || phase === "self_gate" ? 2
+    : phase === "self_review" ? 3
+    : 2 + currentQ + 1 + (hasReviewStep ? 1 : 0)
   const progress =
     totalSteps <= 2
       ? Math.round((currentStep / totalSteps) * 30)   // cap at ~30% during setup
@@ -224,6 +264,10 @@ export default function FeedbackPage() {
     setCurrentQ(0)
     setAnswers({})
     setFeedbackFor(null)
+    setSelfFeedbackForTarget(null)
+    setReviewAnswers({})
+    selfCheckFetchedFor.current = null
+    setHasSelfFeedback(null)
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
@@ -238,6 +282,16 @@ export default function FeedbackPage() {
       }
 
       if (deepLinkedPath) {
+        // Gate: non-self deep links need self-feedback check
+        const needsGate = deepLinkedPath !== "self" && deepLinkedPath !== "adhoc"
+        if (needsGate && hasSelfFeedback === null) {
+          setError("checking your self-reflection status, one moment...")
+          return
+        }
+        if (needsGate && hasSelfFeedback === false) {
+          animateTransition(true, () => setPhase("self_gate"), { formPhase: "self_gate", formQ: 0 })
+          return
+        }
         // Skip route screen — jump straight to questions
         animateTransition(true, () => {
           setCurrentQ(0)
@@ -246,6 +300,19 @@ export default function FeedbackPage() {
       } else {
         animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
       }
+      return
+    }
+
+    if (phase === "self_gate") {
+      // User clicked "start self-reflection" — route to self questions
+      setFeedbackPath("self")
+      setFeedbackFor(null)
+      setAnswers({})
+      pendingAnswers.current = {}
+      animateTransition(true, () => {
+        setCurrentQ(0)
+        setPhase("questions")
+      }, { formPhase: "questions", formQ: 0 })
       return
     }
 
@@ -266,6 +333,25 @@ export default function FeedbackPage() {
       return
     }
 
+    if (phase === "self_review") {
+      // Validate all agreement radios are filled
+      const missing = SELF_REVIEW_KEYS.some((key) => {
+        const agreementKey = `review_${key}_agreement`
+        const hasAnswer = selfFeedbackForTarget?.answers.find((a) => a.question_key === key)
+        return hasAnswer && !reviewAnswers[agreementKey]
+      })
+      if (missing) {
+        setError("share your view on each reflection before moving on.")
+        return
+      }
+      // Continue to full_timer question index 1
+      animateTransition(true, () => {
+        setCurrentQ(1)
+        setPhase("questions")
+      }, { formPhase: "questions", formQ: 1 })
+      return
+    }
+
     if (phase === "questions") {
       // Gate navigation while voice is active
       if (voiceState === "recording") {
@@ -280,6 +366,15 @@ export default function FeedbackPage() {
       const question = questions[currentQ]
       if (!validateAnswer(question)) return
 
+      // Full-timer question 0 (feedback_for): auto-advance from SearchableDropdown
+      // handles the self-review fetch. If the user clicks "keep going" instead,
+      // skip if a fetch is already in-flight; otherwise trigger it here.
+      if (feedbackPath === "full_timer" && currentQ === 0 && feedbackFor) {
+        if (fetchingSelfFeedbackRef.current) return
+        fetchSelfFeedbackAndAdvance(feedbackFor.id)
+        return
+      }
+
       if (currentQ < questions.length - 1) {
         animateTransition(true, () => setCurrentQ((previous) => previous + 1), {
           formPhase: "questions",
@@ -293,6 +388,17 @@ export default function FeedbackPage() {
 
   function goBack() {
     setError("")
+
+    if (phase === "self_gate") {
+      window.history.back()
+      return
+    }
+
+    if (phase === "self_review") {
+      // Go back to question 0 (feedback_for)
+      window.history.back()
+      return
+    }
 
     if (phase === "route" || phase === "questions") {
       window.history.back()
@@ -382,6 +488,31 @@ export default function FeedbackPage() {
             question_key: question.key,
             question_text: question.text,
             answer_value: value,
+          })
+        }
+      }
+    }
+
+    // Inject self-review answers for full_timer submissions
+    if (feedbackPath === "full_timer" && selfFeedbackForTarget) {
+      for (const selfAnswer of selfFeedbackForTarget.answers) {
+        const agreementKey = `review_${selfAnswer.question_key}_agreement`
+        const commentKey = `review_${selfAnswer.question_key}_comment`
+        const agreementValue = reviewAnswers[agreementKey]?.trim()
+        const commentValue = reviewAnswers[commentKey]?.trim()
+
+        if (agreementValue) {
+          answerRows.push({
+            question_key: agreementKey,
+            question_text: `Review of self-reflection: ${selfAnswer.question_text} — Agreement`,
+            answer_value: agreementValue,
+          })
+        }
+        if (commentValue) {
+          answerRows.push({
+            question_key: commentKey,
+            question_text: `Review of self-reflection: ${selfAnswer.question_text} — Comment`,
+            answer_value: commentValue,
           })
         }
       }
@@ -508,6 +639,41 @@ export default function FeedbackPage() {
     return !!(value && value.trim())
   }
 
+  /** Fetch target's self-feedback and transition to review or skip to next question */
+  const fetchingSelfFeedbackRef = useRef(false)
+  function fetchSelfFeedbackAndAdvance(employeeId: string) {
+    if (fetchingSelfFeedbackRef.current) return
+    fetchingSelfFeedbackRef.current = true
+    fetch(`/api/self-feedback/${employeeId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!mountedRef.current) return
+        fetchingSelfFeedbackRef.current = false
+        if (data?.submission?.answers?.length > 0) {
+          setSelfFeedbackForTarget({ answers: data.submission.answers })
+          setReviewAnswers({})
+          animateTransition(true, () => setPhase("self_review"), { formPhase: "self_review", formQ: 0 })
+        } else {
+          // No self-feedback — skip review, go to question 1
+          setSelfFeedbackForTarget(null)
+          animateTransition(true, () => setCurrentQ(1), {
+            formPhase: "questions",
+            formQ: 1,
+          })
+        }
+      })
+      .catch(() => {
+        fetchingSelfFeedbackRef.current = false
+        if (!mountedRef.current) return
+        // On error, skip review
+        setSelfFeedbackForTarget(null)
+        animateTransition(true, () => setCurrentQ(1), {
+          formPhase: "questions",
+          formQ: 1,
+        })
+      })
+  }
+
   function renderQuestion(question: Question) {
     switch (question.type) {
       case "employee_search":
@@ -519,6 +685,11 @@ export default function FeedbackPage() {
               if (employee && (!submitter || employee.id !== submitter.id)) {
                 safeTimeout(() => {
                   if (!mountedRef.current) return
+                  // For full_timer path at question 0, fetch self-feedback and go to review
+                  if (feedbackPath === "full_timer" && currentQ === 0) {
+                    fetchSelfFeedbackAndAdvance(employee.id)
+                    return
+                  }
                   if (currentQ < questions.length - 1) {
                     animateTransition(true, () => setCurrentQ((prev) => prev + 1), {
                       formPhase: "questions",
@@ -805,8 +976,25 @@ export default function FeedbackPage() {
                           setFeedbackPath(option.key)
                           setFeedbackFor(null)
                           setAnswers({})
+                          setSelfFeedbackForTarget(null)
+                          setReviewAnswers({})
                           pendingAnswers.current = {}
                           setError("")
+
+                          // Gate: non-self paths require self-feedback first
+                          const needsGate = option.key !== "self"
+                          if (needsGate && hasSelfFeedback === null) {
+                            setError("checking your self-reflection status, one moment...")
+                            return
+                          }
+                          if (needsGate && hasSelfFeedback === false) {
+                            safeTimeout(() => {
+                              if (!mountedRef.current) return
+                              animateTransition(true, () => setPhase("self_gate"), { formPhase: "self_gate", formQ: 0 })
+                            }, 200)
+                            return
+                          }
+
                           safeTimeout(() => {
                             if (!mountedRef.current) return
                             animateTransition(
@@ -835,6 +1023,28 @@ export default function FeedbackPage() {
                   })}
                 </div>
               </BrandPanel>
+            )}
+
+            {phase === "self_gate" && (
+              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                <SectionHeading
+                  accent={feedbackAccent}
+                  eyebrow="one thing first"
+                  title="complete your self-reflection"
+                  description="before sharing feedback on others, we need your own self-reflection. it only takes a few minutes."
+                />
+              </BrandPanel>
+            )}
+
+            {phase === "self_review" && selfFeedbackForTarget && feedbackFor && (
+              <SelfReviewStep
+                feedbackForName={feedbackFor.name}
+                answers={selfFeedbackForTarget.answers}
+                reviewAnswers={reviewAnswers}
+                onReviewChange={(key, value) =>
+                  setReviewAnswers((prev) => ({ ...prev, [key]: value }))
+                }
+              />
             )}
 
             {phase === "questions" && questions[currentQ] && (
@@ -884,11 +1094,13 @@ export default function FeedbackPage() {
                     ? "finish recording"
                     : voiceState === "transcribing"
                     ? "transcribing..."
+                    : phase === "self_gate"
+                    ? "start self-reflection"
                     : phase === "questions" && currentQ === questions.length - 1
                     ? "send it"
                     : "keep going"}
                 </button>
-                {voiceState === "idle" && (
+                {voiceState === "idle" && phase !== "self_gate" && (
                   <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
                     press enter to keep moving
                   </div>
@@ -898,6 +1110,12 @@ export default function FeedbackPage() {
           </div>
 
           <div className="hidden lg:block space-y-4 lg:sticky lg:top-[142px] lg:self-start">
+            {phase === "self_review" && selfFeedbackForTarget && feedbackFor ? (
+              <SelfReviewSidebar
+                feedbackForName={feedbackFor.name}
+                answers={selfFeedbackForTarget.answers}
+              />
+            ) : (
             <BrandPanel accent={feedbackAccent} tone="soft" className="brand-lines brand-pillars p-6">
               <div className="flex items-center gap-2">
                 <PillarMark accent={feedbackAccent} />
@@ -924,6 +1142,7 @@ export default function FeedbackPage() {
                 />
               </div>
             </BrandPanel>
+            )}
 
             <BrandPanel accent={feedbackAccent} tone="washed" className="brand-lines p-6">
               <div className="text-xs font-semibold tracking-[0.08em] text-muted">
@@ -960,6 +1179,8 @@ export default function FeedbackPage() {
               ? "finish recording"
               : voiceState === "transcribing"
               ? "transcribing..."
+              : phase === "self_gate"
+              ? "start self-reflection"
               : phase === "questions" && currentQ === questions.length - 1
               ? "send it"
               : "keep going"}
