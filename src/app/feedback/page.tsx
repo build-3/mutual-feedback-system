@@ -58,6 +58,21 @@ export default function FeedbackPage() {
   const pendingPopState = useRef<(() => void) | null>(null)
   const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
 
+  // Reset form when the URL path param changes (e.g. switching between
+  // /feedback and /feedback?path=adhoc while the component stays mounted)
+  const prevDeepLinkedPath = useRef(deepLinkedPath)
+  useEffect(() => {
+    if (prevDeepLinkedPath.current === deepLinkedPath) return
+    prevDeepLinkedPath.current = deepLinkedPath
+    setPhase("identify")
+    setFeedbackPath(deepLinkedPath)
+    setCurrentQ(0)
+    setAnswers({})
+    setFeedbackFor(null)
+    setError("")
+    window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
+  }, [deepLinkedPath])
+
   // Voice recorder state — shared with parent for navigation gating
   const [voiceState, setVoiceState] = useState<VoiceBarState>("idle")
   const voiceBarRef = useRef<VoiceRecorderBarHandle>(null)
