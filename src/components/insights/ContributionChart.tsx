@@ -1,9 +1,7 @@
 "use client"
 
 import { memo } from "react"
-import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
-import ChartContainer from "./ChartContainer"
 
 interface Props {
   contributionCounts: Record<string, number>
@@ -18,26 +16,34 @@ const KEY_TO_LEVEL: Record<string, number> = {
 
 const LEVELS = [
   {
-    label: "finding feet",
-    fullLabel: "finding their feet",
-    color: "#9d9b9a",
-  },
-  {
-    label: "reliable",
-    fullLabel: "reliable support",
-    color: "#c6e5f8",
-  },
-  {
-    label: "independent",
-    fullLabel: "independent contributor",
-    color: "#79c0a6",
-  },
-  {
     label: "leader",
     fullLabel: "leader",
     color: "#f5bb9f",
+    bgColor: "rgba(245, 187, 159, 0.15)",
+  },
+  {
+    label: "independent contributor",
+    fullLabel: "independent contributor",
+    color: "#79c0a6",
+    bgColor: "rgba(121, 192, 166, 0.15)",
+  },
+  {
+    label: "reliable support",
+    fullLabel: "reliable support",
+    color: "#c6e5f8",
+    bgColor: "rgba(198, 229, 248, 0.15)",
+  },
+  {
+    label: "finding their feet",
+    fullLabel: "finding their feet",
+    color: "#9d9b9a",
+    bgColor: "rgba(157, 155, 154, 0.10)",
   },
 ]
+
+// Original order: finding feet=0, reliable=1, independent=2, leader=3
+// Display order (reversed): leader=3, independent=2, reliable=1, finding feet=0
+const DISPLAY_TO_ORIGINAL = [3, 2, 1, 0]
 
 const LABEL_KEYWORDS = ["finding", "reliable", "independent", "leader"]
 
@@ -56,23 +62,27 @@ function resolveIndex(value: string) {
 export default memo(function ContributionChart({ contributionCounts }: Props) {
   if (Object.keys(contributionCounts).length === 0) return null
 
-  const data = LEVELS.map((level, index) => {
-    let count = 0
+  // Build counts in original order (finding feet=0, reliable=1, independent=2, leader=3)
+  const originalCounts = [0, 0, 0, 0]
 
-    for (const [key, value] of Object.entries(contributionCounts)) {
-      const resolved = resolveIndex(key)
-      if (resolved !== null && resolved === index) count += value
-    }
+  for (const [key, value] of Object.entries(contributionCounts)) {
+    const resolved = resolveIndex(key)
+    if (resolved !== null) originalCounts[resolved] += value
+  }
 
-    return {
-      name: level.label,
-      fullName: level.fullLabel,
-      count,
-      color: level.color,
-    }
+  const totalReviews = originalCounts.reduce((sum, c) => sum + c, 0)
+  if (totalReviews === 0) return null
+
+  const maxCount = Math.max(...originalCounts)
+
+  // Build display data in reversed order (leader first)
+  const rows = LEVELS.map((level, displayIndex) => {
+    const originalIndex = DISPLAY_TO_ORIGINAL[displayIndex]
+    const count = originalCounts[originalIndex]
+    const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0
+
+    return { ...level, count, percentage }
   })
-
-  if (data.every((entry) => entry.count === 0)) return null
 
   return (
     <BrandPanel accent="lavender" tone="soft" className="brand-lines p-5 sm:p-6">
@@ -81,34 +91,38 @@ export default memo(function ContributionChart({ contributionCounts }: Props) {
         how peers rate contribution
       </h3>
       <p className="mt-1 text-xs leading-5 text-muted">
-        this shows the shape of peer feedback, not a single final verdict.
+        distribution across {totalReviews}{" "}
+        {totalReviews === 1 ? "review" : "reviews"}.
       </p>
 
-      <div className="mt-4 h-[175px] sm:h-[190px]">
-        <ChartContainer height="100%">
-          <BarChart data={data} layout="vertical" margin={{ left: 0, right: 12, top: 0, bottom: 0 }}>
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#9d9b9a" }} />
-            <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 11, fill: "#5f5b58" }} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#ffffff",
-                border: "1px solid rgba(29, 29, 27, 0.08)",
-                borderRadius: "18px",
-                fontSize: "13px",
-              }}
-              formatter={(value, _name, props) => {
-                const count = Number(value)
-                const fullName = (props as { payload?: { fullName?: string } }).payload?.fullName ?? ""
-                return [`${count} ${count === 1 ? "review" : "reviews"}`, fullName]
-              }}
-            />
-            <Bar dataKey="count" radius={[0, 10, 10, 0]} barSize={22}>
-              {data.map((entry) => (
-                <Cell key={entry.name} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+      <div className="mt-5 space-y-3">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-sm font-medium tracking-[-0.01em] text-ink">
+                {row.label}
+              </span>
+              <span
+                className="min-w-[3rem] text-right text-sm font-bold tabular-nums"
+                style={{ color: row.count > 0 ? row.color : "#9d9b9a" }}
+              >
+                {row.count}{" "}
+                <span className="text-xs font-normal text-muted">
+                  {row.count === 1 ? "peer" : "peers"}
+                </span>
+              </span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-black/[0.04]">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${row.percentage}%`,
+                  backgroundColor: row.count > 0 ? row.color : "transparent",
+                }}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </BrandPanel>
   )

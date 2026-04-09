@@ -2,13 +2,11 @@
 
 import { memo } from "react"
 import { NumericMetric } from "@/hooks/useEmployeeInsights"
-import { getContributionLabel as formatContributionLevel } from "@/lib/brand"
 import { getScoreColor } from "@/lib/insights-helpers"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
 
 interface Props {
   metrics: Record<string, NumericMetric>
-  contributionCounts?: Record<string, number>
   orgAvgMetrics?: Record<string, number>
 }
 
@@ -17,8 +15,7 @@ interface CardConfig {
   label: string
   scale: "1-5" | "0-100"
   suffix: string
-  accent: "sky" | "peach" | "sage" | "lavender" | "pink"
-  isContribution?: boolean
+  accent: "sky" | "peach" | "sage" | "pink"
 }
 
 const CARD_CONFIGS: CardConfig[] = [
@@ -44,14 +41,6 @@ const CARD_CONFIGS: CardConfig[] = [
     accent: "sage",
   },
   {
-    key: "contribution_level",
-    label: "contribution level",
-    scale: "1-5",
-    suffix: "",
-    accent: "lavender",
-    isContribution: true,
-  },
-  {
     key: "adhoc_rating",
     label: "adhoc score",
     scale: "1-5",
@@ -60,30 +49,11 @@ const CARD_CONFIGS: CardConfig[] = [
   },
 ]
 
-function getContributionMode(counts: Record<string, number>) {
-  let winner = ""
-  let highest = 0
-
-  for (const [key, count] of Object.entries(counts)) {
-    if (count > highest) {
-      highest = count
-      winner = key
-    }
-  }
-
-  return formatContributionLevel(winner)
-}
-
 export default memo(function ScoreCardRow({
   metrics,
-  contributionCounts,
   orgAvgMetrics,
 }: Props) {
   const cards = CARD_CONFIGS.filter((card) => {
-    if (card.isContribution) {
-      return contributionCounts && Object.keys(contributionCounts).length > 0
-    }
-
     return metrics[card.key] && metrics[card.key].count > 0
   })
 
@@ -92,31 +62,6 @@ export default memo(function ScoreCardRow({
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => {
-        if (card.isContribution && contributionCounts) {
-          const totalReviews = Object.values(contributionCounts).reduce(
-            (sum, value) => sum + value,
-            0
-          )
-
-          return (
-            <BrandPanel
-              key={card.key}
-              accent={card.accent}
-              tone="washed"
-              className="brand-lines p-4"
-            >
-              <Eyebrow accent={card.accent}>{card.label}</Eyebrow>
-              <div className="mt-3 text-xl font-bold tracking-[-0.05em] capitalize text-ink">
-                {getContributionMode(contributionCounts)}
-              </div>
-              <p className="mt-2 text-xs leading-5 text-muted">
-                most common view across {totalReviews}{" "}
-                {totalReviews === 1 ? "review" : "reviews"}.
-              </p>
-            </BrandPanel>
-          )
-        }
-
         const metric = metrics[card.key]
         if (!metric) return null
 

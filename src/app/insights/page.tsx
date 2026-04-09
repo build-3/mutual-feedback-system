@@ -62,10 +62,6 @@ const SelfReflectionsPanel = dynamic(
   () => import("@/components/insights/SelfReflectionsPanel"),
   { loading: LoadingSkeleton }
 )
-const TrustBatteryGauge = dynamic(
-  () => import("@/components/insights/TrustBatteryGauge"),
-  { loading: LoadingSkeleton }
-)
 
 const insightsAccent = SCREEN_ACCENTS.insights
 
@@ -345,7 +341,6 @@ function InsightsContent() {
 
             <ScoreCardRow
               metrics={insights.metrics}
-              contributionCounts={insights.contributionCounts}
               orgAvgMetrics={orgMetrics.avgMetricsMap}
             />
 
@@ -356,17 +351,14 @@ function InsightsContent() {
                     metrics={insights.metrics}
                     orgAvgMetrics={orgMetrics.avgMetricsMap}
                   />
-                  <TrustBatteryGauge metrics={insights.metrics} />
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
                   <ContributionChart
                     contributionCounts={insights.contributionCounts}
                   />
-                  <ITPArchetypeBadge
-                    archetypeCounts={insights.archetypeCounts}
-                  />
                 </div>
+
+                <ITPArchetypeBadge
+                  archetypeCounts={insights.archetypeCounts}
+                />
               </>
             )}
 
