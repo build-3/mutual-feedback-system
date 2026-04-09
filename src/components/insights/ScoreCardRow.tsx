@@ -59,8 +59,15 @@ export default memo(function ScoreCardRow({
 
   if (cards.length === 0) return null
 
+  const colClass =
+    cards.length <= 2
+      ? "grid-cols-1 sm:grid-cols-2"
+      : cards.length === 3
+        ? "grid-cols-2 lg:grid-cols-3"
+        : "grid-cols-2 lg:grid-cols-4"
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className={`grid gap-3 sm:gap-4 ${colClass}`}>
       {cards.map((card) => {
         const metric = metrics[card.key]
         if (!metric) return null
