@@ -409,12 +409,12 @@ const TimelineItem = memo(function TimelineItem({
         <div className="mt-2 min-h-[3.5rem] w-px flex-1 bg-black/[0.08]" />
       </div>
 
-      <div className="flex-1 pb-3 sm:pb-4">
+      <div className="flex-1 pb-2.5 sm:pb-4 min-w-0">
         <BrandPanel accent={accent} tone="washed" className="brand-lines overflow-hidden">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-left"
+            className="flex w-full flex-wrap items-center gap-2 sm:gap-3 px-3.5 py-3 sm:px-5 sm:py-4 text-left"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -444,7 +444,7 @@ const TimelineItem = memo(function TimelineItem({
                 transition={{ duration: 0.22 }}
                 className="overflow-hidden border-t border-line"
               >
-                <div className="grid gap-3 px-5 py-5">
+                <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">
                   {submission.answers.map((answer) => (
                     <AnswerDisplay
                       key={answer.id}
@@ -516,16 +516,16 @@ export default function FeedbackTimeline({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
         <Eyebrow accent="sky">{title}</Eyebrow>
         {showTabs && (
-          <div className="ml-auto flex gap-1 rounded-full border border-line bg-white/60 p-0.5">
+          <div className="sm:ml-auto flex gap-0.5 sm:gap-1 rounded-full border border-line bg-white/60 p-0.5 overflow-x-auto">
             {visibleTabs.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setFilter(tab.key)}
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.06em] transition-colors ${
+                className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold tracking-[0.06em] transition-colors ${
                   filter === tab.key
                     ? "bg-brand-black text-white"
                     : "text-muted hover:text-ink"

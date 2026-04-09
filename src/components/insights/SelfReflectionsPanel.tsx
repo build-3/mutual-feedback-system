@@ -22,7 +22,7 @@ export default function SelfReflectionsPanel({ submissions }: Props) {
             key={submission.submission.id}
             accent="sage"
             tone="washed"
-            className="brand-lines p-5 sm:p-6"
+            className="brand-lines p-4 sm:p-6"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-brand-sage/45 bg-brand-sage/20 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-ink">

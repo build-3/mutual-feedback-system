@@ -43,13 +43,13 @@ export default memo(function CompetencyRadar({ metrics, orgAvgMetrics }: Props) 
   }))
 
   return (
-    <BrandPanel accent="sky" tone="soft" className="brand-lines p-5 sm:p-6">
+    <BrandPanel accent="sky" tone="soft" className="brand-lines p-4 sm:p-6">
       <Eyebrow accent="sky">competency map</Eyebrow>
 
-      <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
+      <h3 className="mt-1.5 sm:mt-2 text-base sm:text-lg font-bold tracking-[-0.04em] text-ink">
         how this person shows up
       </h3>
-      <p className="mt-1 text-xs leading-5 text-muted">
+      <p className="mt-1 text-[11px] sm:text-xs leading-5 text-muted">
         a quick read on core teal and team-player signals.
       </p>
 
@@ -104,20 +104,20 @@ export default memo(function CompetencyRadar({ metrics, orgAvgMetrics }: Props) 
         </ChartContainer>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
         {data
           .filter((dimension) => dimension.score > 0)
           .map((dimension) => (
             <span
               key={dimension.dimension}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-semibold"
               style={{
                 backgroundColor: "rgba(198, 229, 248, 0.16)",
                 borderColor: "rgba(198, 229, 248, 0.5)",
               }}
             >
               <span
-                className="h-2 w-2 rounded-full"
+                className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full"
                 style={{ backgroundColor: getScoreColor(dimension.score, "1-5") }}
               />
               <span className="text-muted">{dimension.dimension}</span>

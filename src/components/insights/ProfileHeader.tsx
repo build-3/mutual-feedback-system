@@ -28,23 +28,23 @@ export default memo(function ProfileHeader({
     : "not yet"
 
   return (
-    <BrandPanel accent="sky" tone="plain" className="brand-lines p-5 sm:p-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between min-w-0">
-        <div className="flex items-center gap-4">
+    <BrandPanel accent="sky" tone="plain" className="brand-lines p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between min-w-0">
+        <div className="flex items-center gap-3 sm:gap-4">
           <div
-            className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white shadow-brand"
+            className="flex h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center rounded-full text-base sm:text-xl font-bold text-white shadow-brand"
             style={{ backgroundColor: getAvatarColor(employee.name) }}
           >
             {getInitials(employee.name)}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1 sm:space-y-1.5">
             <Eyebrow accent="sky">profile</Eyebrow>
-            <h1 className="text-2xl font-bold tracking-[-0.06em] text-ink">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-[-0.06em] text-ink">
               {employee.name}
             </h1>
             <span
-              className="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+              className="inline-flex items-center rounded-full border px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold"
               style={{
                 backgroundColor:
                   roleAccent === "lavender"
@@ -61,7 +61,7 @@ export default memo(function ProfileHeader({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 min-w-0 w-full overflow-hidden">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 sm:gap-3 min-w-0 w-full overflow-hidden">
           <StatPill
             accent="sky"
             label="received"

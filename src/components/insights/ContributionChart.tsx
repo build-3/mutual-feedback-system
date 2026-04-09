@@ -85,34 +85,34 @@ export default memo(function ContributionChart({ contributionCounts }: Props) {
   })
 
   return (
-    <BrandPanel accent="lavender" tone="soft" className="brand-lines p-5 sm:p-6">
+    <BrandPanel accent="lavender" tone="soft" className="brand-lines p-4 sm:p-6">
       <Eyebrow accent="lavender">contribution view</Eyebrow>
-      <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
+      <h3 className="mt-1.5 sm:mt-2 text-base sm:text-lg font-bold tracking-[-0.04em] text-ink">
         how peers rate contribution
       </h3>
-      <p className="mt-1 text-xs leading-5 text-muted">
+      <p className="mt-1 text-[11px] sm:text-xs leading-5 text-muted">
         distribution across {totalReviews}{" "}
         {totalReviews === 1 ? "review" : "reviews"}.
       </p>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-4 sm:mt-5 space-y-2.5 sm:space-y-3">
         {rows.map((row) => (
           <div key={row.label}>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-sm font-medium tracking-[-0.01em] text-ink">
+            <div className="mb-1 sm:mb-1.5 flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-medium tracking-[-0.01em] text-ink">
                 {row.label}
               </span>
               <span
-                className="min-w-[3rem] text-right text-sm font-bold tabular-nums"
+                className="min-w-[3rem] text-right text-xs sm:text-sm font-bold tabular-nums"
                 style={{ color: row.count > 0 ? row.color : "#9d9b9a" }}
               >
                 {row.count}{" "}
-                <span className="text-xs font-normal text-muted">
+                <span className="text-[10px] sm:text-xs font-normal text-muted">
                   {row.count === 1 ? "peer" : "peers"}
                 </span>
               </span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-black/[0.04]">
+            <div className="h-2 sm:h-2.5 overflow-hidden rounded-full bg-black/[0.04]">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{

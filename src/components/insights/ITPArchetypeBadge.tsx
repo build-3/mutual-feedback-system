@@ -17,12 +17,12 @@ export default function ITPArchetypeBadge({ archetypeCounts }: Props) {
   const badgeColor = ITP_BADGE_COLORS[topArchetype] || "bg-gray-100 text-gray-800"
 
   return (
-    <BrandPanel accent="yellow" tone="soft" className="brand-lines p-5 sm:p-6">
+    <BrandPanel accent="yellow" tone="soft" className="brand-lines p-4 sm:p-6">
       <Eyebrow accent="yellow">archetype</Eyebrow>
-      <h3 className="mt-2 text-lg font-bold tracking-[-0.04em] text-ink">
+      <h3 className="mt-1.5 sm:mt-2 text-base sm:text-lg font-bold tracking-[-0.04em] text-ink">
         ideal team player read
       </h3>
-      <p className="mt-1 text-xs leading-5 text-muted">
+      <p className="mt-1 text-[11px] sm:text-xs leading-5 text-muted">
         the most common archetype based on the scores submitted in this range.
       </p>
 

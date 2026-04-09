@@ -257,7 +257,7 @@ function InsightsContent() {
       <Navbar />
 
       {/* Header */}
-      <div className="mx-auto max-w-5xl px-4 pt-4 sm:pt-8 sm:px-6">
+      <div className="mx-auto max-w-5xl px-3 pt-3 sm:pt-8 sm:px-6">
 
         <SectionHeading
           accent="sky"
@@ -322,7 +322,7 @@ function InsightsContent() {
       </div>
 
       {/* Content — pb-20 on mobile for bottom tab bar clearance */}
-      <div className="mx-auto max-w-5xl px-4 py-4 pb-16 sm:px-6 sm:py-5 sm:pb-5">
+      <div className="mx-auto max-w-5xl px-3 py-3 pb-20 sm:px-6 sm:py-5 sm:pb-5">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}
@@ -330,7 +330,7 @@ function InsightsContent() {
             employees={employees}
           />
         ) : insights.employee ? (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <ProfileHeader
               employee={insights.employee}
               receivedCount={insights.receivedSubmissions.length}
@@ -346,7 +346,7 @@ function InsightsContent() {
 
             {hasDetailedData && (
               <>
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                   <CompetencyRadar
                     metrics={insights.metrics}
                     orgAvgMetrics={orgMetrics.avgMetricsMap}

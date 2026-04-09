@@ -29,8 +29,8 @@ export default function FeedbackGivenPanel({
     <div className="space-y-4">
       <Eyebrow accent="peach">feedback shared</Eyebrow>
 
-      <BrandPanel accent="peach" tone="soft" className="brand-lines p-5 sm:p-6">
-        <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <BrandPanel accent="peach" tone="soft" className="brand-lines p-4 sm:p-6">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
           <StatPill
             accent="peach"
             label="reach"
