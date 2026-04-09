@@ -184,7 +184,9 @@ export default function FeedbackPage() {
   // Before a path is chosen, questions.length is 0 — clamp progress so it
   // doesn't jump to 100% on the route screen.
   const hasReviewStep = feedbackPath === "full_timer" && selfFeedbackForTarget != null
-  const totalSteps = 2 + questions.length + (hasReviewStep ? 1 : 0)
+  // Adhoc skips 1 question (either "what went well" or "what could be better")
+  const adhocSkipped = feedbackPath === "adhoc" ? 1 : 0
+  const totalSteps = 2 + questions.length - adhocSkipped + (hasReviewStep ? 1 : 0)
   const currentStep =
     phase === "identify" ? 1
     : phase === "route" || phase === "self_gate" ? 2
@@ -375,15 +377,44 @@ export default function FeedbackPage() {
         return
       }
 
-      if (currentQ < questions.length - 1) {
-        animateTransition(true, () => setCurrentQ((previous) => previous + 1), {
+      const nextQ = getNextAdhocQ(currentQ, answers)
+      if (nextQ !== null) {
+        animateTransition(true, () => setCurrentQ(nextQ), {
           formPhase: "questions",
-          formQ: currentQ + 1,
+          formQ: nextQ,
         })
       } else {
         void handleSubmit()
       }
     }
+  }
+
+  /**
+   * For adhoc feedback: skip "what went well" when rating ≤ 3,
+   * skip "what could be better" when rating ≥ 4.
+   * Returns null when there are no more questions (should submit).
+   */
+  function getNextAdhocQ(
+    fromQ: number,
+    source: Record<string, string>
+  ): number | null {
+    if (feedbackPath !== "adhoc") {
+      return fromQ < questions.length - 1 ? fromQ + 1 : null
+    }
+
+    const rating = Number(source["adhoc_rating"] || 0)
+    let next = fromQ + 1
+
+    // adhoc_positive is index 2 — skip if rating ≤ 3
+    if (next < questions.length && questions[next]?.key === "adhoc_positive" && rating <= 3) {
+      next += 1
+    }
+    // adhoc_improve is index 3 — skip if rating ≥ 4
+    if (next < questions.length && questions[next]?.key === "adhoc_improve" && rating >= 4) {
+      next += 1
+    }
+
+    return next < questions.length ? next : null
   }
 
   function goBack() {
@@ -608,10 +639,11 @@ export default function FeedbackPage() {
       const question = questions[currentQ]
       if (!validateAnswerFromRef(question)) return
 
-      if (currentQ < questions.length - 1) {
-        animateTransition(true, () => setCurrentQ((previous) => previous + 1), {
+      const nextQ = getNextAdhocQ(currentQ, pendingAnswers.current)
+      if (nextQ !== null) {
+        animateTransition(true, () => setCurrentQ(nextQ), {
           formPhase: "questions",
-          formQ: currentQ + 1,
+          formQ: nextQ,
         })
       } else {
         void handleSubmit()
