@@ -1,0 +1,8 @@
+- generic [ref=e3]:
+  - generic [ref=e10]:
+    - heading "build3" [level=1] [ref=e11]
+    - paragraph [ref=e12]: mutual feedback system
+  - button "sign in with google" [ref=e13] [cursor=pointer]:
+    - img [ref=e14]
+    - text: sign in with google
+  - paragraph [ref=e19]: restricted to @build3.org accounts

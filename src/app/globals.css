@@ -145,6 +145,12 @@ textarea {
   transition: opacity 0.12s ease-in, transform 0.12s ease-in;
 }
 
+/* Stage-complete progress fill animation */
+@keyframes progressFill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
 /* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
   .slide-enter,

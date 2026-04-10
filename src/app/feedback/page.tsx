@@ -45,7 +45,16 @@ const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
 const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc"])
 
-type Phase = "identify" | "route" | "self_gate" | "build3_gate" | "questions" | "self_review" | "submitting" | "done"
+type Phase = "identify" | "route" | "questions" | "self_review" | "stage_complete" | "submitting" | "done"
+
+/** Human-readable labels for stage pills in the stepper */
+const STAGE_LABELS: Record<FeedbackPath, string> = {
+  self: "self-reflection",
+  build3: "build3 feedback",
+  full_timer: "full timer review",
+  intern: "intern review",
+  adhoc: "quick note",
+}
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
 
@@ -62,8 +71,11 @@ export default function FeedbackPage() {
   const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
   const [hasSelfFeedback, setHasSelfFeedback] = useState<boolean | null>(null)
   const [hasBuild3Feedback, setHasBuild3Feedback] = useState<boolean | null>(null)
-  // Track the user's original intent so we can resume after gates complete
+  // Multi-stage pipeline: when gates are required, stages lists the full journey
+  // e.g. ["self", "build3", "full_timer"]. intendedPath is the user's original pick.
   const [intendedPath, setIntendedPath] = useState<FeedbackPath | null>(null)
+  const [stages, setStages] = useState<FeedbackPath[]>([])
+  const [currentStageIndex, setCurrentStageIndex] = useState(0)
   const [selfFeedbackForTarget, setSelfFeedbackForTarget] = useState<SelfFeedbackData | null>(null)
   const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
   const [animClass, setAnimClass] = useState("slide-enter-active")
@@ -90,6 +102,8 @@ export default function FeedbackPage() {
     setSelfFeedbackForTarget(null)
     setReviewAnswers({})
     setIntendedPath(null)
+    setStages([])
+    setCurrentStageIndex(0)
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
@@ -195,22 +209,44 @@ export default function FeedbackPage() {
     [feedbackPath]
   )
 
-  // Progress: identify & route are setup steps, then questions fill the rest.
-  // Before a path is chosen, questions.length is 0 — clamp progress so it
-  // doesn't jump to 100% on the route screen.
+  // Progress: for multi-stage pipelines, compute total questions across all stages.
+  // For single-stage, it's just the current path's questions + setup.
   const hasReviewStep = feedbackPath === "full_timer" && selfFeedbackForTarget != null
-  // Adhoc skips 1 question (either "what went well" or "what could be better")
   const adhocSkipped = feedbackPath === "adhoc" ? 1 : 0
-  const totalSteps = 2 + questions.length - adhocSkipped + (hasReviewStep ? 1 : 0)
-  const currentStep =
-    phase === "identify" ? 1
-    : phase === "route" || phase === "self_gate" || phase === "build3_gate" ? 2
-    : phase === "self_review" ? 3
-    : 2 + currentQ + 1 + (hasReviewStep ? 1 : 0)
-  const progress =
-    totalSteps <= 2
-      ? Math.round((currentStep / totalSteps) * 30)   // cap at ~30% during setup
-      : Math.round((currentStep / totalSteps) * 100)
+
+  const { progress } = useMemo(() => {
+    if (phase === "identify" || phase === "route") {
+      return { progress: phase === "identify" ? 5 : 10, totalSteps: 2, currentStep: phase === "identify" ? 1 : 2 }
+    }
+
+    if (stages.length > 1) {
+      // Multi-stage: sum questions across all stages
+      let total = 0
+      let completed = 0
+      for (let i = 0; i < stages.length; i++) {
+        const stageQs = getQuestionsForPath(stages[i])
+        const skip = stages[i] === "adhoc" ? 1 : 0
+        const count = stageQs.length - skip
+        total += count
+        if (i < currentStageIndex) {
+          completed += count
+        } else if (i === currentStageIndex) {
+          completed += Math.min(currentQ + 1, count)
+        }
+      }
+      // Add 1 for the review step if applicable
+      if (hasReviewStep) total += 1
+      if (phase === "self_review") completed += 0 // counted as part of the stage
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+      return { progress: Math.max(pct, 5), totalSteps: total, currentStep: completed }
+    }
+
+    // Single stage
+    const qCount = questions.length - adhocSkipped + (hasReviewStep ? 1 : 0)
+    const step = phase === "self_review" ? 1 : currentQ + 1 + (hasReviewStep ? 1 : 0)
+    const pct = qCount > 0 ? Math.round((step / qCount) * 100) : 0
+    return { progress: Math.max(pct, 5), totalSteps: qCount, currentStep: step }
+  }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, hasReviewStep])
   const pathOptions = getFeedbackPathOptions()
 
   const animateTransition = useCallback(
@@ -287,9 +323,43 @@ export default function FeedbackPage() {
     setHasSelfFeedback(null)
     setHasBuild3Feedback(null)
     setIntendedPath(null)
+    setStages([])
+    setCurrentStageIndex(0)
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
+
+  /** Build the ordered pipeline of stages for a target path, given gate status. */
+  function buildStages(targetPath: FeedbackPath): FeedbackPath[] {
+    if (targetPath === "adhoc" || targetPath === "self") return [targetPath]
+    const result: FeedbackPath[] = []
+    if (hasSelfFeedback === false) result.push("self")
+    if (targetPath !== "build3" && hasBuild3Feedback === false) result.push("build3")
+    result.push(targetPath)
+    return result
+  }
+
+  /** Start the pipeline for a chosen path — sets up stages and jumps to first question. */
+  function startPipeline(targetPath: FeedbackPath) {
+    const pipeline = buildStages(targetPath)
+    const firstStage = pipeline[0]
+    const hasGates = pipeline.length > 1
+
+    setStages(pipeline)
+    setCurrentStageIndex(0)
+    setIntendedPath(hasGates ? targetPath : null)
+    setFeedbackPath(firstStage)
+    setFeedbackFor(null)
+    setAnswers({})
+    pendingAnswers.current = {}
+    setSelfFeedbackForTarget(null)
+    setReviewAnswers({})
+
+    animateTransition(true, () => {
+      setCurrentQ(0)
+      setPhase("questions")
+    }, { formPhase: "questions", formQ: 0 })
+  }
 
   function goNext() {
     setError("")
@@ -301,33 +371,10 @@ export default function FeedbackPage() {
       }
 
       if (deepLinkedPath) {
-        const firstMissing = getFirstMissingGate(deepLinkedPath)
-        if (firstMissing) {
-          setIntendedPath(deepLinkedPath)
-          setFeedbackPath(firstMissing)
-          setFeedbackFor(null)
-          setAnswers({})
-          pendingAnswers.current = {}
-          animateTransition(true, () => setPhase("self_gate"), { formPhase: "self_gate", formQ: 0 })
-          return
-        }
-        // No gates needed — jump straight to questions
-        animateTransition(true, () => {
-          setCurrentQ(0)
-          setPhase("questions")
-        }, { formPhase: "questions", formQ: 0 })
+        startPipeline(deepLinkedPath)
       } else {
         animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
       }
-      return
-    }
-
-    if (phase === "self_gate" || phase === "build3_gate") {
-      // feedbackPath is already set to the gate prerequisite (self or build3)
-      animateTransition(true, () => {
-        setCurrentQ(0)
-        setPhase("questions")
-      }, { formPhase: "questions", formQ: 0 })
       return
     }
 
@@ -336,15 +383,7 @@ export default function FeedbackPage() {
         setError("pick the kind of feedback you want to share.")
         return
       }
-
-      animateTransition(
-        true,
-        () => {
-          setCurrentQ(0)
-          setPhase("questions")
-        },
-        { formPhase: "questions", formQ: 0 }
-      )
+      startPipeline(feedbackPath)
       return
     }
 
@@ -430,44 +469,10 @@ export default function FeedbackPage() {
     return next < questions.length ? next : null
   }
 
-  /**
-   * Returns the first prerequisite feedback path the user hasn't completed,
-   * or null if all gates are satisfied. Gate order: self → build3.
-   * Adhoc is never gated. Self and build3 only need self done first.
-   */
-  function getFirstMissingGate(targetPath: FeedbackPath): FeedbackPath | null {
-    if (targetPath === "adhoc") return null
-
-    // Self path has no prerequisites
-    if (targetPath === "self") return null
-
-    // All non-self, non-adhoc paths need self-feedback first
-    if (hasSelfFeedback === false) return "self"
-
-    // Build3 only needs self (no circular dep)
-    if (targetPath === "build3") return null
-
-    // Peer paths (intern, full_timer) also need build3
-    if (hasBuild3Feedback === false) return "build3"
-
-    return null
-  }
-
   function goBack() {
     setError("")
 
-    if (phase === "self_gate" || phase === "build3_gate") {
-      window.history.back()
-      return
-    }
-
-    if (phase === "self_review") {
-      // Go back to question 0 (feedback_for)
-      window.history.back()
-      return
-    }
-
-    if (phase === "route" || phase === "questions") {
+    if (phase === "self_review" || phase === "route" || phase === "questions") {
       window.history.back()
       return
     }
@@ -585,8 +590,8 @@ export default function FeedbackPage() {
       }
     }
 
-    // If this was a gate step and there's an intended path, chain to next step
-    if (intendedPath && feedbackPath !== intendedPath) {
+    // If this was a gate stage in a multi-stage pipeline, show brief celebration then advance
+    if (stages.length > 1 && currentStageIndex < stages.length - 1) {
       // Mark the completed gate as done
       if (feedbackPath === "self") setHasSelfFeedback(true)
       if (feedbackPath === "build3") setHasBuild3Feedback(true)
@@ -603,31 +608,27 @@ export default function FeedbackPage() {
         }),
       }).catch(() => {})
 
-      // Determine next step
-      const nextMissing = feedbackPath === "self" && hasBuild3Feedback === false
-        ? "build3" as FeedbackPath
-        : null
+      // Show stage_complete briefly, then auto-advance
+      const nextIdx = currentStageIndex + 1
+      const nextStagePath = stages[nextIdx]
+      setPhase("stage_complete")
+      window.history.replaceState({ formPhase: "stage_complete", formQ: 0 }, "")
 
-      if (nextMissing) {
-        // Chain to build3 gate
-        setFeedbackPath("build3")
+      safeTimeout(() => {
+        if (!mountedRef.current) return
+        setCurrentStageIndex(nextIdx)
+        setFeedbackPath(nextStagePath)
         setFeedbackFor(null)
         setAnswers({})
         pendingAnswers.current = {}
         setCurrentQ(0)
-        animateTransition(true, () => setPhase("build3_gate"), { formPhase: "build3_gate", formQ: 0 })
-      } else {
-        // All gates done — proceed to intended path
-        setFeedbackPath(intendedPath)
-        setFeedbackFor(null)
-        setAnswers({})
-        pendingAnswers.current = {}
-        setCurrentQ(0)
-        setIntendedPath(null)
+        if (nextIdx === stages.length - 1) {
+          setIntendedPath(null)
+        }
         animateTransition(true, () => {
           setPhase("questions")
         }, { formPhase: "questions", formQ: 0 })
-      }
+      }, 1500)
       return
     }
 
@@ -671,7 +672,7 @@ export default function FeedbackPage() {
   useEffect(() => {
     function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key !== "Enter") return
-      if (phase === "submitting" || phase === "done") return
+      if (phase === "submitting" || phase === "done" || phase === "stage_complete") return
       // Don't intercept if user is typing in an input/textarea/select
       const tag = (event.target as HTMLElement)?.tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
@@ -1004,10 +1005,44 @@ export default function FeedbackPage() {
 
       <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:py-3 sm:px-6">
-          <div className="flex items-center justify-between gap-3 sm:gap-4">
-            <div className="text-xs font-semibold tracking-[0.08em] text-muted whitespace-nowrap">
-              {Math.min(currentStep, totalSteps)}/{totalSteps}
+          {/* Stage stepper pills — only when multi-stage pipeline */}
+          {stages.length > 1 && (
+            <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto">
+              {stages.map((stage, idx) => {
+                const isDone = idx < currentStageIndex
+                const isCurrent = idx === currentStageIndex && phase !== "stage_complete"
+                const isUpcoming = !isDone && !isCurrent
+                return (
+                  <div key={stage} className="flex items-center gap-1.5">
+                    {idx > 0 && (
+                      <div className={`h-px w-3 sm:w-5 transition-colors duration-300 ${isDone ? "bg-brand-peach" : "bg-black/10"}`} />
+                    )}
+                    <div
+                      className={[
+                        "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-[0.04em] transition-all duration-300 whitespace-nowrap",
+                        isDone
+                          ? "bg-brand-peach/20 text-ink/70"
+                          : isCurrent
+                          ? "bg-brand-peach text-ink shadow-sm"
+                          : "bg-black/[0.04] text-muted",
+                      ].join(" ")}
+                    >
+                      {isDone && (
+                        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      {isUpcoming && (
+                        <span className="text-[10px] text-muted/60">{idx + 1}</span>
+                      )}
+                      {STAGE_LABELS[stage]}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
+          )}
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
               <div
                 className="h-full rounded-full bg-brand-peach transition-all duration-500 ease-out"
@@ -1022,7 +1057,7 @@ export default function FeedbackPage() {
       <main className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-12">
         <div className="grid gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
           <div className={`space-y-6 ${animClass}`}>
-            {phase !== "identify" && phase !== "submitting" && (
+            {phase !== "identify" && phase !== "submitting" && phase !== "stage_complete" && (
               <button type="button" className={backButton.className} style={backButton.style} onClick={goBack}>
                 go back
               </button>
@@ -1088,39 +1123,10 @@ export default function FeedbackPage() {
                         type="button"
                         onClick={() => {
                           setFeedbackPath(option.key)
-                          setFeedbackFor(null)
-                          setAnswers({})
-                          setSelfFeedbackForTarget(null)
-                          setReviewAnswers({})
-                          pendingAnswers.current = {}
                           setError("")
-
-                          // Check gates: self → build3 → then proceed
-                          const firstMissing = getFirstMissingGate(option.key)
-                          if (firstMissing) {
-                            setIntendedPath(option.key)
-                            setFeedbackPath(firstMissing)
-                            setFeedbackFor(null)
-                            setAnswers({})
-                            pendingAnswers.current = {}
-                            const gatePhase = firstMissing === "self" ? "self_gate" : "build3_gate"
-                            safeTimeout(() => {
-                              if (!mountedRef.current) return
-                              animateTransition(true, () => setPhase(gatePhase), { formPhase: gatePhase, formQ: 0 })
-                            }, 200)
-                            return
-                          }
-
                           safeTimeout(() => {
                             if (!mountedRef.current) return
-                            animateTransition(
-                              true,
-                              () => {
-                                setCurrentQ(0)
-                                setPhase("questions")
-                              },
-                              { formPhase: "questions", formQ: 0 }
-                            )
+                            startPipeline(option.key)
                           }, 200)
                         }}
                         className={[
@@ -1141,34 +1147,27 @@ export default function FeedbackPage() {
               </BrandPanel>
             )}
 
-            {phase === "self_gate" && (() => {
-              const targetLabel = intendedPath
-                ? pathOptions.find((o) => o.key === intendedPath)?.label ?? "peer feedback"
-                : "peer feedback"
+            {/* Stage complete celebration — auto-transitions after 1.5s */}
+            {phase === "stage_complete" && (() => {
+              const completedLabel = STAGE_LABELS[feedbackPath || "self"]
+              const nextIdx = currentStageIndex + 1
+              const nextLabel = nextIdx < stages.length ? STAGE_LABELS[stages[nextIdx]] : ""
               return (
-                <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                  <SectionHeading
-                    accent={feedbackAccent}
-                    eyebrow={`heading to ${targetLabel}`}
-                    title="quick self-reflection first"
-                    description={`before your ${targetLabel} feedback, a brief self-reflection — takes 2 minutes.`}
-                  />
-                </BrandPanel>
-              )
-            })()}
-
-            {phase === "build3_gate" && (() => {
-              const targetLabel = intendedPath
-                ? pathOptions.find((o) => o.key === intendedPath)?.label ?? "peer feedback"
-                : "peer feedback"
-              return (
-                <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                  <SectionHeading
-                    accent={feedbackAccent}
-                    eyebrow={`heading to ${targetLabel}`}
-                    title="quick build3 feedback first"
-                    description={`almost there — share your thoughts on build3, then straight to ${targetLabel}.`}
-                  />
+                <BrandPanel accent={feedbackAccent} tone="soft" className="p-8 sm:p-10 text-center">
+                  <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full border border-brand-peach/50 bg-brand-peach/25">
+                    <svg className="h-7 w-7 text-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div className="text-lg font-semibold tracking-[-0.03em] text-ink">
+                    {completedLabel} done
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    nice one — moving to {nextLabel} now
+                  </p>
+                  <div className="mt-4 mx-auto h-1 w-16 overflow-hidden rounded-full bg-black/[0.06]">
+                    <div className="h-full rounded-full bg-brand-peach animate-[progressFill_1.5s_ease-out_forwards]" />
+                  </div>
                 </BrandPanel>
               )
             })()}
@@ -1185,17 +1184,30 @@ export default function FeedbackPage() {
             )}
 
             {phase === "questions" && questions[currentQ] && (
-              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                <SectionHeading
-                  accent={feedbackAccent}
-                  eyebrow={intendedPath && feedbackPath !== intendedPath
-                    ? `${feedbackPath === "self" ? "self-reflection" : "build3"} · ${currentQ + 1} of ${questions.length}`
-                    : `question ${currentQ + 1} of ${questions.length}`}
-                  title={questions[currentQ].text}
-                  description={questions[currentQ].subtext}
-                />
-                <div className="mt-8">{renderQuestion(questions[currentQ])}</div>
-              </BrandPanel>
+              <>
+                {/* Inline context banner for gate stages */}
+                {stages.length > 1 && currentQ === 0 && currentStageIndex < stages.length - 1 && (
+                  <div className="rounded-[20px] border border-brand-peach/25 bg-brand-peach/8 px-5 py-3.5 text-sm text-ink/80">
+                    <span className="font-semibold">{STAGE_LABELS[feedbackPath || "self"]}</span>
+                    {" — "}
+                    {currentStageIndex === 0
+                      ? `quick step before your ${STAGE_LABELS[stages[stages.length - 1]]}`
+                      : `almost there, then straight to ${STAGE_LABELS[stages[stages.length - 1]]}`
+                    }
+                  </div>
+                )}
+                <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                  <SectionHeading
+                    accent={feedbackAccent}
+                    eyebrow={stages.length > 1
+                      ? `${STAGE_LABELS[feedbackPath || "self"]} · ${currentQ + 1} of ${questions.length}`
+                      : `question ${currentQ + 1} of ${questions.length}`}
+                    title={questions[currentQ].text}
+                    description={questions[currentQ].subtext}
+                  />
+                  <div className="mt-8">{renderQuestion(questions[currentQ])}</div>
+                </BrandPanel>
+              </>
             )}
 
             {phase === "submitting" && (
@@ -1217,10 +1229,10 @@ export default function FeedbackPage() {
             )}
 
             {/* Spacer for sticky bottom bar + tab bar on mobile */}
-            {phase !== "submitting" && <div className="h-24 sm:hidden" />}
+            {phase !== "submitting" && phase !== "stage_complete" && <div className="h-24 sm:hidden" />}
 
             {/* Desktop inline action bar */}
-            {phase !== "submitting" && (
+            {phase !== "submitting" && phase !== "stage_complete" && (
               <div className="hidden sm:flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -1233,15 +1245,11 @@ export default function FeedbackPage() {
                     ? "finish recording"
                     : voiceState === "transcribing"
                     ? "transcribing..."
-                    : phase === "self_gate"
-                    ? "let's go"
-                    : phase === "build3_gate"
-                    ? "let's go"
                     : phase === "questions" && currentQ === questions.length - 1
-                    ? (intendedPath && feedbackPath !== intendedPath ? "next step" : "send it")
+                    ? (stages.length > 1 && currentStageIndex < stages.length - 1 ? "next step" : "send it")
                     : "keep going"}
                 </button>
-                {voiceState === "idle" && phase !== "self_gate" && phase !== "build3_gate" && (
+                {voiceState === "idle" && (
                   <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
                     press enter to keep moving
                   </div>
@@ -1297,9 +1305,9 @@ export default function FeedbackPage() {
                   ? pathOptions.find((option) => option.key === (intendedPath || feedbackPath))?.blurb
                   : "choose the route first and we will tailor the rest."}
               </p>
-              {intendedPath && feedbackPath !== intendedPath && (
+              {stages.length > 1 && currentStageIndex < stages.length - 1 && (
                 <div className="mt-3 rounded-full border border-brand-peach/30 bg-brand-peach/10 px-3 py-1.5 text-[11px] font-semibold text-ink/70">
-                  completing {feedbackPath === "self" ? "self-reflection" : "build3 feedback"} first
+                  step {currentStageIndex + 1} of {stages.length} — {STAGE_LABELS[feedbackPath || "self"]}
                 </div>
               )}
               <div className="mt-5 h-px w-full bg-black/[0.08]" />
@@ -1312,7 +1320,7 @@ export default function FeedbackPage() {
       </main>
 
       {/* Mobile sticky bottom action bar — sits above the tab bar */}
-      {phase !== "submitting" && (
+      {phase !== "submitting" && phase !== "stage_complete" && (
         <div className="fixed bottom-[calc(44px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 flex justify-center px-4 pb-1 sm:hidden">
           <button
             type="button"
@@ -1325,10 +1333,8 @@ export default function FeedbackPage() {
               ? "finish recording"
               : voiceState === "transcribing"
               ? "transcribing..."
-              : phase === "self_gate" || phase === "build3_gate"
-              ? "let's go"
               : phase === "questions" && currentQ === questions.length - 1
-              ? (intendedPath && feedbackPath !== intendedPath ? "next step" : "send it")
+              ? (stages.length > 1 && currentStageIndex < stages.length - 1 ? "next step" : "send it")
               : "keep going"}
           </button>
         </div>

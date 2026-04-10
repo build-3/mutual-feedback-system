@@ -1,0 +1,10 @@
+[     245ms] EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'unsafe-inline'".
+
+    at (app-pages-browser)/./node_modules/next/dist/compiled/@next/react-refresh-utils/dist/runtime.js (http://localhost:3888/_next/static/chunks/main-app.js?v=1775682478520:50:26)
+    at options.factory (http://localhost:3888/_next/static/chunks/webpack.js?v=1775682478520:715:31)
+    at __webpack_require__ (http://localhost:3888/_next/static/chunks/webpack.js?v=1775682478520:37:33)
+    at __webpack_exec__ (http://localhost:3888/_next/static/chunks/main-app.js?v=1775682478520:2007:61)
+    at http://localhost:3888/_next/static/chunks/main-app.js?v=1775682478520:2008:37
+    at webpackJsonpCallback (http://localhost:3888/_next/static/chunks/webpack.js?v=1775682478520:1387:39)
+    at http://localhost:3888/_next/static/chunks/main-app.js?v=1775682478520:9:61
+[     246ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3888/login:0
