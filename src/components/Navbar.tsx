@@ -77,7 +77,6 @@ function NavbarShell() {
             </div>
             <div className="hidden sm:block">
               <div className="text-lg font-bold tracking-[-0.06em] text-ink">build3</div>
-              <div className="text-xs tracking-[0.08em] text-muted">we keep feedback clear</div>
             </div>
           </Link>
         </div>

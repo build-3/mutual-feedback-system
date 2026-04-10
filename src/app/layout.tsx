@@ -16,8 +16,8 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "build3 Feedback",
-  description: "build3 feedback, reflections, and team insight in one place.",
+  title: "build3 — internal feedback",
+  description: "build3's internal feedback system. peer reviews, self-reflections, and team insight in one place.",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-icon.png",
@@ -26,6 +26,18 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "build3",
+  },
+  openGraph: {
+    title: "build3 — internal feedback",
+    description: "build3's internal feedback system. peer reviews, self-reflections, and team insight in one place.",
+    siteName: "build3",
+    type: "website",
+    url: "https://build3.online",
+  },
+  twitter: {
+    card: "summary",
+    title: "build3 — internal feedback",
+    description: "build3's internal feedback system. peer reviews, self-reflections, and team insight in one place.",
   },
 }
 
