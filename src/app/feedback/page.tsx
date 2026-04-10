@@ -62,6 +62,8 @@ export default function FeedbackPage() {
   const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
   const [hasSelfFeedback, setHasSelfFeedback] = useState<boolean | null>(null)
   const [hasBuild3Feedback, setHasBuild3Feedback] = useState<boolean | null>(null)
+  // Track the user's original intent so we can resume after gates complete
+  const [intendedPath, setIntendedPath] = useState<FeedbackPath | null>(null)
   const [selfFeedbackForTarget, setSelfFeedbackForTarget] = useState<SelfFeedbackData | null>(null)
   const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
   const [animClass, setAnimClass] = useState("slide-enter-active")
@@ -87,6 +89,7 @@ export default function FeedbackPage() {
     setFeedbackFor(null)
     setSelfFeedbackForTarget(null)
     setReviewAnswers({})
+    setIntendedPath(null)
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
@@ -283,6 +286,7 @@ export default function FeedbackPage() {
     selfCheckFetchedFor.current = null
     setHasSelfFeedback(null)
     setHasBuild3Feedback(null)
+    setIntendedPath(null)
     setError("")
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
@@ -297,27 +301,17 @@ export default function FeedbackPage() {
       }
 
       if (deepLinkedPath) {
-        // Gate: non-self, non-adhoc, non-build3 deep links need self + build3 check
-        const needsSelfGate = deepLinkedPath !== "self" && deepLinkedPath !== "adhoc"
-        const needsBuild3Gate = deepLinkedPath !== "self" && deepLinkedPath !== "adhoc" && deepLinkedPath !== "build3"
-
-        if (needsSelfGate && hasSelfFeedback === null) {
-          setError("checking your self-reflection status, one moment...")
-          return
-        }
-        if (needsSelfGate && hasSelfFeedback === false) {
+        const firstMissing = getFirstMissingGate(deepLinkedPath)
+        if (firstMissing) {
+          setIntendedPath(deepLinkedPath)
+          setFeedbackPath(firstMissing)
+          setFeedbackFor(null)
+          setAnswers({})
+          pendingAnswers.current = {}
           animateTransition(true, () => setPhase("self_gate"), { formPhase: "self_gate", formQ: 0 })
           return
         }
-        if (needsBuild3Gate && hasBuild3Feedback === null) {
-          setError("checking your build3 feedback status, one moment...")
-          return
-        }
-        if (needsBuild3Gate && hasBuild3Feedback === false) {
-          animateTransition(true, () => setPhase("build3_gate"), { formPhase: "build3_gate", formQ: 0 })
-          return
-        }
-        // Skip route screen — jump straight to questions
+        // No gates needed — jump straight to questions
         animateTransition(true, () => {
           setCurrentQ(0)
           setPhase("questions")
@@ -328,25 +322,8 @@ export default function FeedbackPage() {
       return
     }
 
-    if (phase === "self_gate") {
-      // User clicked "start self-reflection" — route to self questions
-      setFeedbackPath("self")
-      setFeedbackFor(null)
-      setAnswers({})
-      pendingAnswers.current = {}
-      animateTransition(true, () => {
-        setCurrentQ(0)
-        setPhase("questions")
-      }, { formPhase: "questions", formQ: 0 })
-      return
-    }
-
-    if (phase === "build3_gate") {
-      // User clicked "share build3 feedback" — route to build3 questions
-      setFeedbackPath("build3")
-      setFeedbackFor(null)
-      setAnswers({})
-      pendingAnswers.current = {}
+    if (phase === "self_gate" || phase === "build3_gate") {
+      // feedbackPath is already set to the gate prerequisite (self or build3)
       animateTransition(true, () => {
         setCurrentQ(0)
         setPhase("questions")
@@ -451,6 +428,29 @@ export default function FeedbackPage() {
     }
 
     return next < questions.length ? next : null
+  }
+
+  /**
+   * Returns the first prerequisite feedback path the user hasn't completed,
+   * or null if all gates are satisfied. Gate order: self → build3.
+   * Adhoc is never gated. Self and build3 only need self done first.
+   */
+  function getFirstMissingGate(targetPath: FeedbackPath): FeedbackPath | null {
+    if (targetPath === "adhoc") return null
+
+    // Self path has no prerequisites
+    if (targetPath === "self") return null
+
+    // All non-self, non-adhoc paths need self-feedback first
+    if (hasSelfFeedback === false) return "self"
+
+    // Build3 only needs self (no circular dep)
+    if (targetPath === "build3") return null
+
+    // Peer paths (intern, full_timer) also need build3
+    if (hasBuild3Feedback === false) return "build3"
+
+    return null
   }
 
   function goBack() {
@@ -585,7 +585,53 @@ export default function FeedbackPage() {
       }
     }
 
-    // Optimistic: show success immediately, submit in background
+    // If this was a gate step and there's an intended path, chain to next step
+    if (intendedPath && feedbackPath !== intendedPath) {
+      // Mark the completed gate as done
+      if (feedbackPath === "self") setHasSelfFeedback(true)
+      if (feedbackPath === "build3") setHasBuild3Feedback(true)
+
+      // Submit in background, don't wait
+      submittingRef.current = false
+      fetch("/api/feedback-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedbackForId: feedbackPath === "build3" || feedbackPath === "self" ? null : feedbackFor?.id || null,
+          feedbackType: feedbackPath as FeedbackType,
+          answers: answerRows,
+        }),
+      }).catch(() => {})
+
+      // Determine next step
+      const nextMissing = feedbackPath === "self" && hasBuild3Feedback === false
+        ? "build3" as FeedbackPath
+        : null
+
+      if (nextMissing) {
+        // Chain to build3 gate
+        setFeedbackPath("build3")
+        setFeedbackFor(null)
+        setAnswers({})
+        pendingAnswers.current = {}
+        setCurrentQ(0)
+        animateTransition(true, () => setPhase("build3_gate"), { formPhase: "build3_gate", formQ: 0 })
+      } else {
+        // All gates done — proceed to intended path
+        setFeedbackPath(intendedPath)
+        setFeedbackFor(null)
+        setAnswers({})
+        pendingAnswers.current = {}
+        setCurrentQ(0)
+        setIntendedPath(null)
+        animateTransition(true, () => {
+          setPhase("questions")
+        }, { formPhase: "questions", formQ: 0 })
+      }
+      return
+    }
+
+    // Normal completion — show success
     setPhase("done")
     window.history.replaceState({ formPhase: "done", formQ: 0 }, "")
 
@@ -1049,30 +1095,18 @@ export default function FeedbackPage() {
                           pendingAnswers.current = {}
                           setError("")
 
-                          // Gate: non-self paths require self-feedback first
-                          const needsSelfGate = option.key !== "self"
-                          // Gate: peer paths (not self, not adhoc, not build3) require build3 feedback
-                          const needsBuild3Gate = option.key !== "self" && option.key !== "build3"
-
-                          if (needsSelfGate && hasSelfFeedback === null) {
-                            setError("checking your self-reflection status, one moment...")
-                            return
-                          }
-                          if (needsSelfGate && hasSelfFeedback === false) {
+                          // Check gates: self → build3 → then proceed
+                          const firstMissing = getFirstMissingGate(option.key)
+                          if (firstMissing) {
+                            setIntendedPath(option.key)
+                            setFeedbackPath(firstMissing)
+                            setFeedbackFor(null)
+                            setAnswers({})
+                            pendingAnswers.current = {}
+                            const gatePhase = firstMissing === "self" ? "self_gate" : "build3_gate"
                             safeTimeout(() => {
                               if (!mountedRef.current) return
-                              animateTransition(true, () => setPhase("self_gate"), { formPhase: "self_gate", formQ: 0 })
-                            }, 200)
-                            return
-                          }
-                          if (needsBuild3Gate && hasBuild3Feedback === null) {
-                            setError("checking your build3 feedback status, one moment...")
-                            return
-                          }
-                          if (needsBuild3Gate && hasBuild3Feedback === false) {
-                            safeTimeout(() => {
-                              if (!mountedRef.current) return
-                              animateTransition(true, () => setPhase("build3_gate"), { formPhase: "build3_gate", formQ: 0 })
+                              animateTransition(true, () => setPhase(gatePhase), { formPhase: gatePhase, formQ: 0 })
                             }, 200)
                             return
                           }
@@ -1112,8 +1146,8 @@ export default function FeedbackPage() {
                 <SectionHeading
                   accent={feedbackAccent}
                   eyebrow="one thing first"
-                  title="complete your self-reflection"
-                  description="before sharing feedback on others, we need your own self-reflection. it only takes a few minutes."
+                  title="start with your self-reflection"
+                  description="we'll get to your peer feedback right after — first, a quick self-reflection."
                 />
               </BrandPanel>
             )}
@@ -1122,9 +1156,9 @@ export default function FeedbackPage() {
               <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
                 <SectionHeading
                   accent={feedbackAccent}
-                  eyebrow="one more thing"
+                  eyebrow="almost there"
                   title="share your build3 feedback"
-                  description="before giving peer feedback, tell us how you feel about build3 — it helps the whole team grow."
+                  description="one quick step before peer feedback — tell us how you feel about build3."
                 />
               </BrandPanel>
             )}
