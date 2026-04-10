@@ -1081,7 +1081,7 @@ export default function FeedbackPage() {
                 />
                 <div className="mt-8 space-y-3">
                   {pathOptions.map((option) => {
-                    const active = feedbackPath === option.key
+                    const active = feedbackPath === option.key || intendedPath === option.key
                     return (
                       <button
                         key={option.key}
@@ -1141,27 +1141,37 @@ export default function FeedbackPage() {
               </BrandPanel>
             )}
 
-            {phase === "self_gate" && (
-              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                <SectionHeading
-                  accent={feedbackAccent}
-                  eyebrow="one thing first"
-                  title="start with your self-reflection"
-                  description="we'll get to your peer feedback right after — first, a quick self-reflection."
-                />
-              </BrandPanel>
-            )}
+            {phase === "self_gate" && (() => {
+              const targetLabel = intendedPath
+                ? pathOptions.find((o) => o.key === intendedPath)?.label ?? "peer feedback"
+                : "peer feedback"
+              return (
+                <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                  <SectionHeading
+                    accent={feedbackAccent}
+                    eyebrow={`heading to ${targetLabel}`}
+                    title="quick self-reflection first"
+                    description={`before your ${targetLabel} feedback, a brief self-reflection — takes 2 minutes.`}
+                  />
+                </BrandPanel>
+              )
+            })()}
 
-            {phase === "build3_gate" && (
-              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                <SectionHeading
-                  accent={feedbackAccent}
-                  eyebrow="almost there"
-                  title="share your build3 feedback"
-                  description="one quick step before peer feedback — tell us how you feel about build3."
-                />
-              </BrandPanel>
-            )}
+            {phase === "build3_gate" && (() => {
+              const targetLabel = intendedPath
+                ? pathOptions.find((o) => o.key === intendedPath)?.label ?? "peer feedback"
+                : "peer feedback"
+              return (
+                <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                  <SectionHeading
+                    accent={feedbackAccent}
+                    eyebrow={`heading to ${targetLabel}`}
+                    title="quick build3 feedback first"
+                    description={`almost there — share your thoughts on build3, then straight to ${targetLabel}.`}
+                  />
+                </BrandPanel>
+              )
+            })()}
 
             {phase === "self_review" && selfFeedbackForTarget && feedbackFor && (
               <SelfReviewStep
@@ -1178,7 +1188,9 @@ export default function FeedbackPage() {
               <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
                 <SectionHeading
                   accent={feedbackAccent}
-                  eyebrow={`question ${currentQ + 1} of ${questions.length}`}
+                  eyebrow={intendedPath && feedbackPath !== intendedPath
+                    ? `${feedbackPath === "self" ? "self-reflection" : "build3"} · ${currentQ + 1} of ${questions.length}`
+                    : `question ${currentQ + 1} of ${questions.length}`}
                   title={questions[currentQ].text}
                   description={questions[currentQ].subtext}
                 />
@@ -1222,11 +1234,11 @@ export default function FeedbackPage() {
                     : voiceState === "transcribing"
                     ? "transcribing..."
                     : phase === "self_gate"
-                    ? "start self-reflection"
+                    ? "let's go"
                     : phase === "build3_gate"
-                    ? "share build3 feedback"
+                    ? "let's go"
                     : phase === "questions" && currentQ === questions.length - 1
-                    ? "send it"
+                    ? (intendedPath && feedbackPath !== intendedPath ? "next step" : "send it")
                     : "keep going"}
                 </button>
                 {voiceState === "idle" && phase !== "self_gate" && phase !== "build3_gate" && (
@@ -1278,13 +1290,18 @@ export default function FeedbackPage() {
                 current route
               </div>
               <div className="mt-2 text-2xl font-bold tracking-[-0.05em] text-ink">
-                {feedbackPath ? pathOptions.find((option) => option.key === feedbackPath)?.label : "not picked yet"}
+                {(intendedPath || feedbackPath) ? pathOptions.find((option) => option.key === (intendedPath || feedbackPath))?.label : "not picked yet"}
               </div>
               <p className="mt-2 text-sm leading-6 text-muted">
-                {feedbackPath
-                  ? pathOptions.find((option) => option.key === feedbackPath)?.blurb
+                {(intendedPath || feedbackPath)
+                  ? pathOptions.find((option) => option.key === (intendedPath || feedbackPath))?.blurb
                   : "choose the route first and we will tailor the rest."}
               </p>
+              {intendedPath && feedbackPath !== intendedPath && (
+                <div className="mt-3 rounded-full border border-brand-peach/30 bg-brand-peach/10 px-3 py-1.5 text-[11px] font-semibold text-ink/70">
+                  completing {feedbackPath === "self" ? "self-reflection" : "build3 feedback"} first
+                </div>
+              )}
               <div className="mt-5 h-px w-full bg-black/[0.08]" />
               <div className="mt-5 text-sm leading-6 text-muted">
                 we speak plainly here: kind, clear, and not too polished for our own good.
@@ -1308,12 +1325,10 @@ export default function FeedbackPage() {
               ? "finish recording"
               : voiceState === "transcribing"
               ? "transcribing..."
-              : phase === "self_gate"
-              ? "start self-reflection"
-              : phase === "build3_gate"
-              ? "share build3 feedback"
+              : phase === "self_gate" || phase === "build3_gate"
+              ? "let's go"
               : phase === "questions" && currentQ === questions.length - 1
-              ? "send it"
+              ? (intendedPath && feedbackPath !== intendedPath ? "next step" : "send it")
               : "keep going"}
           </button>
         </div>
