@@ -54,7 +54,9 @@ export type QuestionType =
   | "single_select"
   | "nps"
   | "number_input"
+  | "slider"
   | "dropdown"
+  | "values_with_text"
 
 export type Question = {
   key: string
@@ -93,9 +95,9 @@ const PURPOSE_ALIGNMENT_QUESTION: Question = {
 const TRUST_BATTERY_QUESTION: Question = {
   key: "trust_battery",
   text: "how confident are you that this person will consistently follow through on their commitments and communicate openly and honestly with you?",
-  type: "number_input",
+  type: "slider",
   subtext:
-    "this question is based on the trust battery concept coined by Tobi Lütke, the CEO of Shopify.\n\ntrust starts at 50% when the relationship begins and then goes up or down from there. write your current trust score between 0-100 below.\n\nread more here - https://mollyg.substack.com/p/the-trust-battery?utm_medium=reader2",
+    "this question is based on the trust battery concept coined by Tobi Lütke, the CEO of Shopify.\n\ntrust starts at 50% when the relationship begins and then goes up or down from there.\n\nread more here - https://mollyg.substack.com/p/the-trust-battery?utm_medium=reader2",
   min: 0,
   max: 100,
 }
@@ -113,18 +115,16 @@ const CONTRIBUTION_LEVEL_QUESTION: Question = {
 
 const VALUE_STRENGTH_QUESTION: Question = {
   key: "value_strength",
-  text: "pick one value from our value set that best represents their strengths. tell us why.",
-  type: "long_text",
-  subtext: "check detailed value set here - https://www.notion.so/build3goa/vision-values-bhag-104ff3fd1382801fb5d5ffdc1fe2b43a",
-  showValues: true,
+  text: "which values from our value set best represent their strengths? tell us why.",
+  type: "values_with_text",
+  subtext: "select one or more, then explain below.",
 }
 
 const VALUE_IMPROVEMENT_QUESTION: Question = {
   key: "value_improvement",
-  text: "pick one value from our value set they could improve on. tell us why.",
-  type: "long_text",
-  subtext: "check detailed value set here - https://www.notion.so/build3goa/vision-values-bhag-104ff3fd1382801fb5d5ffdc1fe2b43a",
-  showValues: true,
+  text: "which values could they improve on? tell us why.",
+  type: "values_with_text",
+  subtext: "select one or more, then explain below.",
 }
 
 export const INTERN_QUESTIONS: Question[] = [
@@ -203,7 +203,7 @@ export const BUILD3_QUESTIONS: Question[] = [
   {
     key: "trust_battery",
     text: "how charged is your trust in build3 right now?",
-    type: "number_input",
+    type: "slider",
     subtext:
       "think about how much you trust the studio to follow through on what it says, treat people fairly, and move in the right direction.\n\nstart at 50 as neutral — then go up or down based on your real experience so far.",
     min: 0,

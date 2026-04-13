@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
 import { QUESTION_LABELS, parseNumericAnswer, getInitials, getAvatarColor } from "@/lib/insights-helpers"
+import { BUILD3_VALUES } from "@/lib/questions"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
 import type { Employee, FeedbackResponse } from "@/lib/types"
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder"
@@ -24,6 +25,26 @@ const RESPONDABLE_KEYS = new Set([
   "adhoc_positive",
   "adhoc_improve",
 ])
+
+/** Keys that store values_with_text format: "indices|||explanation" */
+const VALUES_WITH_TEXT_KEYS = new Set(["value_strength", "value_improvement"])
+
+const VALUES_SEP = "|||"
+
+function parseValuesWithText(raw: string): { values: string[]; text: string } {
+  const parts = raw.split(VALUES_SEP)
+  const indicesPart = parts[0] || ""
+  const text = parts.slice(1).join(VALUES_SEP)
+
+  const values: string[] = []
+  for (const s of indicesPart.split(",")) {
+    const n = parseInt(s, 10)
+    if (Number.isFinite(n) && n >= 0 && n < BUILD3_VALUES.length) {
+      values.push(BUILD3_VALUES[n])
+    }
+  }
+  return { values, text }
+}
 
 const NUMERIC_DISPLAY = new Set([
   "recommend_rating",
@@ -353,6 +374,46 @@ const AnswerDisplay = memo(function AnswerDisplay({
             ? `${numericValue}/10`
             : `${numericValue}/5`}
         </div>
+      </div>
+    )
+  }
+
+  // Render values_with_text answers with parsed value pills + explanation
+  if (VALUES_WITH_TEXT_KEYS.has(questionKey) && value.includes(VALUES_SEP)) {
+    const parsed = parseValuesWithText(value)
+    return (
+      <div className="rounded-[20px] border border-line bg-black/[0.02] p-4">
+        <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
+          {label}
+        </div>
+        {parsed.values.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {parsed.values.map((v, i) => (
+              <span
+                key={i}
+                className="inline-block rounded-full border border-brand-peach/40 bg-brand-peach/10 px-3 py-1 text-xs font-medium text-ink"
+              >
+                {v.replace(/\.$/, "")}
+              </span>
+            ))}
+          </div>
+        )}
+        {parsed.text.trim() && (
+          <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink">
+            {parsed.text}
+          </div>
+        )}
+
+        <ResponseThread responses={responses} />
+
+        {isRespondable && (
+          <ReplyBox
+            answerId={answerId}
+            employees={employees}
+            defaultResponderId={defaultResponderId}
+            onSaved={onResponseSaved}
+          />
+        )}
       </div>
     )
   }

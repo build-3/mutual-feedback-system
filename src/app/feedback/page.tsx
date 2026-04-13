@@ -9,6 +9,8 @@ const MatrixRating = dynamic(() => import("@/components/MatrixRating"), { ssr: f
 const NpsScale = dynamic(() => import("@/components/NpsScale"), { ssr: false })
 const StarRating = dynamic(() => import("@/components/StarRating"), { ssr: false })
 const ValuesCard = dynamic(() => import("@/components/ValuesCard"), { ssr: false })
+const TrustSlider = dynamic(() => import("@/components/TrustSlider"), { ssr: false })
+const ValuesMultiSelect = dynamic(() => import("@/components/ValuesMultiSelect"), { ssr: false })
 import {
   BrandPanel,
   NoticeCard,
@@ -536,6 +538,27 @@ export default function FeedbackPage() {
       return true
     }
 
+    if (question.type === "slider") {
+      // Slider always has a numeric value (defaults to 50), so it's always valid
+      return true
+    }
+
+    if (question.type === "values_with_text") {
+      const raw = answers[question.key] || ""
+      const sep = "|||"
+      const parts = raw.split(sep)
+      const indicesPart = parts[0] || ""
+      const hasSelection = indicesPart.split(",").some((s) => {
+        const n = parseInt(s, 10)
+        return Number.isFinite(n) && n >= 0
+      })
+      if (!hasSelection) {
+        setError("select at least one value before moving on.")
+        return false
+      }
+      return true
+    }
+
     const value = answers[question.key]
     if (!value || !value.trim()) {
       setError("add a response so we can keep going.")
@@ -768,6 +791,18 @@ export default function FeedbackPage() {
       if (question.max !== undefined && numericValue > question.max) return false
       return true
     }
+    if (question.type === "slider") {
+      return true
+    }
+    if (question.type === "values_with_text") {
+      const raw = pendingAnswers.current[question.key] || ""
+      const sep = "|||"
+      const indicesPart = raw.split(sep)[0] || ""
+      return indicesPart.split(",").some((s) => {
+        const n = parseInt(s, 10)
+        return Number.isFinite(n) && n >= 0
+      })
+    }
     const value = pendingAnswers.current[question.key]
     return !!(value && value.trim())
   }
@@ -952,6 +987,43 @@ export default function FeedbackPage() {
             </div>
           </div>
         )
+      case "slider": {
+        // Initialize default value so submission always has a number
+        const sliderVal = answers[question.key]
+        if (!sliderVal) {
+          const defaultVal = "50"
+          // Use a microtask to avoid setState during render
+          queueMicrotask(() => setAnswer(question.key, defaultVal))
+        }
+        return (
+          <TrustSlider
+            value={Number(answers[question.key]) || 50}
+            min={question.min}
+            max={question.max}
+            onChange={(value) => setAnswer(question.key, String(value))}
+          />
+        )
+      }
+      case "values_with_text": {
+        voiceQuestionKeyRef.current = question.key
+        return (
+          <>
+            <ValuesMultiSelect
+              value={answers[question.key] || ""}
+              onChange={(value) => setAnswer(question.key, value)}
+            />
+            {VOICE_ENABLED && (
+              <div className="mt-3">
+                <VoiceRecorderBar
+                  ref={voiceBarRef}
+                  onTranscript={handleVoiceTranscript}
+                  onStateChange={setVoiceState}
+                />
+              </div>
+            )}
+          </>
+        )
+      }
       case "dropdown":
         return (
           <select
