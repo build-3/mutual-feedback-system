@@ -54,10 +54,17 @@ export function useOrgInsights(
   }, [employees])
 
   return useMemo(() => {
-    const trustScores: number[] = []
-    const purposeScores: number[] = []
-    const recommendScores: number[] = []
+    // Org-level metrics (top stat pills) come from build3 feedback — the org health check.
+    // These answer "how does the team feel about build3 as a workplace?"
+    const orgTrustScores: number[] = []
+    const orgPurposeScores: number[] = []
     const npsScores: number[] = []
+
+    // Peer metrics come from intern/full_timer feedback directed at individuals.
+    // These answer "how do peers rate each other?"
+    const peerTrustScores: number[] = []
+    const peerPurposeScores: number[] = []
+    const recommendScores: number[] = []
     const tealSM: number[] = []
     const tealW: number[] = []
     const tealEP: number[] = []
@@ -65,16 +72,20 @@ export function useOrgInsights(
     const archetypeDist: Record<string, number> = {}
     const feedbackByType: Record<string, number> = {}
 
-    // scoreDistributions: collect all numeric values per key
+    // scoreDistributions: collect all numeric values per key (peer only)
     const scoreDistributions: Record<string, number[]> = {}
 
-    // participationByEmployee: count feedback received per employee
+    // participationByEmployee: count feedback per employee
     const participationByEmployee: Record<string, number> = {}
 
-    // value keyword counts
+    // value keyword counts (from peer feedback)
     const valueStrengthCounts: Record<string, number> = {}
     const valueImprovementCounts: Record<string, number> = {}
 
+    // Participation: tracks unique people who submitted build3 feedback
+    // (the org health check everyone is asked to do)
+    const build3Submitters = new Set<string>()
+    // Also track all employees who have any feedback (for individual views)
     const employeeIdsWithFeedback = new Set<string>()
 
     for (const sub of filtered) {
@@ -84,21 +95,22 @@ export function useOrgInsights(
       const type = sub.submission.feedback_type
       feedbackByType[type] = (feedbackByType[type] || 0) + 1
 
-      // Count participation: recipients for directed feedback, submitters for self/build3
+      // Track participation per employee for individual views
       if (sub.submission.feedback_for_id) {
         employeeIdsWithFeedback.add(sub.submission.feedback_for_id)
         const recipientId = sub.submission.feedback_for_id
         participationByEmployee[recipientId] = (participationByEmployee[recipientId] || 0) + 1
       }
-      if (sub.submission.feedback_type === 'self' || sub.submission.feedback_type === 'build3') {
-        const submitterId = sub.submission.submitted_by_id
-        employeeIdsWithFeedback.add(submitterId)
-        participationByEmployee[submitterId] = (participationByEmployee[submitterId] || 0) + 1
+      if (type === 'self' || type === 'build3') {
+        employeeIdsWithFeedback.add(sub.submission.submitted_by_id)
       }
 
-      // Team avg metrics must only use peer feedback directed at someone (same
-      // as how individual metrics are computed) — exclude self and build3 types
-      // so org averages and individual scores are directly comparable.
+      // Build3 submitters — for the org participation stat
+      if (type === 'build3') {
+        build3Submitters.add(sub.submission.submitted_by_id)
+      }
+
+      const isBuild3 = type === 'build3'
       const isPeerFeedback =
         type !== 'self' && type !== 'build3' && sub.submission.feedback_for_id != null
 
@@ -113,17 +125,18 @@ export function useOrgInsights(
 
         switch (ans.question_key) {
           case 'trust_battery':
-            if (num !== null && isPeerFeedback) trustScores.push(num)
+            if (num !== null && isBuild3) orgTrustScores.push(num)
+            if (num !== null && isPeerFeedback) peerTrustScores.push(num)
             break
           case 'purpose_alignment':
-            if (num !== null && isPeerFeedback) purposeScores.push(num)
+            if (num !== null && isBuild3) orgPurposeScores.push(num)
+            if (num !== null && isPeerFeedback) peerPurposeScores.push(num)
             break
           case 'recommend_rating':
             if (num !== null && isPeerFeedback) recommendScores.push(num)
             break
           case 'nps_score':
-            // NPS is always build3 type — keep as-is
-            if (num !== null) npsScores.push(num)
+            if (num !== null && isBuild3) npsScores.push(num)
             break
           case 'teal_self_management':
             if (num !== null && isPeerFeedback) tealSM.push(num)
@@ -183,11 +196,11 @@ export function useOrgInsights(
     const npsScore = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0
     const npsBreakdown: NpsBreakdown = { promoters, passives, detractors, npsScore }
 
-    // avgMetricsMap: flat map of all numeric metric averages
+    // avgMetricsMap: flat map of all numeric metric averages (peer scores for individual views)
     const avgMetricsMap: Record<string, number> = {}
     const namedAvgs: Array<[string, number[]]> = [
-      ['trust_battery', trustScores],
-      ['purpose_alignment', purposeScores],
+      ['trust_battery', peerTrustScores],
+      ['purpose_alignment', peerPurposeScores],
       ['recommend_rating', recommendScores],
       ['nps_score', npsScores],
       ['teal_self_management', tealSM],
@@ -205,20 +218,25 @@ export function useOrgInsights(
       }
     }
 
+    // Org-level participation: how many people completed the build3 feedback
+    const build3ParticipationCount = build3Submitters.size
+
     return {
       totalEmployees: employees.length,
       totalSubmissions: filtered.length,
       totalInterns: employeeCounts.totalInterns,
       totalFullTimers: employeeCounts.totalFullTimers,
-      avgTrustBattery: avg(trustScores),
-      avgPurposeAlignment: avg(purposeScores),
+      // Top-level org metrics use build3 feedback (the org health check)
+      avgTrustBattery: avg(orgTrustScores),
+      avgPurposeAlignment: avg(orgPurposeScores),
       avgRecommendRating: avg(recommendScores),
       avgNps: avg(npsScores),
       contributionDistribution: contributionDist,
       archetypeDistribution: archetypeDist,
       feedbackByType,
-      employeesWithFeedback: employeeIdsWithFeedback.size,
-      employeesWithoutFeedback: employees.length - employeeIdsWithFeedback.size,
+      // Participation = unique build3 submitters (not all feedback types mixed)
+      employeesWithFeedback: build3ParticipationCount,
+      employeesWithoutFeedback: employees.length - build3ParticipationCount,
       recentActivity: [...filtered]
         .sort((a, b) => b.submission.created_at.localeCompare(a.submission.created_at))
         .slice(0, 10),

@@ -169,7 +169,7 @@ export default memo(function OrgOverview({
           accent="lavender"
           label="participation"
           value={`${participationPct}%`}
-          detail={`${employeesWithFeedback} of ${totalEmployees} people have feedback in range`}
+          detail={`${employeesWithFeedback} of ${totalEmployees} people gave build3 feedback`}
         />
         {adhocCount > 0 && (
           <StatPill
