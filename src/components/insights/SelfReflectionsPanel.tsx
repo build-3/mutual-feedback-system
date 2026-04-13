@@ -1,6 +1,8 @@
 "use client"
 
-import { formatDate } from "@/lib/date-utils"
+import { useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { QUESTION_LABELS } from "@/lib/insights-helpers"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
@@ -10,31 +12,45 @@ interface Props {
   submissions: SubmissionWithDetails[]
 }
 
-export default function SelfReflectionsPanel({ submissions }: Props) {
-  if (submissions.length === 0) return null
+function SelfNoteItem({ submission }: { submission: SubmissionWithDetails }) {
+  const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="space-y-4">
-      <Eyebrow accent="sage">self reflections</Eyebrow>
+    <BrandPanel accent="sage" tone="washed" className="brand-lines overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 text-left"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-brand-sage/45 bg-brand-sage/20 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-ink">
+              self note
+            </span>
+            <span className="text-xs tracking-[0.08em] text-muted">
+              {submission.submitterName}
+            </span>
+          </div>
+          <div className="mt-1 text-xs tracking-[0.08em] text-muted">
+            {timeAgo(new Date(submission.submission.created_at))}{" "}
+            · {formatDate(new Date(submission.submission.created_at), "MMM d, yyyy")}
+          </div>
+        </div>
+        <span className="shrink-0 text-xs font-semibold tracking-[0.08em] text-muted">
+          {expanded ? "hide details" : "see details"}
+        </span>
+      </button>
 
-      <div className="space-y-4">
-        {submissions.map((submission) => (
-          <BrandPanel
-            key={submission.submission.id}
-            accent="sage"
-            tone="washed"
-            className="brand-lines p-4 sm:p-6"
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden border-t border-line"
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-brand-sage/45 bg-brand-sage/20 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-ink">
-                self note
-              </span>
-              <span className="text-xs tracking-[0.08em] text-muted">
-                {formatDate(new Date(submission.submission.created_at), "MMM d, yyyy")}
-              </span>
-            </div>
-
-            <div className="mt-5 grid gap-3">
+            <div className="grid gap-3 px-4 py-4 sm:px-5 sm:py-5">
               {submission.answers.map((answer) => (
                 <div
                   key={answer.id}
@@ -51,7 +67,23 @@ export default function SelfReflectionsPanel({ submissions }: Props) {
                 </div>
               ))}
             </div>
-          </BrandPanel>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </BrandPanel>
+  )
+}
+
+export default function SelfReflectionsPanel({ submissions }: Props) {
+  if (submissions.length === 0) return null
+
+  return (
+    <div className="space-y-4">
+      <Eyebrow accent="sage">self reflections</Eyebrow>
+
+      <div className="space-y-3">
+        {submissions.map((submission) => (
+          <SelfNoteItem key={submission.submission.id} submission={submission} />
         ))}
       </div>
     </div>
