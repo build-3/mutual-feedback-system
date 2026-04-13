@@ -586,9 +586,7 @@ export default function FeedbackPage() {
     if (feedbackPath === "full_timer" && selfFeedbackForTarget) {
       for (const selfAnswer of selfFeedbackForTarget.answers) {
         const agreementKey = `review_${selfAnswer.question_key}_agreement`
-        const commentKey = `review_${selfAnswer.question_key}_comment`
         const agreementValue = reviewAnswers[agreementKey]?.trim()
-        const commentValue = reviewAnswers[commentKey]?.trim()
 
         if (agreementValue) {
           answerRows.push({
@@ -597,13 +595,16 @@ export default function FeedbackPage() {
             answer_value: agreementValue,
           })
         }
-        if (commentValue) {
-          answerRows.push({
-            question_key: commentKey,
-            question_text: `Review of self-reflection: ${selfAnswer.question_text} — Comment`,
-            answer_value: commentValue,
-          })
-        }
+      }
+
+      // Single overall comment for the entire self-review
+      const overallComment = reviewAnswers["review_overall_comment"]?.trim()
+      if (overallComment) {
+        answerRows.push({
+          question_key: "review_overall_comment",
+          question_text: "Peer review — overall comment on self-reflection",
+          answer_value: overallComment,
+        })
       }
     }
 

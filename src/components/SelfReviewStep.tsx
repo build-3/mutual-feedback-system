@@ -54,7 +54,6 @@ export default function SelfReviewStep({
       <div className="mt-8 space-y-8">
         {orderedAnswers.map((selfAnswer) => {
           const agreementKey = `review_${selfAnswer.question_key}_agreement`
-          const commentKey = `review_${selfAnswer.question_key}_comment`
 
           return (
             <div key={selfAnswer.question_key} className="space-y-4">
@@ -89,18 +88,23 @@ export default function SelfReviewStep({
                   )
                 })}
               </div>
-
-              {/* Optional comment */}
-              <textarea
-                value={reviewAnswers[commentKey] || ""}
-                onChange={(e) => onReviewChange(commentKey, e.target.value)}
-                rows={2}
-                className={fieldClasses({ size: "lg" })}
-                placeholder="add anything (optional)"
-              />
             </div>
           )
         })}
+
+        {/* Single comment box for the entire review */}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold tracking-[0.08em] text-muted">
+            anything to add?
+          </div>
+          <textarea
+            value={reviewAnswers["review_overall_comment"] || ""}
+            onChange={(e) => onReviewChange("review_overall_comment", e.target.value)}
+            rows={3}
+            className={fieldClasses({ size: "lg" })}
+            placeholder={`e.g. "I've seen ${firstName} step up on X lately — the self-reflection tracks with what I've observed."`}
+          />
+        </div>
       </div>
     </BrandPanel>
   )
