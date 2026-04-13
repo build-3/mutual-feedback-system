@@ -4,6 +4,7 @@ import { formatDate } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { QUESTION_LABELS } from "@/lib/insights-helpers"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
+import FormattedAnswer from "@/components/FormattedAnswer"
 
 interface Props {
   submissions: SubmissionWithDetails[]
@@ -44,8 +45,8 @@ export default function SelfReflectionsPanel({ submissions }: Props) {
                       answer.question_text ||
                       answer.question_key}
                   </div>
-                  <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink">
-                    {answer.answer_value}
+                  <div className="mt-2 text-sm leading-7 text-ink">
+                    <FormattedAnswer questionKey={answer.question_key} value={answer.answer_value} />
                   </div>
                 </div>
               ))}

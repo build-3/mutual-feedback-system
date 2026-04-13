@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Employee } from '@/lib/types'
 import { SubmissionWithDetails } from '@/app/insights/types'
-import { parseNumericAnswer, BUILD3_VALUE_KEYWORDS } from '@/lib/insights-helpers'
+import { parseNumericAnswer, BUILD3_VALUE_KEYWORDS, extractValuesText } from '@/lib/insights-helpers'
 
 export interface NpsBreakdown {
   promoters: number
@@ -160,7 +160,7 @@ export function useOrgInsights(
             }
             break
           case 'value_strength': {
-            const text = ans.answer_value.toLowerCase()
+            const text = extractValuesText(ans.answer_value).toLowerCase()
             for (const keyword of BUILD3_VALUE_KEYWORDS) {
               if (text.includes(keyword.toLowerCase())) {
                 valueStrengthCounts[keyword] = (valueStrengthCounts[keyword] || 0) + 1
@@ -169,7 +169,7 @@ export function useOrgInsights(
             break
           }
           case 'value_improvement': {
-            const text = ans.answer_value.toLowerCase()
+            const text = extractValuesText(ans.answer_value).toLowerCase()
             for (const keyword of BUILD3_VALUE_KEYWORDS) {
               if (text.includes(keyword.toLowerCase())) {
                 valueImprovementCounts[keyword] = (valueImprovementCounts[keyword] || 0) + 1

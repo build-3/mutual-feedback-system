@@ -5,7 +5,15 @@ import { AnimatePresence, motion } from "framer-motion"
 import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
-import { QUESTION_LABELS, parseNumericAnswer, getInitials, getAvatarColor } from "@/lib/insights-helpers"
+import {
+  QUESTION_LABELS,
+  parseNumericAnswer,
+  getInitials,
+  getAvatarColor,
+  VALUES_WITH_TEXT_KEYS,
+  VALUES_SEP,
+  parseValuesWithText as parseValuesWithTextRaw,
+} from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
 import type { Employee, FeedbackResponse } from "@/lib/types"
@@ -27,29 +35,8 @@ const RESPONDABLE_KEYS = new Set([
   "adhoc_improve",
 ])
 
-/** Keys that store values_with_text format: "indices|||explanation" */
-const VALUES_WITH_TEXT_KEYS = new Set([
-  "value_strength",
-  "value_improvement",
-  "value_upheld",
-  "value_to_improve",
-])
-
-const VALUES_SEP = "|||"
-
-function parseValuesWithText(raw: string): { values: string[]; text: string } {
-  const parts = raw.split(VALUES_SEP)
-  const indicesPart = parts[0] || ""
-  const text = parts.slice(1).join(VALUES_SEP)
-
-  const values: string[] = []
-  for (const s of indicesPart.split(",")) {
-    const n = parseInt(s, 10)
-    if (Number.isFinite(n) && n >= 0 && n < BUILD3_VALUES.length) {
-      values.push(BUILD3_VALUES[n])
-    }
-  }
-  return { values, text }
+function parseValuesWithText(raw: string) {
+  return parseValuesWithTextRaw(raw, BUILD3_VALUES)
 }
 
 const NUMERIC_DISPLAY = new Set([

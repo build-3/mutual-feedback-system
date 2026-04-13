@@ -89,6 +89,47 @@ export const BUILD3_VALUE_KEYWORDS = [
   'Purpose',
 ] as const
 
+/** Separator used in values_with_text answers: "indices|||explanation" */
+export const VALUES_SEP = '|||'
+
+/** Keys that store values_with_text format */
+export const VALUES_WITH_TEXT_KEYS = new Set([
+  'value_strength',
+  'value_improvement',
+  'value_upheld',
+  'value_to_improve',
+])
+
+/** Parse a values_with_text answer into selected value names + explanation text */
+export function parseValuesWithText(raw: string, valueList: string[]): { values: string[]; text: string } {
+  if (!raw.includes(VALUES_SEP)) return { values: [], text: raw }
+  const parts = raw.split(VALUES_SEP)
+  const indicesPart = parts[0] || ''
+  const text = parts.slice(1).join(VALUES_SEP)
+  const values: string[] = []
+  for (const s of indicesPart.split(',')) {
+    const n = parseInt(s, 10)
+    if (Number.isFinite(n) && n >= 0 && n < valueList.length) {
+      values.push(valueList[n])
+    }
+  }
+  return { values, text }
+}
+
+/** Format a values_with_text answer as a plain text string for non-JSX contexts (admin, export) */
+export function formatValuesWithText(raw: string, valueList: string[]): string {
+  const { values, text } = parseValuesWithText(raw, valueList)
+  if (values.length === 0) return text || raw
+  const valuesStr = values.map(v => v.replace(/\.$/, '')).join(', ')
+  return text.trim() ? `${valuesStr}\n\n${text}` : valuesStr
+}
+
+/** Extract the text portion from a values_with_text answer (for keyword analysis) */
+export function extractValuesText(raw: string): string {
+  if (!raw.includes(VALUES_SEP)) return raw
+  return raw.slice(raw.indexOf(VALUES_SEP) + VALUES_SEP.length)
+}
+
 // Numeric question keys — MUST match keys from questions.ts
 export const NUMERIC_KEYS = new Set([
   'recommend_rating',         // intern path, star 1-5

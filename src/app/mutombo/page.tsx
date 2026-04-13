@@ -6,6 +6,8 @@ import {
   FeedbackAnswer,
   FeedbackSubmission,
 } from "@/lib/types"
+import { VALUES_WITH_TEXT_KEYS, formatValuesWithText } from "@/lib/insights-helpers"
+import { BUILD3_VALUES } from "@/lib/questions"
 
 type Tab = "build3" | "full_timer" | "intern" | "self" | "adhoc"
 
@@ -77,7 +79,9 @@ export default function MutomboPage() {
       const subAnswers = answersBySubmission.get(sub.id) || []
       const answerMap: Record<string, string> = {}
       for (const a of subAnswers) {
-        answerMap[a.question_key] = a.answer_value
+        answerMap[a.question_key] = VALUES_WITH_TEXT_KEYS.has(a.question_key)
+          ? formatValuesWithText(a.answer_value, BUILD3_VALUES)
+          : a.answer_value
         keySet.add(a.question_key)
       }
       built.push({

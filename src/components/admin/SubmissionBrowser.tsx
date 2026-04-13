@@ -9,6 +9,7 @@ import {
   buttonClasses,
 } from "@/components/ui/brand"
 import type { Employee, FeedbackSubmission, FeedbackAnswer } from "@/lib/types"
+import FormattedAnswer from "@/components/FormattedAnswer"
 
 type TypeFilter = "all" | "build3" | "full_timer" | "intern" | "self" | "adhoc"
 
@@ -186,8 +187,8 @@ export default function SubmissionBrowser({
                               <div className="font-semibold text-muted mb-1">
                                 {a.question_text}
                               </div>
-                              <div className="text-ink whitespace-pre-wrap">
-                                {a.answer_value}
+                              <div className="text-ink">
+                                <FormattedAnswer questionKey={a.question_key} value={a.answer_value} />
                               </div>
                             </div>
                           ))}

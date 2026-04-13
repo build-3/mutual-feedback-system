@@ -6,7 +6,10 @@ import {
   parseNumericAnswer,
   contributionToNumber,
   NUMERIC_KEYS,
+  VALUES_WITH_TEXT_KEYS,
+  formatValuesWithText,
 } from '@/lib/insights-helpers'
+import { BUILD3_VALUES } from '@/lib/questions'
 import { SubmissionWithDetails } from '@/app/insights/types'
 
 export type { SubmissionWithDetails }
@@ -165,7 +168,10 @@ export function useEmployeeInsights(
           const num = parseNumericAnswer(ans.answer_value)
           if (num === null) {
             if (!textFeedbackGrouped[ans.question_key]) textFeedbackGrouped[ans.question_key] = []
-            textFeedbackGrouped[ans.question_key].push(ans.answer_value)
+            const displayValue = VALUES_WITH_TEXT_KEYS.has(ans.question_key)
+              ? formatValuesWithText(ans.answer_value, BUILD3_VALUES)
+              : ans.answer_value
+            textFeedbackGrouped[ans.question_key].push(displayValue)
           }
         }
       }

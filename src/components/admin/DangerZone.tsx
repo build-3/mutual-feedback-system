@@ -8,6 +8,8 @@ import {
   fieldClasses,
 } from "@/components/ui/brand"
 import { BRAND_COLORS } from "@/lib/brand"
+import { VALUES_WITH_TEXT_KEYS, formatValuesWithText } from "@/lib/insights-helpers"
+import { BUILD3_VALUES } from "@/lib/questions"
 import type { Employee, FeedbackSubmission, FeedbackAnswer, FeedbackResponse } from "@/lib/types"
 
 export default function DangerZone({
@@ -73,7 +75,9 @@ export default function DangerZone({
             : "",
           Question: a.question_text,
           "Question Key": a.question_key,
-          Answer: a.answer_value,
+          Answer: VALUES_WITH_TEXT_KEYS.has(a.question_key)
+            ? formatValuesWithText(a.answer_value, BUILD3_VALUES)
+            : a.answer_value,
           Date: new Date(a.created_at).toLocaleDateString(),
         }
       })

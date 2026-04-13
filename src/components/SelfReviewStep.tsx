@@ -7,6 +7,7 @@ import {
   fieldClasses,
 } from "@/components/ui/brand"
 import { SCREEN_ACCENTS } from "@/lib/brand"
+import FormattedAnswer from "@/components/FormattedAnswer"
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
 
@@ -63,7 +64,7 @@ export default function SelfReviewStep({
                   {selfAnswer.question_text}
                 </div>
                 <div className="text-sm leading-relaxed text-ink">
-                  {selfAnswer.answer_value}
+                  <FormattedAnswer questionKey={selfAnswer.question_key} value={selfAnswer.answer_value} />
                 </div>
               </div>
 
@@ -136,7 +137,7 @@ export function SelfReviewSidebar({
               {a.question_text}
             </div>
             <div className="text-sm leading-relaxed text-ink">
-              {a.answer_value}
+              <FormattedAnswer questionKey={a.question_key} value={a.answer_value} />
             </div>
           </div>
         ))}
