@@ -201,18 +201,6 @@ export const BUILD3_QUESTIONS: Question[] = [
     max: 10,
   },
   {
-    key: "overall_experience",
-    text: "How has your overall experience with build3 felt so far?",
-    type: "single_select",
-    options: [
-      { key: "excellent", label: "Excellent" },
-      { key: "very_good", label: "Very good" },
-      { key: "good", label: "Good" },
-      { key: "fair", label: "Fair" },
-      { key: "poor", label: "Poor" },
-    ],
-  },
-  {
     key: "trust_battery",
     text: "How charged is your trust in build3 right now?",
     type: "number_input",
@@ -220,6 +208,12 @@ export const BUILD3_QUESTIONS: Question[] = [
       "Think about how much you trust the studio to follow through on what it says, treat people fairly, and move in the right direction.\n\nStart at 50 as neutral — then go up or down based on your real experience so far.",
     min: 0,
     max: 100,
+  },
+  {
+    key: "missing_disappointing",
+    text: "What has felt missing, clunky, or disappointing so far?",
+    type: "long_text",
+    subtext: "Your trust score tells us something is off — help us understand what.",
   },
   {
     key: "purpose_alignment",
@@ -234,11 +228,6 @@ export const BUILD3_QUESTIONS: Question[] = [
     type: "long_text",
   },
   {
-    key: "missing_disappointing",
-    text: "What has felt missing, clunky, or disappointing so far?",
-    type: "long_text",
-  },
-  {
     key: "policies_unclear",
     text: "Which policies or norms still feel fuzzy, and how can we make them clearer?",
     type: "long_text",
@@ -246,16 +235,6 @@ export const BUILD3_QUESTIONS: Question[] = [
   {
     key: "tools_resources",
     text: "Do you have what you need to do good work? If not, what is missing?",
-    type: "long_text",
-  },
-  {
-    key: "issues_faced",
-    text: "Have you run into any personal or professional blockers we should know about?",
-    type: "long_text",
-  },
-  {
-    key: "anything_else",
-    text: "Anything else we should hear while we have your attention?",
     type: "long_text",
   },
 ]

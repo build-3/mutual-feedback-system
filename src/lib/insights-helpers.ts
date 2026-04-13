@@ -141,7 +141,7 @@ export const QUESTION_LABELS: Record<string, string> = {
   itp_smart: 'people-smart',
   ideal_team_player_type: 'team player archetype',
   nps_score: 'nps score',
-  overall_experience: 'overall experience',
+  overall_experience: 'overall experience', // historical — removed from build3 path
   // Text — intern path
   excellence_area: 'strongest work',
   upskill_ability: 'upskilling',
@@ -156,8 +156,8 @@ export const QUESTION_LABELS: Record<string, string> = {
   missing_disappointing: 'what felt missing',
   policies_unclear: 'policy clarity',
   tools_resources: 'tools and resources',
-  issues_faced: 'blockers',
-  anything_else: 'anything else',
+  issues_faced: 'blockers', // historical — removed from build3 path
+  anything_else: 'anything else', // historical — removed from build3 path
   // Text — self path
   proud_contribution: 'proudest work',
   proactive_efforts: 'proactive efforts',

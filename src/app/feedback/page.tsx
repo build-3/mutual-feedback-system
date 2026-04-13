@@ -213,10 +213,20 @@ export default function FeedbackPage() {
   // For single-stage, it's just the current path's questions + setup.
   const hasReviewStep = feedbackPath === "full_timer" && selfFeedbackForTarget != null
   const adhocSkipped = feedbackPath === "adhoc" ? 1 : 0
+  // build3: skip missing_disappointing when trust ≥ 90
+  const trustBatteryValue = Number(answers["trust_battery"] || 0)
+  const build3Skipped = feedbackPath === "build3" && trustBatteryValue >= 90 ? 1 : 0
 
   const { progress } = useMemo(() => {
     if (phase === "identify" || phase === "route") {
       return { progress: phase === "identify" ? 5 : 10, totalSteps: 2, currentStep: phase === "identify" ? 1 : 2 }
+    }
+
+    // Inline skip count per stage — uses trustBatteryValue from outer scope (in deps)
+    const skipForStage = (path: FeedbackPath): number => {
+      if (path === "adhoc") return 1
+      if (path === "build3" && trustBatteryValue >= 90) return 1
+      return 0
     }
 
     if (stages.length > 1) {
@@ -225,7 +235,7 @@ export default function FeedbackPage() {
       let completed = 0
       for (let i = 0; i < stages.length; i++) {
         const stageQs = getQuestionsForPath(stages[i])
-        const skip = stages[i] === "adhoc" ? 1 : 0
+        const skip = skipForStage(stages[i])
         const count = stageQs.length - skip
         total += count
         if (i < currentStageIndex) {
@@ -242,11 +252,11 @@ export default function FeedbackPage() {
     }
 
     // Single stage
-    const qCount = questions.length - adhocSkipped + (hasReviewStep ? 1 : 0)
+    const qCount = questions.length - adhocSkipped - build3Skipped + (hasReviewStep ? 1 : 0)
     const step = phase === "self_review" ? 1 : currentQ + 1 + (hasReviewStep ? 1 : 0)
     const pct = qCount > 0 ? Math.round((step / qCount) * 100) : 0
     return { progress: Math.max(pct, 5), totalSteps: qCount, currentStep: step }
-  }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, hasReviewStep])
+  }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, trustBatteryValue, hasReviewStep])
   const pathOptions = getFeedbackPathOptions()
 
   const animateTransition = useCallback(
@@ -429,7 +439,7 @@ export default function FeedbackPage() {
         return
       }
 
-      const nextQ = getNextAdhocQ(currentQ, answers)
+      const nextQ = getNextQ(currentQ, answers)
       if (nextQ !== null) {
         animateTransition(true, () => setCurrentQ(nextQ), {
           formPhase: "questions",
@@ -442,28 +452,35 @@ export default function FeedbackPage() {
   }
 
   /**
-   * For adhoc feedback: skip "what went well" when rating ≤ 3,
-   * skip "what could be better" when rating ≥ 4.
+   * Conditional skip logic for feedback paths.
+   * - adhoc: skip "what went well" when rating ≤ 3, skip "what could improve" when rating ≥ 4
+   * - build3: skip "missing_disappointing" when trust battery ≥ 90
    * Returns null when there are no more questions (should submit).
    */
-  function getNextAdhocQ(
+  function getNextQ(
     fromQ: number,
     source: Record<string, string>
   ): number | null {
-    if (feedbackPath !== "adhoc") {
-      return fromQ < questions.length - 1 ? fromQ + 1 : null
-    }
-
-    const rating = Number(source["adhoc_rating"] || 0)
     let next = fromQ + 1
 
-    // adhoc_positive is index 2 — skip if rating ≤ 3
-    if (next < questions.length && questions[next]?.key === "adhoc_positive" && rating <= 3) {
-      next += 1
+    if (feedbackPath === "adhoc") {
+      const rating = Number(source["adhoc_rating"] || 0)
+      // adhoc_positive — skip if rating ≤ 3
+      if (next < questions.length && questions[next]?.key === "adhoc_positive" && rating <= 3) {
+        next += 1
+      }
+      // adhoc_improve — skip if rating ≥ 4
+      if (next < questions.length && questions[next]?.key === "adhoc_improve" && rating >= 4) {
+        next += 1
+      }
     }
-    // adhoc_improve is index 3 — skip if rating ≥ 4
-    if (next < questions.length && questions[next]?.key === "adhoc_improve" && rating >= 4) {
-      next += 1
+
+    if (feedbackPath === "build3") {
+      const trust = Number(source["trust_battery"] || 0)
+      // missing_disappointing — skip when trust is high (≥ 90)
+      if (next < questions.length && questions[next]?.key === "missing_disappointing" && trust >= 90) {
+        next += 1
+      }
     }
 
     return next < questions.length ? next : null
@@ -722,7 +739,7 @@ export default function FeedbackPage() {
       const question = questions[currentQ]
       if (!validateAnswerFromRef(question)) return
 
-      const nextQ = getNextAdhocQ(currentQ, pendingAnswers.current)
+      const nextQ = getNextQ(currentQ, pendingAnswers.current)
       if (nextQ !== null) {
         animateTransition(true, () => setCurrentQ(nextQ), {
           formPhase: "questions",
