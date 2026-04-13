@@ -27,7 +27,12 @@ const RESPONDABLE_KEYS = new Set([
 ])
 
 /** Keys that store values_with_text format: "indices|||explanation" */
-const VALUES_WITH_TEXT_KEYS = new Set(["value_strength", "value_improvement"])
+const VALUES_WITH_TEXT_KEYS = new Set([
+  "value_strength",
+  "value_improvement",
+  "value_upheld",
+  "value_to_improve",
+])
 
 const VALUES_SEP = "|||"
 

@@ -8,7 +8,6 @@ import SearchableDropdown from "@/components/SearchableDropdown"
 const MatrixRating = dynamic(() => import("@/components/MatrixRating"), { ssr: false })
 const NpsScale = dynamic(() => import("@/components/NpsScale"), { ssr: false })
 const StarRating = dynamic(() => import("@/components/StarRating"), { ssr: false })
-const ValuesCard = dynamic(() => import("@/components/ValuesCard"), { ssr: false })
 const TrustSlider = dynamic(() => import("@/components/TrustSlider"), { ssr: false })
 const ValuesMultiSelect = dynamic(() => import("@/components/ValuesMultiSelect"), { ssr: false })
 import {
@@ -158,6 +157,19 @@ export default function FeedbackPage() {
       const key = voiceQuestionKeyRef.current
       if (!key) return
       const current = voiceAnswersRef.current[key] || ""
+
+      // For values_with_text, append transcript to the text portion (after |||)
+      const VALUES_SEP = "|||"
+      if (current.includes(VALUES_SEP)) {
+        const sepIdx = current.indexOf(VALUES_SEP)
+        const indices = current.slice(0, sepIdx)
+        const existingText = current.slice(sepIdx + VALUES_SEP.length)
+        const spacer = existingText && !existingText.endsWith(" ") ? " " : ""
+        const updated = `${indices}${VALUES_SEP}${existingText}${spacer}${text}`
+        setAnswers((prev) => ({ ...prev, [key]: updated }))
+        return
+      }
+
       const separator = current && !current.endsWith(" ") ? " " : ""
       const updated = current + separator + text
       setAnswers((prev) => ({ ...prev, [key]: updated }))
@@ -913,7 +925,6 @@ export default function FeedbackPage() {
         voiceQuestionKeyRef.current = question.key
         return (
           <>
-            {question.showValues && <ValuesCard />}
             <textarea
               value={answers[question.key] || ""}
               onChange={(event) => setAnswer(question.key, event.target.value)}

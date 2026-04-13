@@ -68,7 +68,6 @@ export type Question = {
   min?: number
   max?: number
   employeeRole?: "intern" | "full_timer"
-  showValues?: boolean
 }
 
 // Shared questions used in both intern and full-timer paths
@@ -274,14 +273,14 @@ export const SELF_QUESTIONS: Question[] = [
   {
     key: "value_upheld",
     text: "which value did you uphold best, and where did it show up?",
-    type: "long_text",
-    showValues: true,
+    type: "values_with_text",
+    subtext: "select one or more, then explain below.",
   },
   {
     key: "value_to_improve",
     text: "which value needs the most work from you right now, and why?",
-    type: "long_text",
-    showValues: true,
+    type: "values_with_text",
+    subtext: "select one or more, then explain below.",
   },
   {
     key: "self_improvement",
