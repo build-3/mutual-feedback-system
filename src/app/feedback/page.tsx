@@ -81,6 +81,7 @@ export default function FeedbackPage() {
   const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
   const [animClass, setAnimClass] = useState("slide-enter-active")
   const [error, setError] = useState("")
+  const [sliderTouched, setSliderTouched] = useState(false)
   const submittingRef = useRef(false)
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
@@ -143,9 +144,10 @@ export default function FeedbackPage() {
   const [voiceState, setVoiceState] = useState<VoiceBarState>("idle")
   const voiceBarRef = useRef<VoiceRecorderBarHandle>(null)
 
-  // Reset voice state when question changes (new question = new recorder instance)
+  // Reset voice state and slider interaction when question changes
   useEffect(() => {
     setVoiceState("idle")
+    setSliderTouched(false)
   }, [currentQ])
 
   // Voice recorder — track which question key the recorder targets
@@ -1055,10 +1057,20 @@ export default function FeedbackPage() {
               value={sliderNum}
               min={question.min}
               max={question.max}
-              onChange={(value) => setAnswer(question.key, String(value))}
+              onChange={(value) => {
+                if (!sliderTouched) setSliderTouched(true)
+                setAnswer(question.key, String(value))
+              }}
             />
-            {/* Inline follow-up — always visible, prompt changes based on score */}
-            <div className="space-y-2 transition-all duration-300">
+            {/* Follow-up appears only after user drags the slider */}
+            <div
+              className={[
+                "space-y-2 transition-all duration-300 overflow-hidden",
+                sliderTouched
+                  ? "opacity-100 max-h-[400px]"
+                  : "opacity-0 max-h-0",
+              ].join(" ")}
+            >
               <p className="text-sm font-semibold text-ink">
                 {followupPrompt}
               </p>
