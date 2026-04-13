@@ -353,12 +353,16 @@ export default function FeedbackPage() {
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
 
-  /** Build the ordered pipeline of stages for a target path, given gate status. */
+  /** Build the ordered pipeline of stages for a target path, given gate status.
+   *  Treat null (still loading) the same as false (not done) — assume the gate
+   *  is needed until we know for sure it's been completed. This prevents the
+   *  race condition where a fast user starts the pipeline before the API
+   *  check resolves, silently skipping required gates. */
   function buildStages(targetPath: FeedbackPath): FeedbackPath[] {
     if (targetPath === "adhoc" || targetPath === "self") return [targetPath]
     const result: FeedbackPath[] = []
-    if (hasSelfFeedback === false) result.push("self")
-    if (targetPath !== "build3" && hasBuild3Feedback === false) result.push("build3")
+    if (hasSelfFeedback !== true) result.push("self")
+    if (targetPath !== "build3" && hasBuild3Feedback !== true) result.push("build3")
     result.push(targetPath)
     return result
   }
