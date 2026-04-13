@@ -55,8 +55,21 @@ export type QuestionType =
   | "nps"
   | "number_input"
   | "slider"
+  | "slider_with_followup"
   | "dropdown"
   | "values_with_text"
+
+/** Inline follow-up that appears below the slider based on the score. */
+export type SliderFollowup = {
+  /** Answer key for the follow-up text (separate from the slider value) */
+  detailKey: string
+  /** Threshold — score below this triggers lowPrompt, at or above triggers highPrompt */
+  threshold: number
+  lowPrompt: string
+  highPrompt: string
+  lowPlaceholder?: string
+  highPlaceholder?: string
+}
 
 export type Question = {
   key: string
@@ -68,6 +81,8 @@ export type Question = {
   min?: number
   max?: number
   employeeRole?: "intern" | "full_timer"
+  /** Follow-up config for slider_with_followup type */
+  followup?: SliderFollowup
 }
 
 // Shared questions used in both intern and full-timer paths
@@ -94,11 +109,19 @@ const PURPOSE_ALIGNMENT_QUESTION: Question = {
 const TRUST_BATTERY_QUESTION: Question = {
   key: "trust_battery",
   text: "how confident are you that this person will consistently follow through on their commitments and communicate openly and honestly with you?",
-  type: "slider",
+  type: "slider_with_followup",
   subtext:
     "this question is based on the trust battery concept coined by Tobi Lütke, the CEO of Shopify.\n\ntrust starts at 50% when the relationship begins and then goes up or down from there.\n\nread more here - https://mollyg.substack.com/p/the-trust-battery?utm_medium=reader2",
   min: 0,
   max: 100,
+  followup: {
+    detailKey: "trust_battery_detail",
+    threshold: 90,
+    lowPrompt: "what's holding back your trust?",
+    highPrompt: "what makes you trust them?",
+    lowPlaceholder: "share what's been off — specific moments help.",
+    highPlaceholder: "what have they done that built this trust?",
+  },
 }
 
 const CONTRIBUTION_LEVEL_QUESTION: Question = {
@@ -202,17 +225,19 @@ export const BUILD3_QUESTIONS: Question[] = [
   {
     key: "trust_battery",
     text: "how charged is your trust in build3 right now?",
-    type: "slider",
+    type: "slider_with_followup",
     subtext:
       "think about how much you trust the studio to follow through on what it says, treat people fairly, and move in the right direction.\n\nstart at 50 as neutral — then go up or down based on your real experience so far.",
     min: 0,
     max: 100,
-  },
-  {
-    key: "missing_disappointing",
-    text: "what has felt missing, clunky, or disappointing so far?",
-    type: "long_text",
-    subtext: "your trust score tells us something is off — help us understand what.",
+    followup: {
+      detailKey: "trust_battery_detail",
+      threshold: 90,
+      lowPrompt: "what has felt missing, clunky, or disappointing so far?",
+      highPrompt: "what has felt especially good about build3 so far?",
+      lowPlaceholder: "help us understand what's off — specific moments help.",
+      highPlaceholder: "tell us what's working — we want to do more of it.",
+    },
   },
   {
     key: "purpose_alignment",
@@ -220,11 +245,6 @@ export const BUILD3_QUESTIONS: Question[] = [
     type: "star_rating",
     subtext:
       "does the work we do and the way we do it connect with what matters to you?",
-  },
-  {
-    key: "enjoyed_most",
-    text: "what has felt especially good about build3 so far?",
-    type: "long_text",
   },
   {
     key: "policies_unclear",

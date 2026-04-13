@@ -152,8 +152,9 @@ export const QUESTION_LABELS: Record<string, string> = {
   value_improvement: 'value to improve',
   constructive_feedback: 'direct feedback',
   // Text — build3 path
-  enjoyed_most: 'what felt good',
-  missing_disappointing: 'what felt missing',
+  trust_battery_detail: 'trust battery — detail',
+  enjoyed_most: 'what felt good', // historical — now inline with trust battery
+  missing_disappointing: 'what felt missing', // historical — now inline with trust battery
   policies_unclear: 'policy clarity',
   tools_resources: 'tools and resources',
   issues_faced: 'blockers', // historical — removed from build3 path

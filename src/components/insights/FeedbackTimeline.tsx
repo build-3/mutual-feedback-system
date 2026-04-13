@@ -22,6 +22,7 @@ const RESPONDABLE_KEYS = new Set([
   "value_strength",
   "value_improvement",
   "constructive_feedback",
+  "trust_battery_detail",
   "adhoc_positive",
   "adhoc_improve",
 ])

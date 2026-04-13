@@ -227,19 +227,15 @@ export default function FeedbackPage() {
   // For single-stage, it's just the current path's questions + setup.
   const hasReviewStep = feedbackPath === "full_timer" && selfFeedbackForTarget != null
   const adhocSkipped = feedbackPath === "adhoc" ? 1 : 0
-  // build3: skip missing_disappointing when trust ≥ 90
-  const trustBatteryValue = Number(answers["trust_battery"] || 0)
-  const build3Skipped = feedbackPath === "build3" && trustBatteryValue >= 90 ? 1 : 0
+  const build3Skipped = 0
 
   const { progress } = useMemo(() => {
     if (phase === "identify" || phase === "route") {
       return { progress: phase === "identify" ? 5 : 10, totalSteps: 2, currentStep: phase === "identify" ? 1 : 2 }
     }
 
-    // Inline skip count per stage — uses trustBatteryValue from outer scope (in deps)
     const skipForStage = (path: FeedbackPath): number => {
       if (path === "adhoc") return 1
-      if (path === "build3" && trustBatteryValue >= 90) return 1
       return 0
     }
 
@@ -270,7 +266,7 @@ export default function FeedbackPage() {
     const step = phase === "self_review" ? 1 : currentQ + 1 + (hasReviewStep ? 1 : 0)
     const pct = qCount > 0 ? Math.round((step / qCount) * 100) : 0
     return { progress: Math.max(pct, 5), totalSteps: qCount, currentStep: step }
-  }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, trustBatteryValue, hasReviewStep])
+  }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, hasReviewStep])
   const pathOptions = getFeedbackPathOptions()
 
   const animateTransition = useCallback(
@@ -472,7 +468,6 @@ export default function FeedbackPage() {
   /**
    * Conditional skip logic for feedback paths.
    * - adhoc: skip "what went well" when rating ≤ 3, skip "what could improve" when rating ≥ 4
-   * - build3: skip "missing_disappointing" when trust battery ≥ 90
    * Returns null when there are no more questions (should submit).
    */
   function getNextQ(
@@ -483,20 +478,10 @@ export default function FeedbackPage() {
 
     if (feedbackPath === "adhoc") {
       const rating = Number(source["adhoc_rating"] || 0)
-      // adhoc_positive — skip if rating ≤ 3
       if (next < questions.length && questions[next]?.key === "adhoc_positive" && rating <= 3) {
         next += 1
       }
-      // adhoc_improve — skip if rating ≥ 4
       if (next < questions.length && questions[next]?.key === "adhoc_improve" && rating >= 4) {
-        next += 1
-      }
-    }
-
-    if (feedbackPath === "build3") {
-      const trust = Number(source["trust_battery"] || 0)
-      // missing_disappointing — skip when trust is high (≥ 90)
-      if (next < questions.length && questions[next]?.key === "missing_disappointing" && trust >= 90) {
         next += 1
       }
     }
@@ -559,6 +544,12 @@ export default function FeedbackPage() {
       return true
     }
 
+    if (question.type === "slider_with_followup") {
+      // Slider value is always valid (defaults to 50)
+      // Follow-up text is optional — don't block progression
+      return true
+    }
+
     if (question.type === "values_with_text") {
       const raw = answers[question.key] || ""
       const sep = "|||"
@@ -608,6 +599,31 @@ export default function FeedbackPage() {
               answer_value: value,
             })
           }
+        }
+      } else if (question.type === "slider_with_followup") {
+        // Emit the slider value
+        const sliderValue = answers[question.key]?.trim()
+        if (sliderValue) {
+          answerRows.push({
+            question_key: question.key,
+            question_text: question.text,
+            answer_value: sliderValue,
+          })
+        }
+        // Emit the follow-up detail as a separate answer row
+        const detailKey = question.followup?.detailKey || `${question.key}_detail`
+        const detailValue = answers[detailKey]?.trim()
+        if (detailValue) {
+          const num = Number(sliderValue || 50)
+          const threshold = question.followup?.threshold ?? 90
+          const detailPrompt = num >= threshold
+            ? (question.followup?.highPrompt || "follow-up")
+            : (question.followup?.lowPrompt || "follow-up")
+          answerRows.push({
+            question_key: detailKey,
+            question_text: detailPrompt,
+            answer_value: detailValue,
+          })
         }
       } else {
         const value = answers[question.key]?.trim()
@@ -810,6 +826,9 @@ export default function FeedbackPage() {
     if (question.type === "slider") {
       return true
     }
+    if (question.type === "slider_with_followup") {
+      return true
+    }
     if (question.type === "values_with_text") {
       const raw = pendingAnswers.current[question.key] || ""
       const sep = "|||"
@@ -1006,9 +1025,7 @@ export default function FeedbackPage() {
         // Initialize default value so submission always has a number
         const sliderVal = answers[question.key]
         if (!sliderVal) {
-          const defaultVal = "50"
-          // Use a microtask to avoid setState during render
-          queueMicrotask(() => setAnswer(question.key, defaultVal))
+          queueMicrotask(() => setAnswer(question.key, "50"))
         }
         return (
           <TrustSlider
@@ -1017,6 +1034,52 @@ export default function FeedbackPage() {
             max={question.max}
             onChange={(value) => setAnswer(question.key, String(value))}
           />
+        )
+      }
+      case "slider_with_followup": {
+        // Initialize default value so submission always has a number
+        const compoundSliderVal = answers[question.key]
+        if (!compoundSliderVal) {
+          queueMicrotask(() => setAnswer(question.key, "50"))
+        }
+        const sliderNum = Number(answers[question.key]) || 50
+        const fu = question.followup
+        const isHigh = fu ? sliderNum >= fu.threshold : false
+        const followupPrompt = fu ? (isHigh ? fu.highPrompt : fu.lowPrompt) : ""
+        const followupPlaceholder = fu ? (isHigh ? (fu.highPlaceholder || "") : (fu.lowPlaceholder || "")) : ""
+        const detailKey = fu?.detailKey || `${question.key}_detail`
+        voiceQuestionKeyRef.current = detailKey
+        return (
+          <div className="space-y-6">
+            <TrustSlider
+              value={sliderNum}
+              min={question.min}
+              max={question.max}
+              onChange={(value) => setAnswer(question.key, String(value))}
+            />
+            {/* Inline follow-up — always visible, prompt changes based on score */}
+            <div className="space-y-2 transition-all duration-300">
+              <p className="text-sm font-semibold text-ink">
+                {followupPrompt}
+              </p>
+              <textarea
+                value={answers[detailKey] || ""}
+                onChange={(e) => setAnswer(detailKey, e.target.value)}
+                rows={3}
+                className={fieldClasses({ size: "lg" })}
+                placeholder={followupPlaceholder}
+              />
+              {VOICE_ENABLED && (
+                <div className="mt-1">
+                  <VoiceRecorderBar
+                    ref={voiceBarRef}
+                    onTranscript={handleVoiceTranscript}
+                    onStateChange={setVoiceState}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         )
       }
       case "values_with_text": {
