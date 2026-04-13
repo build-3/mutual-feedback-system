@@ -62,24 +62,40 @@ CREATE INDEX idx_feedback_responses_responder ON feedback_responses(responder_id
 
 -- Seed data: Full timers
 INSERT INTO employees (name, role, email) VALUES
-  ('Varun Chawla', 'full_timer', 'varun@build3.org'),
-  ('Charlez Kurian John', 'full_timer', 'charlez@build3.org'),
-  ('Girish Sampath', 'full_timer', 'girish@build3.org'),
-  ('Ashwini Kaskar', 'full_timer', 'ashwini@build3.org'),
-  ('Umair Tariq', 'full_timer', 'umair@build3.org'),
-  ('Allya Srivastava', 'full_timer', 'allya@build3.org'),
-  ('Omprakash Muddaiah', 'full_timer', 'omprakash@build3.org'),
-  ('Aniket Kislay', 'full_timer', 'aniket@build3.org'),
-  ('Shyamal Majumdar', 'full_timer', 'shyamal@build3.org'),
-  ('Kaustubh Mankar', 'full_timer', 'kaustubh@build3.org'),
-  ('Arjun', 'full_timer', 'at@build3.org'),
-  ('Vijay Relwani', 'full_timer', 'vijay@build3.org'),
-  ('Sanya', 'full_timer', 'investors@build3.org');
+  ('Varun Chawla', 'full_timer', 'vc@build3.org'),
+  ('Charlez Kurian John', 'full_timer', 'ckj@build3.org'),
+  ('Girish Sampath', 'full_timer', 'gs@build3.org'),
+  ('Ashwini Kaskar', 'full_timer', 'ak1@build3.org'),
+  ('Umair Tariq', 'full_timer', 'ut@build3.org'),
+  ('Allya Srivastava', 'full_timer', 'as@build3.org'),
+  ('Omprakash Muddaiah', 'full_timer', 'om@build3.org'),
+  ('Aniket Kislay', 'full_timer', 'ak@build3.org'),
+  ('Shyamal Majumdar', 'full_timer', 'sm@build3.org'),
+  ('Kaustubh Mankar', 'full_timer', 'km@build3.org'),
+  ('Arjun T', 'full_timer', 'at@build3.org'),
+  ('Vijay Relwani', 'full_timer', 'vr@build3.org'),
+  ('Sanya Kalani', 'full_timer', 'sk@build3.org');
 
 -- Seed data: Interns
 INSERT INTO employees (name, role, email) VALUES
-  ('Prajwal', 'intern', 'prajwal@build3.org'),
-  ('Nadim G', 'intern', 'nadim@build3.org'),
-  ('Neha', 'intern', 'neha@build3.org'),
-  ('Sarthak', 'intern', 'sarthak@build3.org'),
-  ('Naman', 'intern', 'naman@build3.org');
+  ('Nadim G', 'intern', 'ng@build3.org'),
+  ('Neha Bansil', 'intern', 'nb@build3.org'),
+  ('Sarthak Agarwal', 'intern', 'sa@build3.org'),
+  ('Naman Pandey', 'intern', 'np@build3.org');
+
+-- New recruits (not in original seed — added from Google Workspace roster)
+INSERT INTO employees (name, role, email) VALUES
+  ('Anand Johnson', 'intern', 'ajj@build3.org'),
+  ('Anurag Gupta', 'intern', 'ag@build3.org'),
+  ('Arvind Gaurishankar', 'intern', 'i4x@build3.org'),
+  ('Ashish Airon', 'intern', 'aa@build3.org'),
+  ('Astha Goyal', 'intern', 'astha@build3.org'),
+  ('Bikram Jha', 'intern', 'bj@build3.org'),
+  ('Devi Sree KS', 'intern', 'dk@build3.org'),
+  ('Karan Murada', 'intern', 'murada@build3.org'),
+  ('Manya Tuli', 'intern', 'mt@build3.org'),
+  ('Mohan Kamath', 'intern', 'mk@build3.org'),
+  ('Prajakta Ughade', 'intern', 'pu@build3.org'),
+  ('Pranav Khanna', 'intern', 'pk@build3.org'),
+  ('Ronak Vora', 'intern', 'rv@build3.org'),
+  ('Shubhaam Chandak', 'intern', 'sh@build3.org');
