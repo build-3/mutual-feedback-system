@@ -121,7 +121,7 @@ export function useEmployeeInsights(
               lastFeedbackDate = createdAt
             }
           }
-        } else if (hasAnswers) {
+        } else if (hasAnswers && feedbackType !== 'build3') {
           given.push(sub)
         }
       }

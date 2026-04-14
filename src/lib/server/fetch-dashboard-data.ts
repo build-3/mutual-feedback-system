@@ -20,12 +20,12 @@ export async function fetchDashboardData() {
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_submissions")
-        .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
+        .select("id, submitted_by_id, feedback_for_id, feedback_type, notified_at, created_at")
         .order("created_at", { ascending: false })
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_answers")
-        .select("id, submission_id, question_key, question_text, answer_value")
+        .select("id, submission_id, question_key, question_text, answer_value, created_at")
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
         .from("feedback_responses")
