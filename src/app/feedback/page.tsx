@@ -708,6 +708,10 @@ export default function FeedbackPage() {
       return
     }
 
+    // Mark completed feedback type so gates don't re-ask on "send another"
+    if (feedbackPath === "self") setHasSelfFeedback(true)
+    if (feedbackPath === "build3") setHasBuild3Feedback(true)
+
     // Normal completion — show success
     setPhase("done")
     window.history.replaceState({ formPhase: "done", formQ: 0 }, "")
