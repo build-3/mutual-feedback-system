@@ -748,9 +748,9 @@ export default function FeedbackPage() {
     function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key !== "Enter") return
       if (phase === "submitting" || phase === "done" || phase === "stage_complete") return
-      // Don't intercept if user is typing in an input/textarea/select
+      // Don't intercept if user is typing in a textarea or select
       const tag = (event.target as HTMLElement)?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      if (tag === "TEXTAREA" || tag === "SELECT") return
       const question = phase === "questions" ? questions[currentQ] : null
       if (question && question.type === "long_text") return
       event.preventDefault()
