@@ -333,17 +333,13 @@ export default function FeedbackPage() {
   }, [animateTransition])
 
   const resetForm = useCallback(() => {
-    setPhase("identify")
-    setSubmitter(null)
+    setPhase("route")
     setFeedbackPath(deepLinkedPath)
     setCurrentQ(0)
     setAnswers({})
     setFeedbackFor(null)
     setSelfFeedbackForTarget(null)
     setReviewAnswers({})
-    selfCheckFetchedFor.current = null
-    setHasSelfFeedback(null)
-    setHasBuild3Feedback(null)
     setIntendedPath(null)
     setStages([])
     setCurrentStageIndex(0)
