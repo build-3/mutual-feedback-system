@@ -126,7 +126,7 @@ export default function FeedbackPage() {
         setHasSelfFeedback(data?.hasSelfFeedback ?? false)
       })
       .catch(() => {
-        if (mountedRef.current) setHasSelfFeedback(true)
+        if (mountedRef.current) setHasSelfFeedback(false)
       })
 
     fetch("/api/build3-feedback-check")
@@ -136,7 +136,7 @@ export default function FeedbackPage() {
         setHasBuild3Feedback(data?.hasBuild3Feedback ?? false)
       })
       .catch(() => {
-        if (mountedRef.current) setHasBuild3Feedback(true)
+        if (mountedRef.current) setHasBuild3Feedback(false)
       })
   }, [submitter])
 
@@ -344,7 +344,7 @@ export default function FeedbackPage() {
     setStages([])
     setCurrentStageIndex(0)
     setError("")
-    window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
+    window.history.replaceState({ formPhase: "route", formQ: 0 }, "")
   }, [deepLinkedPath])
 
   /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
@@ -749,9 +749,11 @@ export default function FeedbackPage() {
     function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key !== "Enter") return
       if (phase === "submitting" || phase === "done" || phase === "stage_complete") return
-      // Don't intercept if user is typing in a textarea or select
+      // Don't intercept if user is typing in a textarea, select, or combobox input (SearchableDropdown)
       const tag = (event.target as HTMLElement)?.tagName
+      const el = event.target as HTMLElement
       if (tag === "TEXTAREA" || tag === "SELECT") return
+      if (tag === "INPUT" && el.getAttribute("role") === "combobox") return
       const question = phase === "questions" ? questions[currentQ] : null
       if (question && question.type === "long_text") return
       event.preventDefault()
