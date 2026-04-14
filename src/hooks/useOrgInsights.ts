@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Employee } from '@/lib/types'
 import { SubmissionWithDetails } from '@/app/insights/types'
-import { parseNumericAnswer, BUILD3_VALUE_KEYWORDS, extractValuesText } from '@/lib/insights-helpers'
+import { parseNumericAnswer, contributionKeyToLabel, BUILD3_VALUE_KEYWORDS, extractValuesText } from '@/lib/insights-helpers'
 
 export interface NpsBreakdown {
   promoters: number
@@ -149,7 +149,7 @@ export function useOrgInsights(
             break
           case 'contribution_level': {
             if (isPeerFeedback) {
-              const label = ans.answer_value
+              const label = contributionKeyToLabel(ans.answer_value)
               contributionDist[label] = (contributionDist[label] || 0) + 1
             }
             break

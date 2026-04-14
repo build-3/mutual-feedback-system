@@ -5,6 +5,7 @@ import { Employee } from '@/lib/types'
 import {
   parseNumericAnswer,
   contributionToNumber,
+  contributionKeyToLabel,
   NUMERIC_KEYS,
   VALUES_WITH_TEXT_KEYS,
   formatValuesWithText,
@@ -150,7 +151,7 @@ export function useEmployeeInsights(
             if (!scoreTimelineMap['contribution_level']) scoreTimelineMap['contribution_level'] = []
             scoreTimelineMap['contribution_level'].push({ date: submissionDate, value: numVal })
           }
-          const label = ans.answer_value
+          const label = contributionKeyToLabel(ans.answer_value)
           contributionCounts[label] = (contributionCounts[label] || 0) + 1
         }
         // FIX #1: Use correct key from form (ideal_team_player_type, not itp_archetype)

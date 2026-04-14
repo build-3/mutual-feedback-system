@@ -13,6 +13,7 @@ import {
   VALUES_WITH_TEXT_KEYS,
   VALUES_SEP,
   parseValuesWithText as parseValuesWithTextRaw,
+  contributionKeyToLabel,
 } from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
@@ -411,13 +412,17 @@ const AnswerDisplay = memo(function AnswerDisplay({
     )
   }
 
+  const displayValue = questionKey === "contribution_level"
+    ? contributionKeyToLabel(value)
+    : value
+
   return (
     <div className="rounded-[20px] border border-line bg-black/[0.02] p-4">
       <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
         {label}
       </div>
       <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink">
-        {value}
+        {displayValue}
       </div>
 
       <ResponseThread responses={responses} />

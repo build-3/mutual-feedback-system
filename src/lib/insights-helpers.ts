@@ -34,6 +34,18 @@ export function getScoreColor(value: number, scale: '1-5' | '0-100' | '0-10'): s
   return '#79c0a6'
 }
 
+/** Map contribution key (A/B/C/D) to its human-readable label */
+export const CONTRIBUTION_KEY_TO_LABEL: Record<string, string> = {
+  A: 'finding their feet',
+  B: 'reliable support',
+  C: 'independent contributor',
+  D: 'leader',
+}
+
+export function contributionKeyToLabel(key: string): string {
+  return CONTRIBUTION_KEY_TO_LABEL[key.trim().toUpperCase()] || key
+}
+
 export function contributionToNumber(value: string): number | null {
   const v = value.toLowerCase().trim()
   if (v.startsWith('a') || v.includes('finding')) return 1

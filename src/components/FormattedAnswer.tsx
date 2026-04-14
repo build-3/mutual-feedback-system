@@ -1,7 +1,7 @@
 "use client"
 
 import { BUILD3_VALUES } from "@/lib/questions"
-import { VALUES_WITH_TEXT_KEYS, parseValuesWithText } from "@/lib/insights-helpers"
+import { VALUES_WITH_TEXT_KEYS, parseValuesWithText, contributionKeyToLabel } from "@/lib/insights-helpers"
 
 interface FormattedAnswerProps {
   questionKey: string
@@ -15,7 +15,10 @@ interface FormattedAnswerProps {
  */
 export default function FormattedAnswer({ questionKey, value }: FormattedAnswerProps) {
   if (!VALUES_WITH_TEXT_KEYS.has(questionKey) || !value.includes("|||")) {
-    return <span className="whitespace-pre-wrap">{value}</span>
+    const displayValue = questionKey === "contribution_level"
+      ? contributionKeyToLabel(value)
+      : value
+    return <span className="whitespace-pre-wrap">{displayValue}</span>
   }
 
   const { values, text } = parseValuesWithText(value, BUILD3_VALUES)
