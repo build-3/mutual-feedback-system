@@ -351,22 +351,27 @@ export default function FeedbackPage() {
     window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
   }, [deepLinkedPath])
 
+  /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
+  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
+
   /** Build the ordered pipeline of stages for a target path, given gate status.
-   *  Treat null (still loading) the same as false (not done) — assume the gate
-   *  is needed until we know for sure it's been completed. This prevents the
-   *  race condition where a fast user starts the pipeline before the API
-   *  check resolves, silently skipping required gates. */
+   *  Only gates that are definitively not completed (false) are included.
+   *  Must not be called until gateChecksLoaded is true. */
   function buildStages(targetPath: FeedbackPath): FeedbackPath[] {
     if (targetPath === "adhoc" || targetPath === "self") return [targetPath]
     const result: FeedbackPath[] = []
-    if (hasSelfFeedback !== true) result.push("self")
-    if (targetPath !== "build3" && hasBuild3Feedback !== true) result.push("build3")
+    if (hasSelfFeedback === false) result.push("self")
+    if (targetPath !== "build3" && hasBuild3Feedback === false) result.push("build3")
     result.push(targetPath)
     return result
   }
 
-  /** Start the pipeline for a chosen path — sets up stages and jumps to first question. */
+  /** Start the pipeline for a chosen path — sets up stages and jumps to first question.
+   *  For paths that need gates (full_timer, intern), waits for gate checks to load. */
   function startPipeline(targetPath: FeedbackPath) {
+    // adhoc and self don't need gate checks
+    const needsGates = targetPath !== "adhoc" && targetPath !== "self"
+    if (needsGates && !gateChecksLoaded) return
     const pipeline = buildStages(targetPath)
     const firstStage = pipeline[0]
     const hasGates = pipeline.length > 1
@@ -396,7 +401,7 @@ export default function FeedbackPage() {
         return
       }
 
-      if (deepLinkedPath) {
+      if (deepLinkedPath && gateChecksLoaded) {
         startPipeline(deepLinkedPath)
       } else {
         animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
@@ -1297,10 +1302,13 @@ export default function FeedbackPage() {
                 <div className="mt-8 space-y-3">
                   {pathOptions.map((option) => {
                     const active = feedbackPath === option.key || intendedPath === option.key
+                    const needsGates = option.key !== "self" && option.key !== "build3"
+                    const waiting = needsGates && !gateChecksLoaded
                     return (
                       <button
                         key={option.key}
                         type="button"
+                        disabled={waiting}
                         onClick={() => {
                           setFeedbackPath(option.key)
                           setError("")
@@ -1311,7 +1319,9 @@ export default function FeedbackPage() {
                         }}
                         className={[
                           "w-full rounded-[26px] border px-5 py-5 text-left transition-all",
-                          active
+                          waiting
+                            ? "border-line bg-white/60 opacity-60 cursor-wait"
+                            : active
                             ? "border-brand-peach bg-brand-peach text-ink shadow-brand"
                             : "border-line bg-white/86 hover:-translate-y-0.5 hover:border-black/15",
                         ].join(" ")}
