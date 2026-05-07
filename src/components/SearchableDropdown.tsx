@@ -40,6 +40,7 @@ type SearchableDropdownProps = {
   onChange: (employee: Employee | null) => void
   filterRole?: "intern" | "full_timer"
   excludeEmployeeId?: string | null
+  excludeEmployeeIds?: string[]
   placeholder?: string
 }
 
@@ -48,6 +49,7 @@ const SearchableDropdown = memo(function SearchableDropdown({
   onChange,
   filterRole,
   excludeEmployeeId,
+  excludeEmployeeIds,
   placeholder = "Search by name...",
 }: SearchableDropdownProps) {
   const [query, setQuery] = useState("")
@@ -79,13 +81,18 @@ const SearchableDropdown = memo(function SearchableDropdown({
       list = list.filter((e) => e.id !== excludeEmployeeId)
     }
 
+    if (excludeEmployeeIds && excludeEmployeeIds.length > 0) {
+      const excludeSet = new Set(excludeEmployeeIds)
+      list = list.filter((e) => !excludeSet.has(e.id))
+    }
+
     if (!query.trim()) {
       return list
     }
 
     const q = query.trim().toLowerCase()
     return list.filter((e) => e.name.toLowerCase().includes(q))
-  }, [allEmployees, query, filterRole, excludeEmployeeId])
+  }, [allEmployees, query, filterRole, excludeEmployeeId, excludeEmployeeIds])
 
   const duplicateNameCounts = useMemo(() => {
     return visibleResults.reduce<Record<string, number>>((counts, employee) => {

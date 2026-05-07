@@ -119,10 +119,11 @@ export function getRoleAccent(role: "intern" | "full_timer" | "admin"): Accent {
   return "sky"
 }
 
-export const SCREEN_ACCENTS: Record<"feedback" | "insights" | "employees", Accent> = {
+export const SCREEN_ACCENTS: Record<"feedback" | "insights" | "employees" | "kudos", Accent> = {
   feedback: "peach",
   insights: "sky",
   employees: "sage",
+  kudos: "yellow",
 }
 
 export const DATE_RANGE_LABELS: Record<DateRange, string> = {

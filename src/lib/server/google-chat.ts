@@ -20,8 +20,9 @@ export function isGoogleChatConfigured(): boolean {
   return Boolean(SERVICE_ACCOUNT_EMAIL && PRIVATE_KEY && SENDER_EMAIL)
 }
 
-// ── Auth client (singleton) ─────────────────────────────────────────────
+// ── Auth clients (singletons) ───────────────────────────────────────────
 let jwtClient: JWT | null = null
+let jwtClientApp: JWT | null = null
 
 function getJwtClient(): JWT {
   if (!jwtClient) {
@@ -35,10 +36,28 @@ function getJwtClient(): JWT {
   return jwtClient
 }
 
+function getJwtClientApp(): JWT {
+  if (!jwtClientApp) {
+    jwtClientApp = new JWT({
+      email: SERVICE_ACCOUNT_EMAIL,
+      key: PRIVATE_KEY,
+      scopes: CHAT_SCOPES,
+    })
+  }
+  return jwtClientApp
+}
+
 async function getAccessToken(): Promise<string> {
   const client = getJwtClient()
   const { token } = await client.getAccessToken()
   if (!token) throw new Error("Failed to obtain access token")
+  return token
+}
+
+async function getAppAccessToken(): Promise<string> {
+  const client = getJwtClientApp()
+  const { token } = await client.getAccessToken()
+  if (!token) throw new Error("Failed to obtain app access token")
   return token
 }
 
@@ -50,6 +69,43 @@ function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   return fetch(url, { ...init, signal: controller.signal }).finally(() =>
     clearTimeout(timer)
   )
+}
+
+// ── Profile photo ──────────────────────────────────────────────────────
+const photoCache = new Map<string, { url: string | null; expiresAt: number }>()
+const PHOTO_CACHE_TTL_MS = 3_600_000 // 1 hour
+
+export async function getProfilePhotoUrl(email: string): Promise<string | null> {
+  const cached = photoCache.get(email)
+  if (cached && Date.now() < cached.expiresAt) return cached.url
+
+  try {
+    const jwt = new JWT({
+      email: SERVICE_ACCOUNT_EMAIL,
+      key: PRIVATE_KEY,
+      scopes: ["https://www.googleapis.com/auth/admin.directory.user.readonly"],
+      subject: SENDER_EMAIL,
+    })
+    const { token } = await jwt.getAccessToken()
+    if (!token) return null
+
+    const res = await fetchWithTimeout(
+      `https://admin.googleapis.com/admin/directory/v1/users/${encodeURIComponent(email)}?fields=thumbnailPhotoUrl`,
+      { method: "GET", headers: { Authorization: `Bearer ${token}` } }
+    )
+
+    if (!res.ok) return null
+    const data = await res.json()
+    const url = data.thumbnailPhotoUrl || null
+
+    if (url) {
+      if (photoCache.size > 200) photoCache.clear()
+      photoCache.set(email, { url, expiresAt: Date.now() + PHOTO_CACHE_TTL_MS })
+    }
+    return url
+  } catch {
+    return null
+  }
 }
 
 // ── Space ID cache ──────────────────────────────────────────────────────
@@ -143,6 +199,60 @@ export async function sendDirectMessage(
   }
 
   return true
+}
+
+/** Send a plain text message to a named space. Uses user impersonation. */
+export async function sendMessageToSpace(
+  spaceId: string,
+  messageText: string
+): Promise<boolean> {
+  if (!isGoogleChatConfigured()) return false
+
+  const token = await getAccessToken()
+
+  const res = await fetchWithTimeout(`${CHAT_API}/${spaceId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: messageText }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`messages.create to space failed (${res.status}): ${text}`)
+  }
+
+  return true
+}
+
+/** Send a Card v2 (or plain text) message to a named space. Uses app identity (no human impersonation). */
+export async function sendCardToSpace(
+  spaceId: string,
+  payload: Record<string, unknown>
+): Promise<{ messageName: string }> {
+  if (!isGoogleChatConfigured()) {
+    throw new Error("Google Chat is not configured")
+  }
+
+  const token = await getAppAccessToken()
+  const res = await fetchWithTimeout(`${CHAT_API}/${spaceId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`messages.create to space failed (${res.status}): ${text}`)
+  }
+
+  const data = await res.json()
+  return { messageName: data.name ?? "" }
 }
 
 /** Send a test message from the admin panel */

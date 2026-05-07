@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client"
 
 const links = [
   { href: "/feedback", label: "feedback", icon: "chat" },
+  { href: "/feedback?path=kudos", label: "kudos", icon: "star", exactMatch: true },
   { href: "/feedback?path=adhoc", label: "quick note", icon: "zap", exactMatch: true },
   { href: "/insights", label: "insights", icon: "chart" },
   { href: "/employees", label: "people", icon: "people" },
@@ -44,6 +45,12 @@ function NavIcon({ icon, className }: { icon: string; className?: string }) {
           <circle cx="9" cy="7" r="4" />
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      )
+    case "star":
+      return (
+        <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
         </svg>
       )
     case "zap":
@@ -104,9 +111,10 @@ function NavbarInner() {
       }
       return true
     }
-    // For /feedback (non-exact): only active when path param is NOT adhoc
+    // For /feedback (non-exact): only active when path param is NOT adhoc or kudos
     if (linkPath === "/feedback") {
-      return pathname === "/feedback" && searchParams.get("path") !== "adhoc"
+      const p = searchParams.get("path")
+      return pathname === "/feedback" && p !== "adhoc" && p !== "kudos"
     }
     return pathname === linkPath || (linkPath !== "/" && pathname?.startsWith(linkPath))
   }
@@ -135,7 +143,7 @@ function NavbarInner() {
           <div className="hidden sm:flex items-center gap-2">
             {links.map((link) => {
               const basePath = link.href.split("?")[0]
-              const accent = LINK_ACCENTS[basePath] ?? (link.icon === "zap" ? "pink" : SCREEN_ACCENTS.insights)
+              const accent = LINK_ACCENTS[basePath] ?? (link.icon === "star" ? "yellow" : link.icon === "zap" ? "pink" : SCREEN_ACCENTS.insights)
               const active = isLinkActive(link)
               const button = buttonClasses({
                 accent,
@@ -177,7 +185,7 @@ function NavbarInner() {
         <div className="flex items-stretch">
           {links.map((link) => {
             const active = isLinkActive(link)
-            const activeColor = link.icon === "zap" ? "bg-brand-pink" : "bg-brand-peach"
+            const activeColor = link.icon === "star" ? "bg-brand-yellow" : link.icon === "zap" ? "bg-brand-pink" : "bg-brand-peach"
 
             return (
               <Link

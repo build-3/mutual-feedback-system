@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
+import KudosCard from "@/components/KudosCard"
 import SearchableDropdown from "@/components/SearchableDropdown"
 const MatrixRating = dynamic(() => import("@/components/MatrixRating"), { ssr: false })
 const NpsScale = dynamic(() => import("@/components/NpsScale"), { ssr: false })
@@ -61,8 +62,11 @@ const feedbackAccent = SCREEN_ACCENTS.feedback
 
 export default function FeedbackPage() {
   const searchParams = useSearchParams()
-  const pathParam = searchParams.get("path") as FeedbackPath | null
-  const deepLinkedPath = pathParam && VALID_PATHS.has(pathParam) ? pathParam : null
+  const pathParam = searchParams.get("path")
+  const isKudos = pathParam === "kudos"
+
+  const typedPath = pathParam as FeedbackPath | null
+  const deepLinkedPath = !isKudos && typedPath && VALID_PATHS.has(typedPath) ? typedPath : null
 
   const [phase, setPhase] = useState<Phase>("identify")
   const [submitter, setSubmitter] = useState<Employee | null>(null)
@@ -1185,6 +1189,17 @@ export default function FeedbackPage() {
 
   const nextButton = buttonClasses({ accent: feedbackAccent, variant: "solid", size: "lg" })
   const backButton = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
+
+  if (isKudos) {
+    return (
+      <div className="min-h-screen pb-24 sm:pb-0">
+        <Navbar />
+        <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-12">
+          <KudosCard />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">
