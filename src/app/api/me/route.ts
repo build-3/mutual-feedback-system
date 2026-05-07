@@ -14,6 +14,7 @@ export async function GET() {
       id: auth.employee.id,
       name: auth.employee.name,
       role: auth.employee.role,
+      birthday: auth.employee.birthday,
     },
   })
 }

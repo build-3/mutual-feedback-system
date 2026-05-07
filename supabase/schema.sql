@@ -9,6 +9,7 @@ CREATE TABLE employees (
   name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('intern', 'full_timer', 'admin')),
   email TEXT,
+  birthday TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

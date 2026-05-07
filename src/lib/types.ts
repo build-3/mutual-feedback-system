@@ -5,6 +5,7 @@ export type Employee = {
   name: string
   role: EmployeeRole
   email?: string | null
+  birthday?: string | null
   created_at: string
 }
 
@@ -46,6 +47,7 @@ export type Database = {
           name: string
           role: EmployeeRole
           email?: string | null
+          birthday?: string | null
           created_at?: string
         }
         Update: {
@@ -53,6 +55,7 @@ export type Database = {
           name?: string
           role?: EmployeeRole
           email?: string | null
+          birthday?: string | null
           created_at?: string
         }
         Relationships: []

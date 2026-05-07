@@ -32,6 +32,7 @@ import VoiceRecorderBar, {
   type VoiceRecorderBarHandle,
 } from "@/components/VoiceRecorderBar"
 import SelfReviewStep, { SelfReviewSidebar } from "@/components/SelfReviewStep"
+import BirthdayDialog from "@/components/BirthdayDialog"
 
 type SelfFeedbackAnswer = {
   question_key: string
@@ -83,6 +84,7 @@ export default function FeedbackPage() {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   const [selfFeedbackForTarget, setSelfFeedbackForTarget] = useState<SelfFeedbackData | null>(null)
   const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
+  const [showBirthdayDialog, setShowBirthdayDialog] = useState(false)
   const [animClass, setAnimClass] = useState("slide-enter-active")
   const [error, setError] = useState("")
   const [sliderTouched, setSliderTouched] = useState(false)
@@ -216,8 +218,9 @@ export default function FeedbackPage() {
           created_at: "",
         }
         setSubmitter(me)
-        // Stay on identify phase — user confirms or switches before moving on
-        // (deep-linked path: still show identify so user can confirm it's them)
+        if (!data.employee.birthday) {
+          setShowBirthdayDialog(true)
+        }
       })
       .catch(() => {
         // Silently fall back to manual name selection
@@ -1194,6 +1197,9 @@ export default function FeedbackPage() {
     return (
       <div className="min-h-screen pb-24 sm:pb-0">
         <Navbar />
+        {showBirthdayDialog && (
+          <BirthdayDialog onSaved={() => setShowBirthdayDialog(false)} />
+        )}
         <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-12">
           <KudosCard />
         </main>
@@ -1204,6 +1210,9 @@ export default function FeedbackPage() {
   return (
     <div className="min-h-screen">
       <Navbar />
+      {showBirthdayDialog && (
+        <BirthdayDialog onSaved={() => setShowBirthdayDialog(false)} />
+      )}
 
       <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:py-3 sm:px-6">

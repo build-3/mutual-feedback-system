@@ -18,8 +18,9 @@ const SubmissionBrowser = dynamic(() => import("@/components/admin/SubmissionBro
 const DangerZone = dynamic(() => import("@/components/admin/DangerZone"), { ssr: false })
 const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard"), { ssr: false })
 const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { ssr: false })
+const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "danger"
+type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "birthdays" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
@@ -27,6 +28,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "employees", label: "employees" },
   { key: "submissions", label: "submissions" },
   { key: "usage", label: "usage" },
+  { key: "birthdays", label: "birthdays 🎂" },
   { key: "danger", label: "danger zone" },
 ]
 
@@ -245,6 +247,9 @@ export default function Glock17Page() {
             submissionCount={submissions.length}
             employeeCount={employees.length}
           />
+        )}
+        {tab === "birthdays" && (
+          <BirthdayWisher employees={employees} />
         )}
         {tab === "danger" && (
           <DangerZone

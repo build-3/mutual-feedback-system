@@ -46,7 +46,7 @@ export async function fetchDashboardData() {
     await Promise.all([
       supabaseAdmin
         .from("employees")
-        .select("id, name, role, email, created_at")
+        .select("id, name, role, email, birthday, created_at")
         .order("name")
         .range(0, PAGE_SIZE - 1),
       supabaseAdmin
