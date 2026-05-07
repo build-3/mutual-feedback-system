@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
 import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 
+const GIPHY_API_KEY = process.env.GIPHY_API_KEY ?? ""
+
 const CURATED_GIF_IDS = [
   // celebration
   "NqiE7mIiXNAhYVUaZD", "l0MYt5jPR6QX5pnqM", "ddHhhUBn25cuQ",
@@ -89,6 +91,28 @@ const CURATED_GIF_IDS = [
   "WicZdyR749PJ0V7eUu",
 ]
 
+// Cache resolved URLs so we don't hit Giphy API every request
+const urlCache = new Map<string, { url: string; expiresAt: number }>()
+const CACHE_TTL_MS = 3_600_000 // 1 hour
+
+async function resolveGifUrl(id: string): Promise<string | null> {
+  const cached = urlCache.get(id)
+  if (cached && Date.now() < cached.expiresAt) return cached.url
+
+  const res = await fetch(
+    `https://api.giphy.com/v1/gifs/${id}?api_key=${GIPHY_API_KEY}`
+  )
+  if (!res.ok) return null
+
+  const json = await res.json()
+  const url = json?.data?.images?.downsized?.url || json?.data?.images?.original?.url
+  if (!url) return null
+
+  if (urlCache.size > 200) urlCache.clear()
+  urlCache.set(id, { url, expiresAt: Date.now() + CACHE_TTL_MS })
+  return url
+}
+
 export async function GET(request: Request) {
   const auth = await requireAuth()
   if (auth.error) return auth.error
@@ -99,8 +123,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Too many requests." }, { status: 429 })
   }
 
+  if (!GIPHY_API_KEY) {
+    return NextResponse.json({ error: "Giphy is not configured." }, { status: 503 })
+  }
+
   const pickId = CURATED_GIF_IDS[Math.floor(Math.random() * CURATED_GIF_IDS.length)]
-  const url = `https://media.giphy.com/media/${pickId}/giphy.gif`
+  const url = await resolveGifUrl(pickId)
+
+  if (!url) {
+    return NextResponse.json({ error: "Failed to load GIF." }, { status: 502 })
+  }
 
   return NextResponse.json({ url, id: pickId })
 }
