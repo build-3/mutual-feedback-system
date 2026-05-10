@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Image from "next/image"
 import type { Employee } from "@/lib/types"
 import SearchableDropdown from "@/components/SearchableDropdown"
 import {
@@ -231,10 +232,13 @@ export default function KudosCard() {
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-line bg-white/60">
             {gifUrl ? (
-              <img
+              <Image
                 src={gifUrl}
                 alt="Celebration GIF"
+                width={480}
+                height={256}
                 className="w-full max-h-64 object-cover"
+                unoptimized
               />
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-muted">
