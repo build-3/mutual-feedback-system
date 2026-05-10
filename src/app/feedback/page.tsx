@@ -88,6 +88,7 @@ export default function FeedbackPage() {
   const [animClass, setAnimClass] = useState("slide-enter-active")
   const [error, setError] = useState("")
   const [sliderTouched, setSliderTouched] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
@@ -143,6 +144,17 @@ export default function FeedbackPage() {
       })
       .catch(() => {
         if (mountedRef.current) setHasBuild3Feedback(false)
+      })
+
+    // Fetch active feedback session (for tagging intern/full_timer submissions)
+    fetch("/api/session/current")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!mountedRef.current) return
+        setSessionId(data?.session?.id ?? null)
+      })
+      .catch(() => {
+        if (mountedRef.current) setSessionId(null)
       })
   }, [submitter])
 
@@ -401,6 +413,12 @@ export default function FeedbackPage() {
     if (phase === "identify") {
       if (!submitter) {
         setError("we need your name before we can route this.")
+        return
+      }
+
+      // Check if submitter needs to provide birthday before routing
+      if (!submitter.birthday) {
+        setShowBirthdayDialog(true)
         return
       }
 
@@ -688,6 +706,7 @@ export default function FeedbackPage() {
           feedbackForId: feedbackPath === "build3" || feedbackPath === "self" ? null : feedbackFor?.id || null,
           feedbackType: feedbackPath as FeedbackType,
           answers: answerRows,
+          sessionId: (feedbackPath === "intern" || feedbackPath === "full_timer") ? sessionId : null,
         }),
       }).catch(() => {})
 
@@ -734,6 +753,7 @@ export default function FeedbackPage() {
               : feedbackFor?.id || null,
           feedbackType: feedbackPath as FeedbackType,
           answers: answerRows,
+          sessionId: (feedbackPath === "intern" || feedbackPath === "full_timer") ? sessionId : null,
         }),
       })
 
@@ -1198,7 +1218,12 @@ export default function FeedbackPage() {
       <div className="min-h-screen pb-24 sm:pb-0">
         <Navbar />
         {showBirthdayDialog && (
-          <BirthdayDialog onSaved={() => setShowBirthdayDialog(false)} />
+          <BirthdayDialog onSaved={() => {
+            setShowBirthdayDialog(false)
+            if (submitter) {
+              setSubmitter({ ...submitter, birthday: new Date().toISOString().split('T')[0] })
+            }
+          }} />
         )}
         <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-12">
           <KudosCard />
@@ -1211,7 +1236,21 @@ export default function FeedbackPage() {
     <div className="min-h-screen">
       <Navbar />
       {showBirthdayDialog && (
-        <BirthdayDialog onSaved={() => setShowBirthdayDialog(false)} />
+        <BirthdayDialog onSaved={() => {
+          setShowBirthdayDialog(false)
+          if (submitter && phase === "identify") {
+            const updated = { ...submitter, birthday: new Date().toISOString().split('T')[0] }
+            setSubmitter(updated)
+            safeTimeout(() => {
+              if (!mountedRef.current) return
+              if (deepLinkedPath && gateChecksLoaded) {
+                startPipeline(deepLinkedPath)
+              } else {
+                animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+              }
+            }, 300)
+          }
+        }} />
       )}
 
       <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
@@ -1275,16 +1314,28 @@ export default function FeedbackPage() {
             )}
 
             {phase === "identify" && (
-              <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
-                <SectionHeading
-                  accent={feedbackAccent}
-                  eyebrow="who are we hearing from?"
-                  title={submitter ? `hey, ${submitter.name.split(" ")[0]}` : "start with your name"}
-                  description={submitter
-                    ? "this is you, right? hit keep going to start, or switch below."
-                    : "we keep it simple. pick yourself first, then we will route the rest."}
-                />
-                <div className="mt-8">
+              <>
+                {submitter && (
+                  <BrandPanel accent={feedbackAccent} tone="soft" className="mb-6 p-4 sm:p-5">
+                    <div className="text-sm font-medium text-ink">
+                      📋 Today&apos;s feedback session
+                    </div>
+                    <div className="text-xs text-muted mt-2 space-y-1">
+                      <div>every 2nd Tuesday, we sit down and give each other structured feedback.</div>
+                      <div>you&apos;ll give feedback to interns + build3, then to full-timers. starts fresh each month.</div>
+                    </div>
+                  </BrandPanel>
+                )}
+                <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
+                  <SectionHeading
+                    accent={feedbackAccent}
+                    eyebrow="who are we hearing from?"
+                    title={submitter ? `hey, ${submitter.name.split(" ")[0]}` : "start with your name"}
+                    description={submitter
+                      ? "this is you, right? hit keep going to start, or switch below."
+                      : "we keep it simple. pick yourself first, then we will route the rest."}
+                  />
+                  <div className="mt-8">
                   {submitter ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3 rounded-[24px] border border-brand-peach/40 bg-brand-peach/10 px-5 py-4">
@@ -1315,6 +1366,7 @@ export default function FeedbackPage() {
                   )}
                 </div>
               </BrandPanel>
+              </>
             )}
 
             {phase === "route" && (
@@ -1323,7 +1375,7 @@ export default function FeedbackPage() {
                   accent={feedbackAccent}
                   eyebrow="what are we writing?"
                   title="pick the lane"
-                  description="each route keeps the questions short and relevant."
+                  description="we'll walk through each type in order. start with self-reflection, then build3, then review others. pick where you want to start."
                 />
                 <div className="mt-8 space-y-3">
                   {pathOptions.map((option) => {

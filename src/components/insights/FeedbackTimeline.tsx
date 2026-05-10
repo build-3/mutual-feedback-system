@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
