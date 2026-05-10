@@ -1,4 +1,21 @@
 export type EmployeeRole = "intern" | "full_timer" | "admin"
+export type ProbationStatus = "active" | "extended" | "completed" | "concluded"
+
+export type ProbationTracking = {
+  id: string
+  employee_id: string
+  join_date: string
+  probation_status: ProbationStatus
+  probation_end_date: string
+  extended_at: string | null
+  completed_at: string | null
+  concluded_at: string | null
+  decision_note: string | null
+  rules_last_sent_at: string | null
+  ceo_alerted_at: string | null
+  created_at: string
+  updated_at: string
+}
 
 export type Employee = {
   id: string
@@ -115,6 +132,40 @@ export type Database = {
           responder_id?: string
           response_text?: string
           created_at?: string
+        }
+        Relationships: []
+      }
+      probation_tracking: {
+        Row: ProbationTracking
+        Insert: {
+          id?: string
+          employee_id: string
+          join_date?: string
+          probation_status?: ProbationStatus
+          probation_end_date: string
+          extended_at?: string | null
+          completed_at?: string | null
+          concluded_at?: string | null
+          decision_note?: string | null
+          rules_last_sent_at?: string | null
+          ceo_alerted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          join_date?: string
+          probation_status?: ProbationStatus
+          probation_end_date?: string
+          extended_at?: string | null
+          completed_at?: string | null
+          concluded_at?: string | null
+          decision_note?: string | null
+          rules_last_sent_at?: string | null
+          ceo_alerted_at?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

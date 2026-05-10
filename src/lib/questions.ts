@@ -162,56 +162,17 @@ export const INTERN_QUESTIONS: Question[] = [
     type: "star_rating",
   },
   TEAL_CONCEPTS_QUESTION,
-  {
-    key: "excellence_area",
-    text: "where have they done especially strong work? specific examples help.",
-    type: "long_text",
-  },
-  {
-    key: "upskill_ability",
-    text: "where have they stretched, learned fast, or upskilled themselves?",
-    type: "long_text",
-  },
-  CONTRIBUTION_LEVEL_QUESTION,
-  {
-    key: "upcoming_projects",
-    text: "where could their skills be especially useful over the next 12 months?",
-    type: "long_text",
-  },
-  {
-    key: "advice",
-    text: "what is the one piece of advice we should give them next?",
-    type: "long_text",
-  },
   PURPOSE_ALIGNMENT_QUESTION,
+  TRUST_BATTERY_QUESTION,
+  CONTRIBUTION_LEVEL_QUESTION,
   VALUE_STRENGTH_QUESTION,
   VALUE_IMPROVEMENT_QUESTION,
   {
-    key: "ideal_team_player_matrix",
-    text: "how do they land on the ideal team player traits?",
-    type: "matrix_rating",
-    matrixItems: [
-      {
-        key: "itp_humble",
-        label: "humble: puts the work above ego",
-      },
-      {
-        key: "itp_hungry",
-        label: "hungry: keeps reaching for more",
-      },
-      {
-        key: "itp_smart",
-        label: "people-smart: reads the room and responds well",
-      },
-    ],
+    key: "constructive_feedback",
+    text: "share any constructive feedback you have.",
+    type: "long_text",
+    subtext: "expand on whatever you think is not working or they can be better at. include what you've noticed they could improve.",
   },
-  {
-    key: "ideal_team_player_type",
-    text: "if we had to name the archetype, which one fits best?",
-    type: "dropdown",
-    options: IDEAL_TEAM_PLAYER_TYPES.map((type) => ({ key: type, label: type })),
-  },
-  TRUST_BATTERY_QUESTION,
 ]
 
 export const BUILD3_QUESTIONS: Question[] = [

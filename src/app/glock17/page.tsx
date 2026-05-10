@@ -19,21 +19,30 @@ const DangerZone = dynamic(() => import("@/components/admin/DangerZone"), { ssr:
 const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard"), { ssr: false })
 const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { ssr: false })
 const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher"), { ssr: false })
+const ProbationDashboard = dynamic(() => import("@/components/admin/ProbationDashboard"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "birthdays" | "danger"
+type Tab = "overview" | "activity" | "employees" | "submissions" | "probation" | "usage" | "birthdays" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
   { key: "activity", label: "activity" },
   { key: "employees", label: "employees" },
   { key: "submissions", label: "submissions" },
+  { key: "probation", label: "probation" },
   { key: "usage", label: "usage" },
   { key: "birthdays", label: "birthdays 🎂" },
   { key: "danger", label: "danger zone" },
 ]
 
 export default function Glock17Page() {
-  const [tab, setTab] = useState<Tab>("overview")
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const t = params.get("tab")
+      if (t && TABS.some((tb) => tb.key === t)) return t as Tab
+    }
+    return "overview"
+  })
   const [employees, setEmployees] = useState<Employee[]>([])
   const [submissions, setSubmissions] = useState<FeedbackSubmission[]>([])
   const [answers, setAnswers] = useState<FeedbackAnswer[]>([])
@@ -242,6 +251,7 @@ export default function Glock17Page() {
             onDelete={handleDeleteSubmissions}
           />
         )}
+        {tab === "probation" && <ProbationDashboard />}
         {tab === "usage" && (
           <UsageDashboard
             submissionCount={submissions.length}

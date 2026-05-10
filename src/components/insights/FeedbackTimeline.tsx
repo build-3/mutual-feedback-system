@@ -17,7 +17,7 @@ import {
 } from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
-import type { Employee, FeedbackResponse } from "@/lib/types"
+import type { FeedbackResponse } from "@/lib/types"
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder"
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
@@ -59,10 +59,8 @@ interface Props {
   title: string
   emptyText?: string
   responsesByAnswer?: Record<string, (FeedbackResponse & { responderName: string })[]>
-  /** All employees — used for the "respond as" picker */
-  employees?: Employee[]
-  /** Default responder (the profile being viewed) */
-  defaultResponderId?: string | null
+  /** Logged-in user — locked responder identity */
+  currentUser?: { id: string; name: string } | null
   onResponseSaved?: () => void
 }
 
@@ -102,23 +100,18 @@ function ResponseThread({
 
 function ReplyBox({
   answerId,
-  employees,
-  defaultResponderId,
+  currentUser,
   onSaved,
 }: {
   answerId: string
-  employees: Employee[]
-  defaultResponderId: string | null
+  currentUser: { id: string; name: string } | null
   onSaved?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState("")
-  const [responderId, setResponderId] = useState<string>(defaultResponderId || "")
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const submittingRef = useRef(false)
-  const pickerRef = useRef<HTMLDivElement>(null)
 
   const handleTranscript = useCallback((transcript: string) => {
     setText((prev) => {
@@ -129,22 +122,8 @@ function ReplyBox({
 
   const voice = useVoiceRecorder(handleTranscript)
 
-  const selectedEmployee = employees.find((e) => e.id === responderId)
-
-  // Click-outside handler for the person picker
-  useEffect(() => {
-    if (!pickerOpen) return
-    function handleClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setPickerOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [pickerOpen])
-
   const handleSubmit = useCallback(async () => {
-    if (submittingRef.current || !text.trim() || !responderId) return
+    if (submittingRef.current || !text.trim() || !currentUser) return
     submittingRef.current = true
     setSending(true)
     setError(null)
@@ -155,7 +134,7 @@ function ReplyBox({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answerId,
-          responderId,
+          responderId: currentUser.id,
           responseText: text.trim(),
         }),
       })
@@ -174,10 +153,12 @@ function ReplyBox({
       submittingRef.current = false
       setSending(false)
     }
-  }, [answerId, responderId, text, onSaved])
+  }, [answerId, currentUser, text, onSaved])
 
   const btn = buttonClasses({ accent: "sky", variant: "ghost", size: "sm" })
   const sendBtn = buttonClasses({ accent: "sky", variant: "solid", size: "sm" })
+
+  if (!currentUser) return null
 
   if (!open) {
     return (
@@ -194,60 +175,19 @@ function ReplyBox({
 
   return (
     <div className="mt-3 space-y-2">
-      {/* Respond-as identity row */}
+      {/* Respond-as identity row — locked to logged-in user */}
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-semibold tracking-[0.08em] text-muted">
           responding as
         </span>
-        <div className="relative" ref={pickerRef}>
-          <button
-            type="button"
-            onClick={() => setPickerOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:border-brand-sky/50 transition-colors"
+        <div className="flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink">
+          <span
+            className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+            style={{ backgroundColor: getAvatarColor(currentUser.name) }}
           >
-            {selectedEmployee ? (
-              <>
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-                  style={{ backgroundColor: getAvatarColor(selectedEmployee.name) }}
-                >
-                  {getInitials(selectedEmployee.name)}
-                </span>
-                {selectedEmployee.name}
-              </>
-            ) : (
-              "pick someone"
-            )}
-            <svg className="h-3 w-3 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {pickerOpen && (
-            <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-52 overflow-y-auto rounded-2xl border border-line bg-white py-1 shadow-lg">
-              {employees.map((emp) => (
-                <button
-                  key={emp.id}
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-black/[0.04] transition-colors"
-                  onClick={() => {
-                    setResponderId(emp.id)
-                    setPickerOpen(false)
-                  }}
-                >
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold text-white"
-                    style={{ backgroundColor: getAvatarColor(emp.name) }}
-                  >
-                    {getInitials(emp.name)}
-                  </span>
-                  <span className={emp.id === responderId ? "font-semibold" : ""}>
-                    {emp.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+            {getInitials(currentUser.name)}
+          </span>
+          {currentUser.name}
         </div>
       </div>
 
@@ -309,7 +249,7 @@ function ReplyBox({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!text.trim() || !responderId || sending}
+          disabled={!text.trim() || !currentUser || sending}
           className={sendBtn.className}
           style={sendBtn.style}
         >
@@ -317,7 +257,7 @@ function ReplyBox({
         </button>
         <button
           type="button"
-          onClick={() => { setOpen(false); setText(""); setPickerOpen(false) }}
+          onClick={() => { setOpen(false); setText("") }}
           className={btn.className}
           style={btn.style}
         >
@@ -338,8 +278,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
   value,
   answerId,
   responses,
-  employees,
-  defaultResponderId,
+  currentUser,
   onResponseSaved,
 }: {
   questionKey: string
@@ -347,13 +286,12 @@ const AnswerDisplay = memo(function AnswerDisplay({
   value: string
   answerId: string
   responses: (FeedbackResponse & { responderName: string })[]
-  employees: Employee[]
-  defaultResponderId: string | null
+  currentUser: { id: string; name: string } | null
   onResponseSaved?: () => void
 }) {
   const label = QUESTION_LABELS[questionKey] || questionText || questionKey
   const numericValue = parseNumericAnswer(value)
-  const isRespondable = RESPONDABLE_KEYS.has(questionKey) && employees.length > 0
+  const isRespondable = RESPONDABLE_KEYS.has(questionKey) && !!currentUser
 
   if (NUMERIC_DISPLAY.has(questionKey) && numericValue !== null) {
     return (
@@ -403,8 +341,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
         {isRespondable && (
           <ReplyBox
             answerId={answerId}
-            employees={employees}
-            defaultResponderId={defaultResponderId}
+            currentUser={currentUser}
             onSaved={onResponseSaved}
           />
         )}
@@ -430,8 +367,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
       {isRespondable && (
         <ReplyBox
           answerId={answerId}
-          employees={employees}
-          defaultResponderId={defaultResponderId}
+          currentUser={currentUser}
           onSaved={onResponseSaved}
         />
       )}
@@ -442,24 +378,17 @@ const AnswerDisplay = memo(function AnswerDisplay({
 const TimelineItem = memo(function TimelineItem({
   submission,
   responsesByAnswer,
-  employees,
-  defaultResponderId,
+  currentUser,
   onResponseSaved,
 }: {
   submission: SubmissionWithDetails
   responsesByAnswer: Record<string, (FeedbackResponse & { responderName: string })[]>
-  employees: Employee[]
-  defaultResponderId: string | null
+  currentUser: { id: string; name: string } | null
   onResponseSaved?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const accent = getFeedbackAccent(submission.submission.feedback_type)
   const badge = badgeClasses({ accent, tone: "soft" })
-  const threadParticipants = employees.filter(
-    (employee) =>
-      employee.id === submission.submission.submitted_by_id ||
-      employee.id === submission.submission.feedback_for_id
-  )
 
   return (
     <div className="flex gap-2 sm:gap-3.5">
@@ -512,8 +441,7 @@ const TimelineItem = memo(function TimelineItem({
                       questionText={answer.question_text}
                       value={answer.answer_value}
                       responses={responsesByAnswer[answer.id] || []}
-                      employees={threadParticipants}
-                      defaultResponderId={defaultResponderId}
+                      currentUser={currentUser}
                       onResponseSaved={onResponseSaved}
                     />
                   ))}
@@ -541,8 +469,7 @@ export default function FeedbackTimeline({
   title,
   emptyText,
   responsesByAnswer = {},
-  employees = [],
-  defaultResponderId = null,
+  currentUser = null,
   onResponseSaved,
 }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all")
@@ -602,8 +529,7 @@ export default function FeedbackTimeline({
             key={submission.submission.id}
             submission={submission}
             responsesByAnswer={responsesByAnswer}
-            employees={employees}
-            defaultResponderId={defaultResponderId}
+            currentUser={currentUser}
             onResponseSaved={onResponseSaved}
           />
         ))}

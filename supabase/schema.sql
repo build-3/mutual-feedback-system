@@ -61,6 +61,32 @@ CREATE INDEX idx_feedback_answers_submission ON feedback_answers(submission_id);
 CREATE INDEX idx_feedback_responses_answer ON feedback_responses(answer_id);
 CREATE INDEX idx_feedback_responses_responder ON feedback_responses(responder_id);
 
+-- Probation tracking table
+CREATE TABLE probation_tracking (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+  join_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  probation_status TEXT NOT NULL DEFAULT 'active'
+    CHECK (probation_status IN ('active', 'extended', 'completed', 'concluded')),
+  probation_end_date TIMESTAMPTZ NOT NULL,
+  extended_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  concluded_at TIMESTAMPTZ,
+  decision_note TEXT,
+  rules_last_sent_at TIMESTAMPTZ,
+  ceo_alerted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE probation_tracking ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_probation_employee ON probation_tracking(employee_id);
+CREATE INDEX idx_probation_status ON probation_tracking(probation_status);
+CREATE INDEX idx_probation_end_date ON probation_tracking(probation_end_date);
+CREATE UNIQUE INDEX idx_probation_active_per_employee
+  ON probation_tracking(employee_id) WHERE probation_status IN ('active', 'extended');
+
 -- Seed data: Full timers
 INSERT INTO employees (name, role, email) VALUES
   ('Varun Chawla', 'full_timer', 'varun@build3.org'),

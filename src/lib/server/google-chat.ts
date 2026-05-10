@@ -157,6 +157,8 @@ async function getOrCreateDMSpace(
 
 /** Check if notifications are enabled via DB toggle */
 export async function isNotificationsEnabled(): Promise<boolean> {
+  if (process.env.DEV_MODE === "true") return false
+
   try {
     const supabaseAdmin = getSupabaseAdmin()
     const { data } = await supabaseAdmin

@@ -97,6 +97,7 @@ function InsightsContent() {
   const [responsesByAnswer, setResponsesByAnswer] = useState<
     Record<string, (FeedbackResponse & { responderName: string })[]>
   >({})
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
 
   const buildResponsesByAnswer = useCallback(
     (employeeRows: Employee[], responseRows: FeedbackResponse[]) => {
@@ -181,6 +182,17 @@ function InsightsContent() {
   useEffect(() => {
     void loadDashboard()
   }, [loadDashboard])
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.employee?.id && data?.employee?.name) {
+          setCurrentUser({ id: data.employee.id, name: data.employee.name })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Auto-select employee from URL param
   useEffect(() => {
@@ -389,8 +401,7 @@ function InsightsContent() {
                 submissions={insights.receivedSubmissions}
                 title="feedback received"
                 responsesByAnswer={responsesByAnswer}
-                employees={employees}
-                defaultResponderId={selectedEmployeeId}
+                currentUser={currentUser}
                 onResponseSaved={handleResponseSaved}
               />
             )}
@@ -407,8 +418,7 @@ function InsightsContent() {
                 submissions={selectedEmployeeBuild3Submissions}
                 title="their notes about build3"
                 responsesByAnswer={responsesByAnswer}
-                employees={employees}
-                defaultResponderId={selectedEmployeeId}
+                currentUser={currentUser}
                 onResponseSaved={handleResponseSaved}
               />
             )}

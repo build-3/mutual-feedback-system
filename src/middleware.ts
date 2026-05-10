@@ -27,6 +27,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
+  if (pathname === '/api/cron/probation-check') {
+    return NextResponse.next({ request })
+  }
+
+  if (pathname === '/api/cron/probation-rules') {
+    return NextResponse.next({ request })
+  }
+
+  // Google Chat interactive card callback for probation actions
+  if (pathname === '/api/probation/action') {
+    return NextResponse.next({ request })
+  }
+
+  // ── Dev bypass: TEST_EMAIL skips OAuth entirely (non-production only) ──
+  const testEmail = process.env.NODE_ENV !== 'production' ? process.env.TEST_EMAIL : undefined
+  if (testEmail && !pathname.startsWith('/api/auth')) {
+    if (pathname === '/login') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/feedback'
+      return NextResponse.redirect(url)
+    }
+    const response = NextResponse.next({ request })
+    response.headers.set('x-verified-email', testEmail)
+    return response
+  }
+
   // ── Auth check for everything else ──
   let supabaseResponse = NextResponse.next({ request })
 

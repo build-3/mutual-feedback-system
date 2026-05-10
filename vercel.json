@@ -12,6 +12,14 @@
     {
       "path": "/api/cron/birthday",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/probation-check",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/probation-rules",
+      "schedule": "30 16 * * 2"
     }
   ]
 }

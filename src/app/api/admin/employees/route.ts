@@ -66,17 +66,40 @@ export async function POST(request: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdmin()
-    const { error } = await supabaseAdmin.from("employees").insert({
-      name: normalizeName(body.name),
-      role,
-      email: normalizeEmail(body.email),
-    })
+    const { data: newEmployee, error } = await supabaseAdmin
+      .from("employees")
+      .insert({
+        name: normalizeName(body.name),
+        role,
+        email: normalizeEmail(body.email),
+      })
+      .select("id")
+      .single()
 
-    if (error) {
+    if (error || !newEmployee) {
       return NextResponse.json(
-        { error: error.message || "We could not add that teammate." },
+        { error: error?.message || "We could not add that teammate." },
         { status: 400 }
       )
+    }
+
+    if (role === "intern") {
+      const { addMonthsSafe } = await import("@/lib/server/probation-rules")
+      const joinDate = new Date()
+      const endDate = addMonthsSafe(joinDate, 3)
+
+      const { error: probError } = await supabaseAdmin.from("probation_tracking").insert({
+        employee_id: newEmployee.id,
+        join_date: joinDate.toISOString(),
+        probation_end_date: endDate.toISOString(),
+      })
+
+      if (probError) {
+        return NextResponse.json(
+          { error: "Employee created but probation tracking failed. Contact admin." },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({ status: "created" }, { status: 201 })
