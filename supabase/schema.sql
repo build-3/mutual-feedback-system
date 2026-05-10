@@ -61,6 +61,33 @@ CREATE INDEX idx_feedback_answers_submission ON feedback_answers(submission_id);
 CREATE INDEX idx_feedback_responses_answer ON feedback_responses(answer_id);
 CREATE INDEX idx_feedback_responses_responder ON feedback_responses(responder_id);
 
+-- Feedback sessions (one row per 2nd-Tuesday session)
+CREATE TABLE feedback_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'upcoming'
+    CHECK (status IN ('upcoming', 'active', 'completed')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE feedback_sessions ENABLE ROW LEVEL SECURITY;
+CREATE UNIQUE INDEX idx_session_date ON feedback_sessions(session_date);
+CREATE INDEX idx_session_status ON feedback_sessions(status);
+
+-- Session assignments (who should submit feedback for whom)
+CREATE TABLE session_assignments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES feedback_sessions(id) ON DELETE CASCADE,
+  intern_id UUID NOT NULL REFERENCES employees(id),
+  reviewer_id UUID NOT NULL REFERENCES employees(id),
+  submission_id UUID REFERENCES feedback_submissions(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE session_assignments ENABLE ROW LEVEL SECURITY;
+CREATE UNIQUE INDEX idx_assignment_unique ON session_assignments(session_id, intern_id, reviewer_id);
+CREATE INDEX idx_session_assignments_session ON session_assignments(session_id);
+
 -- Probation tracking table
 CREATE TABLE probation_tracking (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

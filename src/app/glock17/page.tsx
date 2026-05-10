@@ -20,8 +20,9 @@ const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard")
 const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { ssr: false })
 const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher"), { ssr: false })
 const ProbationDashboard = dynamic(() => import("@/components/admin/ProbationDashboard"), { ssr: false })
+const DataExport = dynamic(() => import("@/components/admin/DataExport"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "probation" | "usage" | "birthdays" | "danger"
+type Tab = "overview" | "activity" | "employees" | "submissions" | "probation" | "usage" | "birthdays" | "export" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
@@ -31,6 +32,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "probation", label: "probation" },
   { key: "usage", label: "usage" },
   { key: "birthdays", label: "birthdays 🎂" },
+  { key: "export", label: "export 📦" },
   { key: "danger", label: "danger zone" },
 ]
 
@@ -261,13 +263,21 @@ export default function Glock17Page() {
         {tab === "birthdays" && (
           <BirthdayWisher employees={employees} />
         )}
+        {tab === "export" && (
+          <DataExport
+            employees={employees}
+            submissions={submissions}
+            answers={answers}
+            responses={responses}
+            empMap={empMap}
+          />
+        )}
         {tab === "danger" && (
           <DangerZone
             employees={employees}
             submissions={submissions}
             answers={answers}
             responses={responses}
-            empMap={empMap}
             onClearFeedback={handleClearFeedback}
             onClearAll={handleClearAll}
           />

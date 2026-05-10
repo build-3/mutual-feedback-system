@@ -15,11 +15,13 @@ const BIRTHDAY_MESSAGES = [
 ]
 
 export async function GET(request: Request) {
-  if (CRON_SECRET) {
-    const authHeader = request.headers.get("authorization")
-    if (authHeader !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
-    }
+  if (!CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET not configured." }, { status: 503 })
+  }
+
+  const authHeader = request.headers.get("authorization")
+  if (authHeader !== `Bearer ${CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
   }
 
   if (!hasServerSupabaseConfig() || !KUDOS_SPACE_ID) {

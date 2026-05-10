@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/probation-rules",
       "schedule": "30 16 * * 2"
+    },
+    {
+      "path": "/api/cron/session-reminder",
+      "schedule": "0 3 * * 1"
     }
   ]
 }

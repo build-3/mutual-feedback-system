@@ -4,6 +4,14 @@ import { useCallback, useEffect, useState } from "react"
 import type { ProbationStatus } from "@/lib/types"
 import { Modal, buttonClasses, badgeClasses } from "@/components/ui/brand"
 
+type SessionCompletionData = {
+  sessionNumber: number
+  sessionDate: string
+  totalAssignments: number
+  completedAssignments: number
+  reviewers: { name: string; submitted: boolean }[]
+}
+
 type ProbationRecord = {
   id: string
   employee_id: string
@@ -19,6 +27,7 @@ type ProbationRecord = {
   created_at: string
   updated_at: string
   employees: { name: string; email: string | null; role: string } | null
+  sessionCompletion: SessionCompletionData[]
 }
 
 type ConfirmAction = {
@@ -87,6 +96,9 @@ export default function ProbationDashboard() {
   const [cronResult, setCronResult] = useState<{ success: boolean; message: string } | null>(null)
   const [openComms, setOpenComms] = useState<string | null>(null)
   const [bulkConfirm, setBulkConfirm] = useState<"check" | "rules" | null>(null)
+  const [nextSessionDate, setNextSessionDate] = useState<string | null>(null)
+  const [activeSession, setActiveSession] = useState<{ id: string; session_date: string; status: string } | null>(null)
+  const [expandedSessions, setExpandedSessions] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -94,6 +106,8 @@ export default function ProbationDashboard() {
       if (!res.ok) throw new Error("failed to load")
       const data = await res.json()
       setRecords(data.probations ?? [])
+      setNextSessionDate(data.nextSessionDate ?? null)
+      setActiveSession(data.activeSession ?? null)
       setError("")
       setOpenComms(null)
     } catch (err) {
@@ -317,6 +331,34 @@ export default function ProbationDashboard() {
         </div>
       </div>
 
+      {/* Next session banner */}
+      {nextSessionDate && (
+        <div className={`rounded-[20px] border p-5 ${
+          activeSession
+            ? "border-[#79c0a6]/40 bg-[#79c0a6]/10"
+            : "border-[#c6e5f8]/40 bg-[#c6e5f8]/10"
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">
+                {activeSession ? "📋 session active today" : "📅 next feedback session"}
+              </h3>
+              <p className="mt-1 text-xs text-muted">
+                {activeSession
+                  ? `Session on ${formatDate(activeSession.session_date)} is currently active.`
+                  : `${formatDate(nextSessionDate)} (${daysUntil(nextSessionDate) === 0 ? "today" : daysUntil(nextSessionDate) === 1 ? "tomorrow" : `in ${daysUntil(nextSessionDate)} days`})`
+                }
+              </p>
+            </div>
+            {activeSession && (
+              <span className="rounded-full bg-[#79c0a6] px-3 py-1 text-xs font-semibold text-white">
+                live
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Manual triggers */}
       <div className="rounded-[20px] border border-line bg-white p-5">
         <h3 className="text-sm font-semibold text-ink">manual triggers</h3>
@@ -412,6 +454,72 @@ export default function ProbationDashboard() {
                           note: {r.decision_note}
                         </div>
                       )}
+                      {/* Session completion chips */}
+                      {r.sessionCompletion.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {[1, 2, 3].map((num) => {
+                            const session = r.sessionCompletion.find(
+                              (s) => s.sessionNumber === num
+                            )
+                            if (!session) {
+                              return (
+                                <span
+                                  key={num}
+                                  className="rounded-full border border-line bg-white px-2 py-0.5 text-[10px] text-muted"
+                                >
+                                  S{num} ⏳
+                                </span>
+                              )
+                            }
+                            const pct = session.totalAssignments > 0
+                              ? Math.round((session.completedAssignments / session.totalAssignments) * 100)
+                              : 0
+                            const complete = pct === 100
+                            return (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSessions(
+                                    expandedSessions === `${r.id}-${num}` ? null : `${r.id}-${num}`
+                                  )
+                                }
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all ${
+                                  complete
+                                    ? "border-[#79c0a6]/40 bg-[#79c0a6]/15 text-[#79c0a6]"
+                                    : "border-[#f5bb9f]/40 bg-[#f5bb9f]/15 text-[#c97a54]"
+                                }`}
+                              >
+                                S{num} {complete ? "✓" : `${session.completedAssignments}/${session.totalAssignments}`}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {/* Expanded session reviewer detail */}
+                      {r.sessionCompletion.map((session) => {
+                        if (expandedSessions !== `${r.id}-${session.sessionNumber}`) return null
+                        return (
+                          <div
+                            key={session.sessionNumber}
+                            className="mt-1 rounded-[10px] border border-line bg-white p-2 text-[11px]"
+                          >
+                            <div className="font-semibold text-muted mb-1">
+                              Session {session.sessionNumber} ({formatDate(session.sessionDate)})
+                            </div>
+                            <div className="space-y-0.5">
+                              {session.reviewers.map((rev, i) => (
+                                <div key={i} className="flex items-center gap-1">
+                                  <span className={rev.submitted ? "text-[#79c0a6]" : "text-muted"}>
+                                    {rev.submitted ? "✓" : "○"}
+                                  </span>
+                                  <span className="text-ink">{rev.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
 
                     {/* Decision buttons — always visible */}

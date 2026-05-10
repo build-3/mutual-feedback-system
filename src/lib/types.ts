@@ -1,6 +1,24 @@
 export type EmployeeRole = "intern" | "full_timer" | "admin"
 export type ProbationStatus = "active" | "extended" | "completed" | "concluded"
 
+export type SessionStatus = "upcoming" | "active" | "completed"
+
+export type FeedbackSession = {
+  id: string
+  session_date: string
+  status: SessionStatus
+  created_at: string
+}
+
+export type SessionAssignment = {
+  id: string
+  session_id: string
+  intern_id: string
+  reviewer_id: string
+  submission_id: string | null
+  created_at: string
+}
+
 export type ProbationTracking = {
   id: string
   employee_id: string
@@ -33,6 +51,7 @@ export type FeedbackSubmission = {
   submitted_by_id: string
   feedback_for_id: string | null
   feedback_type: FeedbackType
+  session_id: string | null
   notified_at: string | null
   created_at: string
 }
@@ -84,6 +103,7 @@ export type Database = {
           submitted_by_id: string
           feedback_for_id?: string | null
           feedback_type: FeedbackType
+          session_id?: string | null
           notified_at?: string | null
           created_at?: string
         }
@@ -92,7 +112,44 @@ export type Database = {
           submitted_by_id?: string
           feedback_for_id?: string | null
           feedback_type?: FeedbackType
+          session_id?: string | null
           notified_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      feedback_sessions: {
+        Row: FeedbackSession
+        Insert: {
+          id?: string
+          session_date: string
+          status?: SessionStatus
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_date?: string
+          status?: SessionStatus
+          created_at?: string
+        }
+        Relationships: []
+      }
+      session_assignments: {
+        Row: SessionAssignment
+        Insert: {
+          id?: string
+          session_id: string
+          intern_id: string
+          reviewer_id: string
+          submission_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          intern_id?: string
+          reviewer_id?: string
+          submission_id?: string | null
           created_at?: string
         }
         Relationships: []

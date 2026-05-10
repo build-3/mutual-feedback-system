@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       feedbackForId: body.feedbackForId ?? null,
       feedbackType: body.feedbackType as FeedbackType,
       answers: body.answers,
+      sessionId: body.sessionId ?? null,
       submitterVerified: true, // requireAuth already confirmed this employee
     })
 

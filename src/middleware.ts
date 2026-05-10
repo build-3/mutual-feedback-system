@@ -35,8 +35,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  // Google Chat interactive card callback for probation actions
-  if (pathname === '/api/probation/action') {
+  if (pathname === '/api/cron/session-reminder') {
     return NextResponse.next({ request })
   }
 

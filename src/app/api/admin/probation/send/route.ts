@@ -2,10 +2,9 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { requireAdmin } from "@/lib/server/require-admin"
 import { sendDirectMessage, isGoogleChatConfigured, isNotificationsEnabled } from "@/lib/server/google-chat"
-import { analyzeProbationStanding, buildProbationMessage, buildCeoReviewMessage, CEO_EMAIL } from "@/lib/server/probation-rules"
+import { analyzeEnhancedProbationStanding, buildEnhancedProbationMessage, buildCeoReviewMessage, CEO_EMAIL } from "@/lib/server/probation-rules"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://build3.online"
 
 export async function POST(request: Request) {
   const auth = await requireAdmin()
@@ -47,10 +46,10 @@ export async function POST(request: Request) {
 
   const enabled = await isNotificationsEnabled()
   const configured = isGoogleChatConfigured()
-  const standing = await analyzeProbationStanding(employeeId, emp.name)
+  const standing = await analyzeEnhancedProbationStanding(employeeId, emp.name, prob.join_date)
 
   if (type === "rules") {
-    const message = buildProbationMessage(emp.name, standing)
+    const message = buildEnhancedProbationMessage(emp.name, standing)
 
     if (configured && enabled && emp.email) {
       await sendDirectMessage(emp.email, message)
@@ -70,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   // CEO notification
-  const message = buildCeoReviewMessage(emp.name, standing, prob, `${APP_URL}/glock17?tab=probation`)
+  const message = buildCeoReviewMessage(emp.name, standing, prob)
 
   if (configured && enabled) {
     await sendDirectMessage(CEO_EMAIL, message)

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { sendDirectMessage, isGoogleChatConfigured } from "@/lib/server/google-chat"
-import { analyzeProbationStanding, buildCeoReviewMessage, CEO_EMAIL } from "@/lib/server/probation-rules"
+import { analyzeEnhancedProbationStanding, buildCeoReviewMessage, CEO_EMAIL } from "@/lib/server/probation-rules"
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://build3.online"
 
 export async function GET(request: Request) {
   if (!CRON_SECRET) {
@@ -62,8 +61,8 @@ export async function GET(request: Request) {
     const name = emp?.name ?? "Unknown"
 
     try {
-      const standing = await analyzeProbationStanding(record.employee_id, name)
-      const message = buildCeoReviewMessage(name, standing, record, `${APP_URL}/glock17?tab=probation`)
+      const standing = await analyzeEnhancedProbationStanding(record.employee_id, name, record.join_date)
+      const message = buildCeoReviewMessage(name, standing, record)
 
       if (isGoogleChatConfigured()) {
         // Mark alerted BEFORE send to prevent double-fire on concurrent Vercel invocations

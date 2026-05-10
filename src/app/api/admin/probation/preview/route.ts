@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { requireAdmin } from "@/lib/server/require-admin"
-import { analyzeProbationStanding, buildProbationMessage, buildCeoReviewMessage, CEO_EMAIL } from "@/lib/server/probation-rules"
+import { analyzeEnhancedProbationStanding, buildEnhancedProbationMessage, buildCeoReviewMessage, CEO_EMAIL } from "@/lib/server/probation-rules"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -33,26 +33,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Employee not found." }, { status: 404 })
   }
 
-  const standing = await analyzeProbationStanding(employeeId, emp.name)
+  const { data: prob } = await supabaseAdmin
+    .from("probation_tracking")
+    .select("id, employee_id, join_date, probation_status, probation_end_date")
+    .eq("employee_id", employeeId)
+    .in("probation_status", ["active", "extended"])
+    .single()
+
+  if (!prob) {
+    return NextResponse.json({ error: "No active probation found." }, { status: 404 })
+  }
+
+  const standing = await analyzeEnhancedProbationStanding(employeeId, emp.name, prob.join_date)
 
   if (type === "ceo") {
-    const { data: prob } = await supabaseAdmin
-      .from("probation_tracking")
-      .select("id, employee_id, join_date, probation_status, probation_end_date")
-      .eq("employee_id", employeeId)
-      .in("probation_status", ["active", "extended"])
-      .single()
-
-    if (!prob) {
-      return NextResponse.json({ error: "No active probation found." }, { status: 404 })
-    }
-
-    const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://build3.online"
-    const message = buildCeoReviewMessage(emp.name, standing, prob, `${APP_URL}/glock17?tab=probation`)
-
+    const message = buildCeoReviewMessage(emp.name, standing, prob)
     return NextResponse.json({ recipient: `${CEO_EMAIL} (CEO)`, standing, message })
   }
 
-  const message = buildProbationMessage(emp.name, standing)
+  const message = buildEnhancedProbationMessage(emp.name, standing)
   return NextResponse.json({ recipient: emp.name, standing, message })
 }

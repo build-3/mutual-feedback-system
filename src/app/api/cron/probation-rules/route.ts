@@ -1,28 +1,18 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { sendDirectMessage, isGoogleChatConfigured } from "@/lib/server/google-chat"
-import { analyzeProbationStanding, buildProbationMessage } from "@/lib/server/probation-rules"
+import {
+  analyzeEnhancedProbationStanding,
+  buildEnhancedProbationMessage,
+} from "@/lib/server/probation-rules"
+import {
+  isSecondTuesday,
+  getISTDate,
+  getSecondTuesday,
+  getOrCreateSession,
+} from "@/lib/server/session-utils"
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
-
-function isSecondTuesday(date: Date): boolean {
-  if (date.getDay() !== 2) return false
-  const day = date.getDate()
-  return day >= 8 && day <= 14
-}
-
-function getISTDate(): Date {
-  // Use Intl to get IST components — works on any server timezone
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    weekday: "short",
-  }).formatToParts(new Date())
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
-  return new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00+05:30`)
-}
 
 export async function GET(request: Request) {
   if (!CRON_SECRET) {
@@ -41,8 +31,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const force = url.searchParams.get("force") === "true"
 
+  const nowIST = getISTDate()
+
   if (!force) {
-    const nowIST = getISTDate()
     if (!isSecondTuesday(nowIST)) {
       return NextResponse.json({ skipped: true, reason: "Not the 2nd Tuesday." })
     }
@@ -52,7 +43,7 @@ export async function GET(request: Request) {
 
   const { data: probations, error } = await supabaseAdmin
     .from("probation_tracking")
-    .select("id, employee_id")
+    .select("id, employee_id, join_date")
     .in("probation_status", ["active", "extended"])
 
   if (error) {
@@ -80,8 +71,12 @@ export async function GET(request: Request) {
     }
 
     try {
-      const standing = await analyzeProbationStanding(prob.employee_id, emp.name)
-      const message = buildProbationMessage(emp.name, standing)
+      const standing = await analyzeEnhancedProbationStanding(
+        prob.employee_id,
+        emp.name,
+        prob.join_date
+      )
+      const message = buildEnhancedProbationMessage(emp.name, standing)
 
       if (isGoogleChatConfigured()) {
         await sendDirectMessage(emp.email, message)
@@ -96,6 +91,20 @@ export async function GET(request: Request) {
       const msg = err instanceof Error ? err.message : "Unknown error"
       results.push({ name: emp.name, success: false, error: msg })
     }
+  }
+
+  // Mark today's session as completed (if it exists)
+  try {
+    const sessionDate = getSecondTuesday(nowIST.getFullYear(), nowIST.getMonth())
+    const session = await getOrCreateSession(sessionDate)
+    if (session.status !== "completed") {
+      await supabaseAdmin
+        .from("feedback_sessions")
+        .update({ status: "completed" })
+        .eq("id", session.id)
+    }
+  } catch (err) {
+    console.error("[probation-rules] Failed to mark session completed:", err)
   }
 
   return NextResponse.json({

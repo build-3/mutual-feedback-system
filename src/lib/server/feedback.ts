@@ -136,12 +136,14 @@ export async function submitFeedback({
   feedbackForId,
   feedbackType,
   answers,
+  sessionId,
   submitterVerified = false,
 }: {
   submittedById: string
   feedbackForId: string | null
   feedbackType: FeedbackType
   answers: FeedbackAnswerInput[]
+  sessionId?: string | null
   submitterVerified?: boolean
 }) {
   if (!FEEDBACK_TYPES.has(feedbackType)) {
@@ -200,6 +202,7 @@ export async function submitFeedback({
       p_feedback_for_id: normalizedFeedbackForId,
       p_feedback_type: feedbackType,
       p_answers: normalizedAnswers,
+      p_session_id: sessionId ?? null,
     }
   )
 
@@ -210,6 +213,17 @@ export async function submitFeedback({
   }
 
   const submissionId = rpcResult as string
+
+  // Link submission to session assignment if applicable
+  if (sessionId && normalizedFeedbackForId) {
+    await supabaseAdmin
+      .from("session_assignments")
+      .update({ submission_id: submissionId })
+      .eq("session_id", sessionId)
+      .eq("intern_id", normalizedFeedbackForId)
+      .eq("reviewer_id", submittedById)
+      .is("submission_id", null)
+  }
 
   return { submissionId, feedbackForId: normalizedFeedbackForId }
 }
