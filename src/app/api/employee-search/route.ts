@@ -64,8 +64,8 @@ export async function GET(request: Request) {
   }
 
   const response = NextResponse.json({ employees: data || [] })
-  if (query === "*") {
-    response.headers.set("Cache-Control", "private, max-age=300, stale-while-revalidate=600")
-  }
+  // No HTTP cache — role changes (e.g. promoting an intern) must propagate
+  // immediately. Client-side cache in SearchableDropdown has its own short TTL.
+  response.headers.set("Cache-Control", "no-store")
   return response
 }

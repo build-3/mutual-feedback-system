@@ -9,11 +9,12 @@ import {
   fieldClasses,
 } from "@/components/ui/brand"
 
-/** Module-level cache with 5-minute TTL — auto-refreshes when new employees are added. */
+/** Module-level cache with short TTL — keeps role changes (e.g. promoting an
+ *  intern to full_timer) flowing into the dropdown without a full reload. */
 let employeeCache: Employee[] | null = null
 let employeeCachePromise: Promise<Employee[]> | null = null
 let employeeCacheExpiry = 0
-const EMPLOYEE_CACHE_TTL_MS = 300_000 // 5 minutes
+const EMPLOYEE_CACHE_TTL_MS = 60_000 // 1 minute
 
 async function loadAllEmployees(): Promise<Employee[]> {
   if (employeeCache && Date.now() < employeeCacheExpiry) return employeeCache
