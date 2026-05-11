@@ -19,12 +19,19 @@ export async function GET() {
 
   const supabaseAdmin = getSupabaseAdmin()
 
-  // Find build3 feedback submissions by this user
+  // Check current calendar month only
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+
+  // Find build3 feedback submissions by this user this month
   const { data: submissions } = await supabaseAdmin
     .from("feedback_submissions")
     .select("id")
     .eq("submitted_by_id", auth.employee.id)
     .eq("feedback_type", "build3")
+    .gte("created_at", monthStart)
+    .lt("created_at", monthEnd)
     .order("created_at", { ascending: false })
     .limit(10)
 

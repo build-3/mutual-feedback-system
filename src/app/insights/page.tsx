@@ -194,17 +194,27 @@ function InsightsContent() {
       .catch(() => {})
   }, [])
 
-  // Auto-select employee from URL param
+  // Auto-select employee from URL param, or fall back to current user
   useEffect(() => {
+    if (employees.length === 0) return
     const employeeParam = searchParams.get("employee")
-    if (employeeParam && employees.length > 0) {
+    if (employeeParam) {
       const exists = employees.some((e) => e.id === employeeParam)
       if (exists) {
         setSelectedEmployeeId(employeeParam)
         setShowOrgOverview(false)
       }
+      return
     }
-  }, [searchParams, employees])
+    // No URL param — auto-select the logged-in user
+    if (currentUser) {
+      const exists = employees.some((e) => e.id === currentUser.id)
+      if (exists) {
+        setSelectedEmployeeId(currentUser.id)
+        setShowOrgOverview(false)
+      }
+    }
+  }, [searchParams, employees, currentUser])
 
   const filteredSubmissions = useMemo(
     () => filterSubmissionsByRange(allSubmissions, dateRange),

@@ -228,6 +228,7 @@ export default function FeedbackPage() {
           role: data.employee.role,
           email: null,
           created_at: "",
+          birthday: data.employee.birthday ?? null,
         }
         setSubmitter(me)
         if (!data.employee.birthday) {
