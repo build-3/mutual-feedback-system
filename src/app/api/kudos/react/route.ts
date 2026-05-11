@@ -25,6 +25,31 @@ interface ChatEvent {
     invokedFunction?: string
     parameters?: Record<string, string>
   }
+  // Legacy Hangouts Chat shape
+  action?: {
+    actionMethodName?: string
+    parameters?: Array<{ key: string; value: string }>
+  }
+}
+
+/** Read the invoked function name from either modern (common.invokedFunction)
+ *  or legacy (action.actionMethodName) event shape. */
+function getInvokedFunction(event: ChatEvent): string | undefined {
+  return event.common?.invokedFunction ?? event.action?.actionMethodName
+}
+
+/** Read action parameters from either modern (common.parameters object) or
+ *  legacy (action.parameters array of {key, value}) event shape. */
+function getActionParameters(event: ChatEvent): Record<string, string> {
+  if (event.common?.parameters) return event.common.parameters
+  if (event.action?.parameters) {
+    const out: Record<string, string> = {}
+    for (const p of event.action.parameters) {
+      if (p.key) out[p.key] = p.value ?? ""
+    }
+    return out
+  }
+  return {}
 }
 
 function formatNamesText(names: string[]): string {
@@ -48,23 +73,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 })
   }
 
-  if (event.common?.invokedFunction !== "kudos_react") {
+  const invokedFunction = getInvokedFunction(event)
+  const params = getActionParameters(event)
+
+  console.log("[kudos/react] event:", JSON.stringify({
+    type: event.type,
+    invokedFunction,
+    user: event.user?.email,
+    hasMessage: !!event.message,
+    hasCards: !!event.message?.cardsV2,
+    paramKeys: Object.keys(params),
+  }))
+
+  if (invokedFunction !== "kudos_react") {
     return NextResponse.json({})
   }
 
   const reactorName = event.user?.displayName
   const reactorEmail = event.user?.email
   if (!reactorName || !reactorEmail) {
+    console.warn("[kudos/react] missing user info", event.user)
     return NextResponse.json({ text: "Missing user info." })
   }
 
   const originalCards = event.message?.cardsV2
   if (!originalCards || originalCards.length === 0) {
+    console.warn("[kudos/react] no cards in message")
     return NextResponse.json({ text: "Could not update card." })
   }
 
   // Read existing reactors from action parameters
-  const params = event.common?.parameters ?? {}
   const existingReactors = params.reactors ? params.reactors.split("|") : []
   const existingEmails = params.reactor_emails ? params.reactor_emails.split("|") : []
 
