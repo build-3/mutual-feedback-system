@@ -41,7 +41,7 @@ export async function GET(request: Request) {
         if (!existing) {
           await supabaseAdmin
             .from('employees')
-            .insert({ email, name: displayName, role: 'full_timer' })
+            .insert({ email, name: displayName, role: 'intern' })
         }
       }
 

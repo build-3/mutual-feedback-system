@@ -10,6 +10,14 @@ export interface NpsBreakdown {
   passives: number
   detractors: number
   npsScore: number
+  promoterNames: string[]
+  passiveNames: string[]
+  detractorNames: string[]
+}
+
+export interface ContributionAttribution {
+  /** map of contribution level label -> list of { rater, target } */
+  byLevel: Record<string, Array<{ raterName: string; targetName: string }>>
 }
 
 export interface OrgMetrics {
@@ -35,6 +43,7 @@ export interface OrgMetrics {
   employeeIdsWithFeedback: Set<string>
   valueStrengthCounts: Record<string, number>
   valueImprovementCounts: Record<string, number>
+  contributionAttribution: ContributionAttribution
 }
 
 export function useOrgInsights(
@@ -54,11 +63,18 @@ export function useOrgInsights(
   }, [employees])
 
   return useMemo(() => {
+    const empNameById = new Map<string, string>()
+    for (const e of employees) empNameById.set(e.id, e.name)
+
     // Org-level metrics (top stat pills) come from build3 feedback — the org health check.
     // These answer "how does the team feel about build3 as a workplace?"
     const orgTrustScores: number[] = []
     const orgPurposeScores: number[] = []
     const npsScores: number[] = []
+    const npsPromoterNames: string[] = []
+    const npsPassiveNames: string[] = []
+    const npsDetractorNames: string[] = []
+    const contributionByLevel: Record<string, Array<{ raterName: string; targetName: string }>> = {}
 
     // Peer metrics come from intern/full_timer feedback directed at individuals.
     // These answer "how do peers rate each other?"
@@ -136,7 +152,13 @@ export function useOrgInsights(
             if (num !== null && isPeerFeedback) recommendScores.push(num)
             break
           case 'nps_score':
-            if (num !== null && isBuild3) npsScores.push(num)
+            if (num !== null && isBuild3) {
+              npsScores.push(num)
+              const raterName = empNameById.get(sub.submission.submitted_by_id) || 'Unknown'
+              if (num >= 9) npsPromoterNames.push(raterName)
+              else if (num >= 7) npsPassiveNames.push(raterName)
+              else npsDetractorNames.push(raterName)
+            }
             break
           case 'teal_self_management':
             if (num !== null && isPeerFeedback) tealSM.push(num)
@@ -151,6 +173,12 @@ export function useOrgInsights(
             if (isPeerFeedback) {
               const label = contributionKeyToLabel(ans.answer_value)
               contributionDist[label] = (contributionDist[label] || 0) + 1
+              const raterName = empNameById.get(sub.submission.submitted_by_id) || 'Unknown'
+              const targetName = sub.submission.feedback_for_id
+                ? (empNameById.get(sub.submission.feedback_for_id) || 'Unknown')
+                : 'Unknown'
+              if (!contributionByLevel[label]) contributionByLevel[label] = []
+              contributionByLevel[label].push({ raterName, targetName })
             }
             break
           }
@@ -194,7 +222,15 @@ export function useOrgInsights(
     }
     const total = npsScores.length
     const npsScore = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0
-    const npsBreakdown: NpsBreakdown = { promoters, passives, detractors, npsScore }
+    const npsBreakdown: NpsBreakdown = {
+      promoters,
+      passives,
+      detractors,
+      npsScore,
+      promoterNames: npsPromoterNames,
+      passiveNames: npsPassiveNames,
+      detractorNames: npsDetractorNames,
+    }
 
     // avgMetricsMap: flat map of all numeric metric averages (peer scores for individual views)
     const avgMetricsMap: Record<string, number> = {}
@@ -252,6 +288,7 @@ export function useOrgInsights(
       employeeIdsWithFeedback,
       valueStrengthCounts,
       valueImprovementCounts,
+      contributionAttribution: { byLevel: contributionByLevel },
     }
   }, [employeeCounts, employees, filtered])
 }

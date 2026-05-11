@@ -4,16 +4,26 @@
 import type { SubmissionWithDetails } from '@/app/insights/types'
 import type { DateRange } from '@/lib/brand'
 
-/** Filter submissions by date range — single source of truth */
+/** Filter submissions by date range — single source of truth.
+ *  'month' = current calendar month (resets on the 1st).
+ *  '3months' = rolling 3-month window.
+ */
 export function filterSubmissionsByRange(
   submissions: SubmissionWithDetails[],
   dateRange: DateRange
 ): SubmissionWithDetails[] {
   if (dateRange === 'all') return submissions
   const now = new Date()
-  const monthsBack = dateRange === 'month' ? 1 : 3
-  // Use timestamp math to avoid setMonth year-wraparound bugs
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate())
+  if (dateRange === 'month') {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    return submissions.filter(s => {
+      const date = new Date(s.submission.created_at)
+      return date >= monthStart && date < monthEnd
+    })
+  }
+  // 3months — rolling window
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
   return submissions.filter(s => new Date(s.submission.created_at) >= cutoff)
 }
 

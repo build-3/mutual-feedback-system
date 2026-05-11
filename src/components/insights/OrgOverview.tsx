@@ -34,6 +34,7 @@ interface Props {
   orgMetrics: OrgMetrics
   build3Submissions?: SubmissionWithDetails[]
   employees?: Employee[]
+  onSelectBuild3Submission?: (submissionId: string) => void
 }
 
 function NpsBar({
@@ -94,6 +95,7 @@ export default memo(function OrgOverview({
   orgMetrics,
   build3Submissions = [],
   employees = [],
+  onSelectBuild3Submission,
 }: Props) {
   const employeeNameMap = new Map(employees.map((e) => [e.id, e.name]))
   const {
@@ -121,6 +123,7 @@ export default memo(function OrgOverview({
 
   const { promoters, passives, detractors, npsScore } = npsBreakdown
   const contributionRows = getContributionRows(contributionDistribution)
+  const contributionByLevel = orgMetrics.contributionAttribution?.byLevel ?? {}
 
   const allValueKeys = Array.from(
     new Set([
@@ -208,10 +211,49 @@ export default memo(function OrgOverview({
                 detractors={detractors}
               />
               <div className="mt-3 flex flex-wrap gap-4 text-xs tracking-[0.08em] text-muted">
-                <span>{detractors} detractors</span>
-                <span>{passives} passives</span>
-                <span>{promoters} promoters</span>
+                <span
+                  title={npsBreakdown.detractorNames.join(", ") || "no one"}
+                  className="cursor-help"
+                >
+                  {detractors} detractors
+                </span>
+                <span
+                  title={npsBreakdown.passiveNames.join(", ") || "no one"}
+                  className="cursor-help"
+                >
+                  {passives} passives
+                </span>
+                <span
+                  title={npsBreakdown.promoterNames.join(", ") || "no one"}
+                  className="cursor-help"
+                >
+                  {promoters} promoters
+                </span>
               </div>
+              {(npsBreakdown.promoterNames.length +
+                npsBreakdown.passiveNames.length +
+                npsBreakdown.detractorNames.length) > 0 && (
+                <div className="mt-4 space-y-2 text-xs">
+                  {npsBreakdown.promoterNames.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-ink">promoters:</span>{" "}
+                      <span className="text-muted">{npsBreakdown.promoterNames.join(", ")}</span>
+                    </div>
+                  )}
+                  {npsBreakdown.passiveNames.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-ink">passives:</span>{" "}
+                      <span className="text-muted">{npsBreakdown.passiveNames.join(", ")}</span>
+                    </div>
+                  )}
+                  {npsBreakdown.detractorNames.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-ink">detractors:</span>{" "}
+                      <span className="text-muted">{npsBreakdown.detractorNames.join(", ")}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </BrandPanel>
@@ -305,6 +347,7 @@ export default memo(function OrgOverview({
             {contributionRows.map((row) => {
               const total = contributionRows.reduce((sum, item) => sum + item.value, 0)
               const pct = total > 0 ? Math.round((row.value / total) * 100) : 0
+              const attribution = contributionByLevel[row.label] ?? []
 
               return (
                 <div key={row.label}>
@@ -320,6 +363,17 @@ export default memo(function OrgOverview({
                       style={{ width: `${pct}%`, backgroundColor: row.color }}
                     />
                   </div>
+                  {attribution.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 text-[11px] leading-5 text-muted">
+                      {attribution.map((a, idx) => (
+                        <li key={`${row.label}-${idx}`}>
+                          <span className="text-ink">{a.raterName}</span>
+                          <span> → </span>
+                          <span>{a.targetName}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )
             })}
@@ -332,20 +386,40 @@ export default memo(function OrgOverview({
         <div className="mt-2">
           <Eyebrow accent="peach">org activity</Eyebrow>
           <div className="mt-4 divide-y divide-line/60">
-            {build3Submissions.slice(0, 10).map((item) => (
-              <div
-                key={item.submission.id}
-                className="flex items-center justify-between py-3"
-              >
-                <p className="text-sm text-ink">
-                  <span className="font-semibold">{item.submitterName}</span>
-                  <span className="text-muted"> gave feedback to build3</span>
-                </p>
-                <span className="shrink-0 text-xs tracking-[0.06em] text-muted/60">
-                  {timeAgo(new Date(item.submission.created_at))}
-                </span>
-              </div>
-            ))}
+            {build3Submissions.slice(0, 10).map((item) => {
+              const clickable = !!onSelectBuild3Submission
+              const content = (
+                <>
+                  <p className="text-sm text-ink">
+                    <span className="font-semibold">{item.submitterName}</span>
+                    <span className="text-muted"> gave feedback to build3</span>
+                  </p>
+                  <span className="shrink-0 text-xs tracking-[0.06em] text-muted/60">
+                    {timeAgo(new Date(item.submission.created_at))}
+                  </span>
+                </>
+              )
+              if (clickable) {
+                return (
+                  <button
+                    key={item.submission.id}
+                    type="button"
+                    onClick={() => onSelectBuild3Submission?.(item.submission.id)}
+                    className="flex w-full items-center justify-between py-3 text-left transition-colors hover:bg-black/[0.03]"
+                  >
+                    {content}
+                  </button>
+                )
+              }
+              return (
+                <div
+                  key={item.submission.id}
+                  className="flex items-center justify-between py-3"
+                >
+                  {content}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
