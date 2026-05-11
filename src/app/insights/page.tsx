@@ -98,7 +98,6 @@ function InsightsContent() {
     Record<string, (FeedbackResponse & { responderName: string })[]>
   >({})
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
-  const [selectedBuild3SubmissionId, setSelectedBuild3SubmissionId] = useState<string | null>(null)
 
   const buildResponsesByAnswer = useCallback(
     (employeeRows: Employee[], responseRows: FeedbackResponse[]) => {
@@ -347,33 +346,14 @@ function InsightsContent() {
       {/* Content — pb-20 on mobile for bottom tab bar clearance */}
       <div className="mx-auto max-w-5xl px-3 py-3 pb-20 sm:px-6 sm:py-5 sm:pb-5">
         {showOrgOverview ? (
-          <>
-            <OrgOverview
-              orgMetrics={orgMetrics}
-              build3Submissions={build3Submissions}
-              employees={employees}
-              onSelectBuild3Submission={setSelectedBuild3SubmissionId}
-            />
-            {selectedBuild3SubmissionId && (
-              <div className="mt-4">
-                {(() => {
-                  const sel = build3Submissions.find(
-                    (s) => s.submission.id === selectedBuild3SubmissionId
-                  )
-                  if (!sel) return null
-                  return (
-                    <FeedbackTimeline
-                      submissions={[sel]}
-                      title={`build3 feedback from ${sel.submitterName}`}
-                      responsesByAnswer={responsesByAnswer}
-                      currentUser={currentUser}
-                      onResponseSaved={handleResponseSaved}
-                    />
-                  )
-                })()}
-              </div>
-            )}
-          </>
+          <OrgOverview
+            orgMetrics={orgMetrics}
+            build3Submissions={build3Submissions}
+            employees={employees}
+            responsesByAnswer={responsesByAnswer}
+            currentUser={currentUser}
+            onResponseSaved={handleResponseSaved}
+          />
         ) : insights.employee ? (
           <div className="space-y-3 sm:space-y-4">
             <ProfileHeader
