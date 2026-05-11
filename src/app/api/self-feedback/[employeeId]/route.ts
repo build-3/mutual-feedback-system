@@ -30,12 +30,19 @@ export async function GET(
 
   const supabaseAdmin = getSupabaseAdmin()
 
-  // Get the latest self-feedback submission
+  // Scope to current calendar month
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+
+  // Get the latest self-feedback submission from this month
   const { data: submissions } = await supabaseAdmin
     .from("feedback_submissions")
     .select("id, created_at")
     .eq("submitted_by_id", employeeId)
     .eq("feedback_type", "self")
+    .gte("created_at", monthStart)
+    .lt("created_at", monthEnd)
     .order("created_at", { ascending: false })
     .limit(5)
 
