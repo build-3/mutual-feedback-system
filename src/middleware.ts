@@ -17,11 +17,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  // Google Chat interactive card webhook — no user auth, verified by Google
-  if (pathname === '/api/kudos/react') {
-    return NextResponse.next({ request })
-  }
-
   // Vercel cron — authenticated by CRON_SECRET header, not user auth
   if (pathname === '/api/cron/birthday') {
     return NextResponse.next({ request })

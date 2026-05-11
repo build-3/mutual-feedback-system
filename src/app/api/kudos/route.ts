@@ -128,33 +128,6 @@ export async function POST(request: Request) {
     },
   }))
 
-  // Add "Kudos ++" interactive button section to the last card
-  const kudosButtonSection = {
-    widgets: [
-      {
-        decoratedText: {
-          text: "Celebrate with your team!",
-          button: {
-            text: "Kudos ++",
-            onClick: {
-              action: {
-                function: "kudos_react",
-                parameters: [
-                  { key: "action", value: "kudos_react" },
-                ],
-              },
-            },
-          },
-        },
-      },
-    ],
-  }
-
-  const lastCard = cards[cards.length - 1]
-  if (lastCard.card.sections) {
-    ;(lastCard.card.sections as Record<string, unknown>[]).push(kudosButtonSection)
-  }
-
   const cardPayload = {
     text: `Hey, ${namesText} got kudos! 👏`,
     cardsV2: cards,
