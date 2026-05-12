@@ -374,10 +374,12 @@ export default function FeedbackPage() {
    *  Only gates that are definitively not completed (false) are included.
    *  Must not be called until gateChecksLoaded is true. */
   function buildStages(targetPath: FeedbackPath): FeedbackPath[] {
-    if (targetPath === "adhoc" || targetPath === "self") return [targetPath]
+    // self and build3 paths run standalone — no gating
+    if (targetPath === "adhoc" || targetPath === "self" || targetPath === "build3") return [targetPath]
+    // intern and full_timer require self + build3 first if missing
     const result: FeedbackPath[] = []
     if (hasSelfFeedback === false) result.push("self")
-    if (targetPath !== "build3" && hasBuild3Feedback === false) result.push("build3")
+    if (hasBuild3Feedback === false) result.push("build3")
     result.push(targetPath)
     return result
   }
@@ -385,8 +387,8 @@ export default function FeedbackPage() {
   /** Start the pipeline for a chosen path — sets up stages and jumps to first question.
    *  For paths that need gates (full_timer, intern), waits for gate checks to load. */
   function startPipeline(targetPath: FeedbackPath) {
-    // adhoc and self don't need gate checks
-    const needsGates = targetPath !== "adhoc" && targetPath !== "self"
+    // adhoc, self, and build3 don't need gate checks
+    const needsGates = targetPath !== "adhoc" && targetPath !== "self" && targetPath !== "build3"
     if (needsGates && !gateChecksLoaded) return
     const pipeline = buildStages(targetPath)
     const firstStage = pipeline[0]
