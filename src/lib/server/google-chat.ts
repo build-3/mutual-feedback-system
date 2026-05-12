@@ -210,9 +210,10 @@ export async function sendMessageToSpace(
 ): Promise<boolean> {
   if (!isGoogleChatConfigured()) return false
 
+  const normalizedSpaceId = spaceId.startsWith("spaces/") ? spaceId : `spaces/${spaceId}`
   const token = await getAccessToken()
 
-  const res = await fetchWithTimeout(`${CHAT_API}/${spaceId}/messages`, {
+  const res = await fetchWithTimeout(`${CHAT_API}/${normalizedSpaceId}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -238,8 +239,9 @@ export async function sendCardToSpace(
     throw new Error("Google Chat is not configured")
   }
 
+  const normalizedSpaceId = spaceId.startsWith("spaces/") ? spaceId : `spaces/${spaceId}`
   const token = await getAppAccessToken()
-  const res = await fetchWithTimeout(`${CHAT_API}/${spaceId}/messages`, {
+  const res = await fetchWithTimeout(`${CHAT_API}/${normalizedSpaceId}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

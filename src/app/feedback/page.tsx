@@ -1316,17 +1316,6 @@ export default function FeedbackPage() {
 
             {phase === "identify" && (
               <>
-                {submitter && (
-                  <BrandPanel accent={feedbackAccent} tone="soft" className="mb-6 p-4 sm:p-5">
-                    <div className="text-sm font-medium text-ink">
-                      📋 Today&apos;s feedback session
-                    </div>
-                    <div className="text-xs text-muted mt-2 space-y-1">
-                      <div>every 2nd Tuesday, we sit down and give each other structured feedback.</div>
-                      <div>you&apos;ll give feedback to interns + build3, then to full-timers. starts fresh each month.</div>
-                    </div>
-                  </BrandPanel>
-                )}
                 <BrandPanel accent={feedbackAccent} tone="plain" className="p-6 sm:p-8">
                   <SectionHeading
                     accent={feedbackAccent}
