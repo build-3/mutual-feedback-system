@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/client"
 
 const links = [
   { href: "/feedback", label: "feedback", icon: "chat" },
-  { href: "/feedback?path=kudos", label: "kudos", icon: "star", exactMatch: true },
   { href: "/feedback?path=adhoc", label: "quick note", icon: "zap", exactMatch: true },
   { href: "/insights", label: "insights", icon: "chart" },
   { href: "/employees", label: "people", icon: "people" },
