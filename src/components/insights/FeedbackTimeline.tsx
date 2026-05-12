@@ -386,7 +386,7 @@ const TimelineItem = memo(function TimelineItem({
   currentUser: { id: string; name: string } | null
   onResponseSaved?: () => void
 }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const accent = getFeedbackAccent(submission.submission.feedback_type)
   const badge = badgeClasses({ accent, tone: "soft" })
 
