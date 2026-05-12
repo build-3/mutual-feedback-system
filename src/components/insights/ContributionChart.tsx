@@ -1,10 +1,11 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useState } from "react"
 import { BrandPanel, Eyebrow } from "@/components/ui/brand"
 
 interface Props {
   contributionCounts: Record<string, number>
+  contributionRaters?: Record<string, string[]>
 }
 
 const KEY_TO_LEVEL: Record<string, number> = {
@@ -59,7 +60,9 @@ function resolveIndex(value: string) {
   return null
 }
 
-export default memo(function ContributionChart({ contributionCounts }: Props) {
+export default memo(function ContributionChart({ contributionCounts, contributionRaters = {} }: Props) {
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null)
+
   if (Object.keys(contributionCounts).length === 0) return null
 
   // Build counts in original order (finding feet=0, reliable=1, independent=2, leader=3)
@@ -96,33 +99,55 @@ export default memo(function ContributionChart({ contributionCounts }: Props) {
       </p>
 
       <div className="mt-4 sm:mt-5 space-y-2.5 sm:space-y-3">
-        {rows.map((row) => (
-          <div key={row.label}>
-            <div className="mb-1 sm:mb-1.5 flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-medium tracking-[-0.01em] text-ink">
-                {row.label}
-              </span>
-              <span
-                className="min-w-[3rem] text-right text-xs sm:text-sm font-bold tabular-nums"
-                style={{ color: row.count > 0 ? row.color : "#9d9b9a" }}
-              >
-                {row.count}{" "}
-                <span className="text-[10px] sm:text-xs font-normal text-muted">
-                  {row.count === 1 ? "peer" : "peers"}
+        {rows.map((row) => {
+          const raters = contributionRaters[row.label] ?? []
+          const isHovered = hoveredLabel === row.label
+
+          return (
+            <div
+              key={row.label}
+              className="relative"
+              onMouseEnter={() => row.count > 0 ? setHoveredLabel(row.label) : undefined}
+              onMouseLeave={() => setHoveredLabel(null)}
+            >
+              <div className="mb-1 sm:mb-1.5 flex items-center justify-between">
+                <span className="text-xs sm:text-sm font-medium tracking-[-0.01em] text-ink">
+                  {row.label}
                 </span>
-              </span>
+                <span
+                  className="min-w-[3rem] text-right text-xs sm:text-sm font-bold tabular-nums"
+                  style={{ color: row.count > 0 ? row.color : "#9d9b9a" }}
+                >
+                  {row.count}{" "}
+                  <span className="text-[10px] sm:text-xs font-normal text-muted">
+                    {row.count === 1 ? "peer" : "peers"}
+                  </span>
+                </span>
+              </div>
+              <div className="h-2 sm:h-2.5 overflow-hidden rounded-full bg-black/[0.04]">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${row.percentage}%`,
+                    backgroundColor: row.count > 0 ? row.color : "transparent",
+                  }}
+                />
+              </div>
+
+              {/* Hover tooltip */}
+              {isHovered && raters.length > 0 && (
+                <div className="absolute right-0 top-0 z-10 -translate-y-full pb-1">
+                  <div className="rounded-lg border border-black/[0.06] bg-white px-3 py-2 shadow-lg">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">rated by</p>
+                    {raters.map((name, i) => (
+                      <p key={i} className="text-xs font-medium text-ink">{name}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="h-2 sm:h-2.5 overflow-hidden rounded-full bg-black/[0.04]">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${row.percentage}%`,
-                  backgroundColor: row.count > 0 ? row.color : "transparent",
-                }}
-              />
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </BrandPanel>
   )

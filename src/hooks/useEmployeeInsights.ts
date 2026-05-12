@@ -36,6 +36,7 @@ export interface EmployeeInsightsData {
   selfSubmissions: SubmissionWithDetails[]
   metrics: Record<string, NumericMetric>
   contributionCounts: Record<string, number>
+  contributionRaters: Record<string, string[]>
   archetypeCounts: Record<string, number>
   lastFeedbackDate: string | null
   loading: boolean
@@ -75,6 +76,7 @@ export function useEmployeeInsights(
         selfSubmissions: [],
         metrics: {},
         contributionCounts: {},
+        contributionRaters: {},
         archetypeCounts: {},
         lastFeedbackDate: null,
         loading: false,
@@ -91,6 +93,7 @@ export function useEmployeeInsights(
     // Compute numeric metrics from received feedback
     const metricsMap: Record<string, number[]> = {}
     const contributionCounts: Record<string, number> = {}
+    const contributionRaters: Record<string, string[]> = {}
     const archetypeCounts: Record<string, number> = {}
 
     // scoreTimeline: per metric key, array of { date, value } sorted by date
@@ -153,6 +156,8 @@ export function useEmployeeInsights(
           }
           const label = contributionKeyToLabel(ans.answer_value)
           contributionCounts[label] = (contributionCounts[label] || 0) + 1
+          if (!contributionRaters[label]) contributionRaters[label] = []
+          contributionRaters[label].push(sub.submitterName)
         }
         // FIX #1: Use correct key from form (ideal_team_player_type, not itp_archetype)
         if (ans.question_key === 'ideal_team_player_type') {
@@ -214,6 +219,7 @@ export function useEmployeeInsights(
       selfSubmissions: self,
       metrics,
       contributionCounts,
+      contributionRaters,
       archetypeCounts,
       lastFeedbackDate,
       loading: false,

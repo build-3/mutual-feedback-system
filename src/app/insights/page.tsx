@@ -378,6 +378,7 @@ function InsightsContent() {
                   />
                   <ContributionChart
                     contributionCounts={insights.contributionCounts}
+                    contributionRaters={insights.contributionRaters}
                   />
                 </div>
 
