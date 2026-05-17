@@ -11,7 +11,11 @@ CREATE TABLE employees (
   email TEXT,
   birthday TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  buddy_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  sponsor_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT chk_buddy_sponsor_different
+    CHECK (buddy_id IS NULL OR sponsor_id IS NULL OR buddy_id <> sponsor_id)
 );
 
 CREATE UNIQUE INDEX idx_employees_name_unique

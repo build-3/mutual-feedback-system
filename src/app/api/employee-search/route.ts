@@ -30,14 +30,27 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
+  const ids = searchParams.get("ids")
   const query = (searchParams.get("q") || "").trim()
   const role = searchParams.get("role")
+
+  const supabaseAdmin = getSupabaseAdmin()
+
+  if (ids) {
+    const idList = ids.split(",").filter((id) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    )
+    if (idList.length === 0) return NextResponse.json({ employees: [] })
+    const { data } = await supabaseAdmin
+      .from("employees")
+      .select("id, name, role")
+      .in("id", idList)
+    return NextResponse.json({ employees: data || [] })
+  }
 
   if (!query) {
     return NextResponse.json({ employees: [] })
   }
-
-  const supabaseAdmin = getSupabaseAdmin()
 
   // q=* returns all employees (for client-side caching)
   let employeeQuery = supabaseAdmin

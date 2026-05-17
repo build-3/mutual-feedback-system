@@ -232,6 +232,15 @@ export const QUESTION_LABELS: Record<string, string> = {
   adhoc_rating: 'interaction score',
   adhoc_positive: 'what went well',
   adhoc_improve: 'what could improve',
+  // Buddy/sponsor path
+  buddy_nps: 'buddy rating',
+  buddy_best_thing: 'buddy — best thing',
+  buddy_improve: 'buddy — to improve',
+  sponsor_nps: 'sponsor rating',
+  sponsor_best_thing: 'sponsor — best thing',
+  sponsor_improve: 'sponsor — to improve',
+  buddy_id: 'buddy',
+  sponsor_id: 'sponsor',
   // Matrix parent keys (not stored individually but just in case)
   teal_concepts: 'teal principles',
   ideal_team_player_matrix: 'ideal team player traits',

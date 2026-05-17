@@ -299,6 +299,54 @@ export const ADHOC_QUESTIONS: Question[] = [
   },
 ]
 
+export const BUDDY_QUESTIONS: Question[] = [
+  {
+    key: "buddy_nps",
+    text: "how would you rate your buddy?",
+    type: "nps",
+    subtext: "0 = not helpful at all, 10 = couldn't ask for better.",
+    min: 0,
+    max: 10,
+  },
+  {
+    key: "buddy_best_thing",
+    text: "what's the one thing your buddy is best at?",
+    type: "long_text",
+    subtext: "be specific — what have they done that really helped?",
+  },
+  {
+    key: "buddy_improve",
+    text: "what could your buddy improve on?",
+    type: "long_text",
+    subtext: "focus on actions, not the person.",
+    optional: true,
+  },
+]
+
+export const SPONSOR_QUESTIONS: Question[] = [
+  {
+    key: "sponsor_nps",
+    text: "how would you rate your sponsor?",
+    type: "nps",
+    subtext: "0 = not helpful at all, 10 = couldn't ask for better.",
+    min: 0,
+    max: 10,
+  },
+  {
+    key: "sponsor_best_thing",
+    text: "what's the one thing your sponsor is best at?",
+    type: "long_text",
+    subtext: "be specific — what have they done that really helped?",
+  },
+  {
+    key: "sponsor_improve",
+    text: "what could your sponsor improve on?",
+    type: "long_text",
+    subtext: "focus on actions, not the person.",
+    optional: true,
+  },
+]
+
 export const SELF_REVIEW_KEYS = [
   "proud_contribution",
   "proactive_efforts",

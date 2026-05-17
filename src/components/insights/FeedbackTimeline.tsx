@@ -34,6 +34,10 @@ const RESPONDABLE_KEYS = new Set([
   "trust_battery_detail",
   "adhoc_positive",
   "adhoc_improve",
+  "buddy_best_thing",
+  "buddy_improve",
+  "sponsor_best_thing",
+  "sponsor_improve",
 ])
 
 function parseValuesWithText(raw: string) {
@@ -52,6 +56,8 @@ const NUMERIC_DISPLAY = new Set([
   "nps_score",
   "trust_battery",
   "adhoc_rating",
+  "buddy_nps",
+  "sponsor_nps",
 ])
 
 interface Props {
@@ -462,7 +468,7 @@ const TimelineItem = memo(function TimelineItem({
               >
                 <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">
                   {submission.answers
-                    .filter((a) => a.question_key !== "trust_battery_detail")
+                    .filter((a) => a.question_key !== "trust_battery_detail" && a.question_key !== "buddy_id" && a.question_key !== "sponsor_id")
                     .map((answer) => (
                     <AnswerDisplay
                       key={answer.id}

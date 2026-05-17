@@ -7,7 +7,7 @@ import { getSupabaseAdmin, hasServerSupabaseConfig } from "./supabase-admin"
 
 // In-memory employee-by-email cache — avoids a DB round-trip on every request
 const employeeByEmailCache = new Map<string, {
-  data: { id: string; name: string; role: string; email: string | null; birthday: string | null }
+  data: { id: string; name: string; role: string; email: string | null; birthday: string | null; buddy_id: string | null; sponsor_id: string | null }
   expiresAt: number
 }>()
 const EMPLOYEE_CACHE_TTL_MS = 120_000 // 2 minutes
@@ -19,7 +19,7 @@ function getCachedEmployee(email: string) {
   return null
 }
 
-function setCachedEmployee(email: string, data: { id: string; name: string; role: string; email: string | null; birthday: string | null }) {
+function setCachedEmployee(email: string, data: { id: string; name: string; role: string; email: string | null; birthday: string | null; buddy_id: string | null; sponsor_id: string | null }) {
   // Cap cache size
   if (employeeByEmailCache.size > 200) employeeByEmailCache.clear()
   employeeByEmailCache.set(email, { data, expiresAt: Date.now() + EMPLOYEE_CACHE_TTL_MS })
@@ -68,13 +68,13 @@ async function lookupEmployee(email: string) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: employee, error } = await supabaseAdmin
     .from("employees")
-    .select("id, name, role, email, birthday")
+    .select("id, name, role, email, birthday, buddy_id, sponsor_id")
     .eq("email", email)
     .single()
 
   if (error || !employee) return null
 
-  const normalized = { ...employee, email: employee.email ?? null, birthday: employee.birthday ?? null }
+  const normalized = { ...employee, email: employee.email ?? null, birthday: employee.birthday ?? null, buddy_id: employee.buddy_id ?? null, sponsor_id: employee.sponsor_id ?? null }
   setCachedEmployee(email, normalized)
   return normalized
 }
@@ -84,7 +84,7 @@ async function lookupEmployee(email: string) {
  * whose employee record has role === "admin".
  */
 export async function requireAdmin(): Promise<
-  | { employee: { id: string; name: string; role: string; email: string | null; birthday: string | null }; error?: never }
+  | { employee: { id: string; name: string; role: string; email: string | null; birthday: string | null; buddy_id: string | null; sponsor_id: string | null }; error?: never }
   | { employee?: never; error: NextResponse }
 > {
   if (!hasServerSupabaseConfig()) {
@@ -133,7 +133,7 @@ export async function requireAdmin(): Promise<
  * Returns their employee record if found (or null if no employee record).
  */
 export async function requireAuth(): Promise<
-  | { user: { email: string }; employee: { id: string; name: string; role: string; email: string | null; birthday: string | null } | null; error?: never }
+  | { user: { email: string }; employee: { id: string; name: string; role: string; email: string | null; birthday: string | null; buddy_id: string | null; sponsor_id: string | null } | null; error?: never }
   | { user?: never; employee?: never; error: NextResponse }
 > {
   const email = await resolveUserEmail()

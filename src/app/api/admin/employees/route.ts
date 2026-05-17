@@ -34,7 +34,7 @@ export async function GET() {
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("employees")
-    .select("id, name, role, email, is_active, created_at")
+    .select("id, name, role, email, is_active, buddy_id, sponsor_id, created_at")
     .order("role")
     .order("name")
 
@@ -115,7 +115,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { id, role, name, email, is_active } = body
+    const { id, role, name, email, is_active, buddy_id, sponsor_id } = body
 
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
@@ -159,6 +159,20 @@ export async function PATCH(request: Request) {
 
     if (email !== undefined) {
       updates.email = normalizeEmail(email)
+    }
+
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (buddy_id !== undefined) {
+      if (buddy_id !== null && !uuidPattern.test(buddy_id)) {
+        return NextResponse.json({ error: "Buddy id is invalid." }, { status: 400 })
+      }
+      updates.buddy_id = buddy_id
+    }
+    if (sponsor_id !== undefined) {
+      if (sponsor_id !== null && !uuidPattern.test(sponsor_id)) {
+        return NextResponse.json({ error: "Sponsor id is invalid." }, { status: 400 })
+      }
+      updates.sponsor_id = sponsor_id
     }
 
     if (Object.keys(updates).length === 0) {

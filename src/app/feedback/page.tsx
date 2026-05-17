@@ -24,6 +24,8 @@ import { SCREEN_ACCENTS, getFeedbackPathOptions, type FeedbackPath } from "@/lib
 import {
   Question,
   getQuestionsForPath,
+  BUDDY_QUESTIONS,
+  SPONSOR_QUESTIONS,
   SELF_REVIEW_KEYS,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
@@ -89,6 +91,10 @@ export default function FeedbackPage() {
   const [error, setError] = useState("")
   const [sliderTouched, setSliderTouched] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [submitterBuddyId, setSubmitterBuddyId] = useState<string | null>(null)
+  const [submitterSponsorId, setSubmitterSponsorId] = useState<string | null>(null)
+  const [buddyName, setBuddyName] = useState<string | null>(null)
+  const [sponsorName, setSponsorName] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
@@ -231,6 +237,21 @@ export default function FeedbackPage() {
           birthday: data.employee.birthday ?? null,
         }
         setSubmitter(me)
+        if (data.employee.buddy_id) setSubmitterBuddyId(data.employee.buddy_id)
+        if (data.employee.sponsor_id) setSubmitterSponsorId(data.employee.sponsor_id)
+        if (data.employee.buddy_id || data.employee.sponsor_id) {
+          const ids = [data.employee.buddy_id, data.employee.sponsor_id].filter(Boolean)
+          fetch(`/api/employee-search?ids=${ids.join(",")}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              if (!mountedRef.current || !d?.employees) return
+              for (const emp of d.employees as { id: string; name: string }[]) {
+                if (emp.id === data.employee.buddy_id) setBuddyName(emp.name)
+                if (emp.id === data.employee.sponsor_id) setSponsorName(emp.name)
+              }
+            })
+            .catch(() => {})
+        }
         if (!data.employee.birthday) {
           setShowBirthdayDialog(true)
         }
@@ -240,10 +261,25 @@ export default function FeedbackPage() {
       })
   }, [])
 
-  const questions: Question[] = useMemo(
-    () => (feedbackPath ? getQuestionsForPath(feedbackPath) : []),
-    [feedbackPath]
-  )
+  const questions: Question[] = useMemo(() => {
+    if (!feedbackPath) return []
+    const base = getQuestionsForPath(feedbackPath)
+    if (feedbackPath !== "intern" || submitter?.role !== "intern") return base
+    const extra: Question[] = []
+    if (submitterBuddyId) {
+      extra.push(...BUDDY_QUESTIONS.map((q) => ({
+        ...q,
+        text: buddyName ? q.text.replace("your buddy", `${buddyName}, your buddy`) : q.text,
+      })))
+    }
+    if (submitterSponsorId) {
+      extra.push(...SPONSOR_QUESTIONS.map((q) => ({
+        ...q,
+        text: sponsorName ? q.text.replace("your sponsor", `${sponsorName}, your sponsor`) : q.text,
+      })))
+    }
+    return [...base, ...extra]
+  }, [feedbackPath, submitter?.role, submitterBuddyId, submitterSponsorId, buddyName, sponsorName])
 
   // Progress: for multi-stage pipelines, compute total questions across all stages.
   // For single-stage, it's just the current path's questions + setup.
@@ -691,6 +727,23 @@ export default function FeedbackPage() {
           question_key: "review_overall_comment",
           question_text: "Peer review — overall comment on self-reflection",
           answer_value: overallComment,
+        })
+      }
+    }
+
+    if (feedbackPath === "intern" && submitter?.role === "intern") {
+      if (submitterBuddyId) {
+        answerRows.push({
+          question_key: "buddy_id",
+          question_text: "buddy (auto-captured)",
+          answer_value: submitterBuddyId,
+        })
+      }
+      if (submitterSponsorId) {
+        answerRows.push({
+          question_key: "sponsor_id",
+          question_text: "sponsor (auto-captured)",
+          answer_value: submitterSponsorId,
         })
       }
     }
