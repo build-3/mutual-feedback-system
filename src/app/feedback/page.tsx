@@ -731,23 +731,6 @@ export default function FeedbackPage() {
       }
     }
 
-    if (feedbackPath === "intern" && submitter?.role === "intern") {
-      if (submitterBuddyId) {
-        answerRows.push({
-          question_key: "buddy_id",
-          question_text: "buddy (auto-captured)",
-          answer_value: submitterBuddyId,
-        })
-      }
-      if (submitterSponsorId) {
-        answerRows.push({
-          question_key: "sponsor_id",
-          question_text: "sponsor (auto-captured)",
-          answer_value: submitterSponsorId,
-        })
-      }
-    }
-
     // If this was a gate stage in a multi-stage pipeline, show brief celebration then advance
     if (stages.length > 1 && currentStageIndex < stages.length - 1) {
       // Mark the completed gate as done

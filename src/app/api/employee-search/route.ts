@@ -45,6 +45,7 @@ export async function GET(request: Request) {
       .from("employees")
       .select("id, name, role")
       .in("id", idList)
+      .eq("is_active", true)
     return NextResponse.json({ employees: data || [] })
   }
 

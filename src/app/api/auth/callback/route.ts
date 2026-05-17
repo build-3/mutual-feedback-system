@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin, hasServerSupabaseConfig } from '@/lib/server/supabase-admin'
+import { signValue } from '@/lib/server/signed-cookie'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -46,12 +47,12 @@ export async function GET(request: Request) {
       }
 
       const res = NextResponse.redirect(`${origin}/feedback`)
-      res.cookies.set('last_signin', Date.now().toString(), {
+      res.cookies.set('last_signin', signValue(Date.now().toString()), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 30 * 24 * 60 * 60,
+        maxAge: 31 * 24 * 60 * 60,
       })
       return res
     }

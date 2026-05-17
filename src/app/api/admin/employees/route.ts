@@ -166,13 +166,25 @@ export async function PATCH(request: Request) {
       if (buddy_id !== null && !uuidPattern.test(buddy_id)) {
         return NextResponse.json({ error: "Buddy id is invalid." }, { status: 400 })
       }
+      if (buddy_id === id) {
+        return NextResponse.json({ error: "An employee cannot be their own buddy." }, { status: 400 })
+      }
       updates.buddy_id = buddy_id
     }
     if (sponsor_id !== undefined) {
       if (sponsor_id !== null && !uuidPattern.test(sponsor_id)) {
         return NextResponse.json({ error: "Sponsor id is invalid." }, { status: 400 })
       }
+      if (sponsor_id === id) {
+        return NextResponse.json({ error: "An employee cannot be their own sponsor." }, { status: 400 })
+      }
       updates.sponsor_id = sponsor_id
+    }
+
+    const effectiveBuddy = buddy_id !== undefined ? buddy_id : null
+    const effectiveSponsor = sponsor_id !== undefined ? sponsor_id : null
+    if (effectiveBuddy && effectiveSponsor && effectiveBuddy === effectiveSponsor) {
+      return NextResponse.json({ error: "Buddy and sponsor must be different people." }, { status: 400 })
     }
 
     if (Object.keys(updates).length === 0) {
@@ -180,14 +192,36 @@ export async function PATCH(request: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdmin()
+
+    if (effectiveBuddy || effectiveSponsor) {
+      const idsToCheck = [effectiveBuddy, effectiveSponsor].filter(Boolean) as string[]
+      const { data: candidates } = await supabaseAdmin
+        .from("employees")
+        .select("id, role")
+        .in("id", idsToCheck)
+
+      for (const cid of idsToCheck) {
+        const found = candidates?.find((c) => c.id === cid)
+        if (!found) {
+          return NextResponse.json({ error: "Buddy or sponsor employee not found." }, { status: 400 })
+        }
+        if (found.role === "intern") {
+          return NextResponse.json({ error: "Buddy and sponsor must be non-intern employees." }, { status: 400 })
+        }
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from("employees")
       .update(updates)
       .eq("id", id)
 
     if (error) {
+      const safeMsg = error.message?.includes("chk_buddy_sponsor_different")
+        ? "Buddy and sponsor must be different people."
+        : "Update failed."
       return NextResponse.json(
-        { error: error.message || "Update failed." },
+        { error: safeMsg },
         { status: 400 }
       )
     }

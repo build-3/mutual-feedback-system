@@ -1,5 +1,21 @@
 import { createServerClient } from '@supabase/ssr'
+import { createHmac } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
+
+function verifySignedCookie(raw: string): string | null {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'fallback-dev-secret'
+  const lastDot = raw.lastIndexOf('.')
+  if (lastDot === -1) return null
+  const value = raw.slice(0, lastDot)
+  const sig = raw.slice(lastDot + 1)
+  const expected = createHmac('sha256', secret).update(value).digest('hex')
+  if (sig.length !== expected.length) return null
+  let mismatch = 0
+  for (let i = 0; i < sig.length; i++) {
+    mismatch |= sig.charCodeAt(i) ^ expected.charCodeAt(i)
+  }
+  return mismatch === 0 ? value : null
+}
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -93,7 +109,8 @@ export async function middleware(request: NextRequest) {
 
   // ── 30-day re-auth: force fresh Google sign-in ──
   if (user && !isLoginPage) {
-    const lastSignin = request.cookies.get('last_signin')?.value
+    const rawCookie = request.cookies.get('last_signin')?.value
+    const lastSignin = rawCookie ? verifySignedCookie(rawCookie) : null
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
     const expired = !lastSignin || Date.now() - Number(lastSignin) > thirtyDaysMs
 
@@ -119,6 +136,18 @@ export async function middleware(request: NextRequest) {
         }
       )
       await supabaseForSignout.auth.signOut()
+
+      if (isApiRoute) {
+        const apiResponse = NextResponse.json(
+          { error: 'Session expired. Please sign in again.' },
+          { status: 401 }
+        )
+        apiResponse.cookies.delete('last_signin')
+        supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
+          apiResponse.cookies.set(name, value)
+        })
+        return apiResponse
+      }
 
       const url = request.nextUrl.clone()
       url.pathname = '/login'
