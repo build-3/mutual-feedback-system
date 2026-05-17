@@ -34,7 +34,7 @@ export async function GET() {
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("employees")
-    .select("id, name, role, email, created_at")
+    .select("id, name, role, email, is_active, created_at")
     .order("role")
     .order("name")
 
@@ -115,7 +115,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { id, role, name, email } = body
+    const { id, role, name, email, is_active } = body
 
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
@@ -123,7 +123,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Employee id is invalid." }, { status: 400 })
     }
 
-    const updates: Record<string, string | null> = {}
+    const updates: Record<string, string | boolean | null> = {}
+
+    if (typeof is_active === "boolean") {
+      updates.is_active = is_active
+    }
 
     if (role !== undefined) {
       if (role !== "intern" && role !== "full_timer" && role !== "admin") {

@@ -10,6 +10,7 @@ CREATE TABLE employees (
   role TEXT NOT NULL CHECK (role IN ('intern', 'full_timer', 'admin')),
   email TEXT,
   birthday TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

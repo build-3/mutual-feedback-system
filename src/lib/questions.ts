@@ -83,6 +83,8 @@ export type Question = {
   employeeRole?: "intern" | "full_timer"
   /** Follow-up config for slider_with_followup type */
   followup?: SliderFollowup
+  /** When true, user can skip without answering */
+  optional?: boolean
 }
 
 // Shared questions used in both intern and full-timer paths
@@ -147,6 +149,7 @@ const VALUE_IMPROVEMENT_QUESTION: Question = {
   text: "which values could they improve on? tell us why.",
   type: "values_with_text",
   subtext: "select one or more, then explain below.",
+  optional: true,
 }
 
 export const INTERN_QUESTIONS: Question[] = [

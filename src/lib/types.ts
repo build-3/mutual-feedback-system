@@ -41,6 +41,7 @@ export type Employee = {
   role: EmployeeRole
   email?: string | null
   birthday?: string | null
+  is_active?: boolean
   created_at: string
 }
 

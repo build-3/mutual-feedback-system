@@ -91,6 +91,46 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // ── 30-day re-auth: force fresh Google sign-in ──
+  if (user && !isLoginPage) {
+    const lastSignin = request.cookies.get('last_signin')?.value
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+    const expired = !lastSignin || Date.now() - Number(lastSignin) > thirtyDaysMs
+
+    if (expired) {
+      const supabaseForSignout = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll()
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value }) =>
+                request.cookies.set(name, value)
+              )
+              supabaseResponse = NextResponse.next({ request })
+              cookiesToSet.forEach(({ name, value, options }) =>
+                supabaseResponse.cookies.set(name, value, options)
+              )
+            },
+          },
+        }
+      )
+      await supabaseForSignout.auth.signOut()
+
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      const redirectResponse = NextResponse.redirect(url)
+      redirectResponse.cookies.delete('last_signin')
+      supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
+        redirectResponse.cookies.set(name, value)
+      })
+      return redirectResponse
+    }
+  }
+
   // Logged in and on login page → redirect to feedback
   if (user && isLoginPage) {
     const url = request.nextUrl.clone()

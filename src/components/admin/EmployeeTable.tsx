@@ -14,7 +14,7 @@ import type { Employee, EmployeeRole, FeedbackSubmission } from "@/lib/types"
 
 type OnAdd = (name: string, role: "intern" | "full_timer", email: string) => Promise<void>
 type OnDelete = (id: string) => Promise<string | null>
-type OnUpdate = (id: string, updates: { role?: EmployeeRole; name?: string; email?: string }) => Promise<string | null>
+type OnUpdate = (id: string, updates: { role?: EmployeeRole; name?: string; email?: string; is_active?: boolean }) => Promise<string | null>
 
 export default function EmployeeTable({
   employees,
@@ -286,9 +286,18 @@ export default function EmployeeTable({
                   )
                 }
 
+                const isHidden = emp.is_active === false
+
                 return (
-                  <tr key={emp.id} className="hover:bg-yellow-50/30 transition-colors">
-                    <td className="px-5 py-3 font-medium text-ink">{emp.name}</td>
+                  <tr key={emp.id} className={`transition-colors ${isHidden ? "opacity-50 bg-black/[0.02]" : "hover:bg-yellow-50/30"}`}>
+                    <td className="px-5 py-3 font-medium text-ink">
+                      <span className={isHidden ? "line-through text-muted" : ""}>{emp.name}</span>
+                      {isHidden && (
+                        <span className="ml-2 inline-block rounded-full bg-black/[0.06] px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-muted">
+                          hidden
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       <span className={badge.className} style={badge.style}>
                         {getRoleLabel(emp.role)}
@@ -334,6 +343,13 @@ export default function EmployeeTable({
                             promote
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => onUpdate(emp.id, { is_active: !isHidden ? false : true })}
+                          className={`text-xs transition-colors ${isHidden ? "text-brand-sky hover:text-ink" : "text-muted hover:text-[#d35b52]"}`}
+                        >
+                          {isHidden ? "unhide" : "hide"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => { setDeleteTarget(emp); setDeleteError("") }}

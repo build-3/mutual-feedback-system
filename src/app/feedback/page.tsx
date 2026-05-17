@@ -582,6 +582,7 @@ export default function FeedbackPage() {
     }
 
     if (question.type === "values_with_text") {
+      if (question.optional) return true
       const raw = answers[question.key] || ""
       const sep = "|||"
       const parts = raw.split(sep)
@@ -1509,6 +1510,15 @@ export default function FeedbackPage() {
                     ? (stages.length > 1 && currentStageIndex < stages.length - 1 ? "next step" : "send it")
                     : "keep going"}
                 </button>
+                {phase === "questions" && questions[currentQ]?.optional && (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="text-sm font-semibold text-muted hover:text-ink transition-colors"
+                  >
+                    skip
+                  </button>
+                )}
                 {voiceState === "idle" && (
                   <div className="rounded-full border border-line bg-white/86 px-3 py-2 text-xs font-semibold tracking-[0.08em] text-muted">
                     press enter to keep moving
@@ -1581,7 +1591,16 @@ export default function FeedbackPage() {
 
       {/* Mobile sticky bottom action bar — sits above the tab bar */}
       {phase !== "submitting" && phase !== "stage_complete" && (
-        <div className="fixed bottom-[calc(44px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 flex justify-center px-4 pb-1 sm:hidden">
+        <div className="fixed bottom-[calc(44px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 flex items-center justify-center gap-3 px-4 pb-1 sm:hidden">
+          {phase === "questions" && questions[currentQ]?.optional && (
+            <button
+              type="button"
+              onClick={goNext}
+              className="text-sm font-semibold text-muted"
+            >
+              skip
+            </button>
+          )}
           <button
             type="button"
             className={`${nextButton.className} !px-10 !py-2.5 !text-sm`}

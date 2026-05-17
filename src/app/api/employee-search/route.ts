@@ -43,6 +43,7 @@ export async function GET(request: Request) {
   let employeeQuery = supabaseAdmin
     .from("employees")
     .select("id, name, role")
+    .eq("is_active", true)
     .order("name")
 
   if (query !== "*") {

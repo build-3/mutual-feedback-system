@@ -112,7 +112,7 @@ export default function Glock17Page() {
 
   async function handleUpdateEmployee(
     id: string,
-    updates: { role?: string; name?: string; email?: string }
+    updates: { role?: string; name?: string; email?: string; is_active?: boolean }
   ): Promise<string | null> {
     const res = await fetch("/api/admin/employees", {
       method: "PATCH",

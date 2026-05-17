@@ -280,6 +280,8 @@ const AnswerDisplay = memo(function AnswerDisplay({
   responses,
   currentUser,
   onResponseSaved,
+  siblingAnswers,
+  allResponsesByAnswer,
 }: {
   questionKey: string
   questionText: string
@@ -288,12 +290,20 @@ const AnswerDisplay = memo(function AnswerDisplay({
   responses: (FeedbackResponse & { responderName: string })[]
   currentUser: { id: string; name: string } | null
   onResponseSaved?: () => void
+  siblingAnswers?: { question_key: string; answer_value: string; id: string; question_text: string }[]
+  allResponsesByAnswer?: Record<string, (FeedbackResponse & { responderName: string })[]>
 }) {
   const label = QUESTION_LABELS[questionKey] || questionText || questionKey
   const numericValue = parseNumericAnswer(value)
   const isRespondable = RESPONDABLE_KEYS.has(questionKey) && !!currentUser
 
   if (NUMERIC_DISPLAY.has(questionKey) && numericValue !== null) {
+    const detailAnswer = questionKey === "trust_battery"
+      ? siblingAnswers?.find((a) => a.question_key === "trust_battery_detail")
+      : null
+    const detailAnswerId = detailAnswer?.id
+    const isDetailRespondable = detailAnswer && RESPONDABLE_KEYS.has("trust_battery_detail") && !!currentUser
+
     return (
       <div className="rounded-[20px] border border-line bg-black/[0.02] p-4">
         <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
@@ -306,6 +316,24 @@ const AnswerDisplay = memo(function AnswerDisplay({
             ? `${numericValue}/10`
             : `${numericValue}/5`}
         </div>
+        {detailAnswer && detailAnswer.answer_value.trim() && (
+          <div className="mt-3 border-t border-line pt-3">
+            <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
+              {QUESTION_LABELS["trust_battery_detail"] || detailAnswer.question_text || "detail"}
+            </div>
+            <div className="mt-1 whitespace-pre-wrap text-sm leading-7 text-ink">
+              {detailAnswer.answer_value}
+            </div>
+            {detailAnswerId && <ResponseThread responses={allResponsesByAnswer?.[detailAnswerId] || []} />}
+            {isDetailRespondable && detailAnswerId && (
+              <ReplyBox
+                answerId={detailAnswerId}
+                currentUser={currentUser}
+                onSaved={onResponseSaved}
+              />
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -433,7 +461,9 @@ const TimelineItem = memo(function TimelineItem({
                 className="overflow-hidden border-t border-line"
               >
                 <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">
-                  {submission.answers.map((answer) => (
+                  {submission.answers
+                    .filter((a) => a.question_key !== "trust_battery_detail")
+                    .map((answer) => (
                     <AnswerDisplay
                       key={answer.id}
                       answerId={answer.id}
@@ -443,6 +473,8 @@ const TimelineItem = memo(function TimelineItem({
                       responses={responsesByAnswer[answer.id] || []}
                       currentUser={currentUser}
                       onResponseSaved={onResponseSaved}
+                      siblingAnswers={submission.answers}
+                      allResponsesByAnswer={responsesByAnswer}
                     />
                   ))}
                 </div>

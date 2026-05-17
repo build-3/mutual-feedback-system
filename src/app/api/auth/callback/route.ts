@@ -45,7 +45,15 @@ export async function GET(request: Request) {
         }
       }
 
-      return NextResponse.redirect(`${origin}/feedback`)
+      const res = NextResponse.redirect(`${origin}/feedback`)
+      res.cookies.set('last_signin', Date.now().toString(), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+      })
+      return res
     }
   }
 
