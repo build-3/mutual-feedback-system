@@ -1,14 +1,22 @@
 import { createServerClient } from '@supabase/ssr'
-import { createHmac } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 
-function verifySignedCookie(raw: string): string | null {
+async function hmacHex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function verifySignedCookie(raw: string): Promise<string | null> {
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'fallback-dev-secret'
   const lastDot = raw.lastIndexOf('.')
   if (lastDot === -1) return null
   const value = raw.slice(0, lastDot)
   const sig = raw.slice(lastDot + 1)
-  const expected = createHmac('sha256', secret).update(value).digest('hex')
+  const expected = await hmacHex(secret, value)
   if (sig.length !== expected.length) return null
   let mismatch = 0
   for (let i = 0; i < sig.length; i++) {
@@ -110,7 +118,7 @@ export async function middleware(request: NextRequest) {
   // ── 30-day re-auth: force fresh Google sign-in ──
   if (user && !isLoginPage) {
     const rawCookie = request.cookies.get('last_signin')?.value
-    const lastSignin = rawCookie ? verifySignedCookie(rawCookie) : null
+    const lastSignin = rawCookie ? await verifySignedCookie(rawCookie) : null
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
     const expired = !lastSignin || Date.now() - Number(lastSignin) > thirtyDaysMs
 
