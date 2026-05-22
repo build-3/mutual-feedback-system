@@ -34,7 +34,7 @@ export async function GET() {
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("employees")
-    .select("id, name, role, email, is_active, buddy_id, sponsor_id, created_at")
+    .select("id, name, role, email, is_active, created_at")
     .order("role")
     .order("name")
 
@@ -114,7 +114,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { id, role, name, email, is_active, buddy_id, sponsor_id } = body
+    const { id, role, name, email, is_active } = body
 
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
@@ -160,55 +160,11 @@ export async function PATCH(request: Request) {
       updates.email = normalizeEmail(email)
     }
 
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (buddy_id !== undefined) {
-      if (buddy_id !== null && !uuidPattern.test(buddy_id)) {
-        return NextResponse.json({ error: "Buddy id is invalid." }, { status: 400 })
-      }
-      if (buddy_id === id) {
-        return NextResponse.json({ error: "An employee cannot be their own buddy." }, { status: 400 })
-      }
-      updates.buddy_id = buddy_id
-    }
-    if (sponsor_id !== undefined) {
-      if (sponsor_id !== null && !uuidPattern.test(sponsor_id)) {
-        return NextResponse.json({ error: "Sponsor id is invalid." }, { status: 400 })
-      }
-      if (sponsor_id === id) {
-        return NextResponse.json({ error: "An employee cannot be their own sponsor." }, { status: 400 })
-      }
-      updates.sponsor_id = sponsor_id
-    }
-
-    const effectiveBuddy = buddy_id !== undefined ? buddy_id : null
-    const effectiveSponsor = sponsor_id !== undefined ? sponsor_id : null
-    if (effectiveBuddy && effectiveSponsor && effectiveBuddy === effectiveSponsor) {
-      return NextResponse.json({ error: "Buddy and sponsor must be different people." }, { status: 400 })
-    }
-
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Nothing to update." }, { status: 400 })
     }
 
     const supabaseAdmin = getSupabaseAdmin()
-
-    if (effectiveBuddy || effectiveSponsor) {
-      const idsToCheck = [effectiveBuddy, effectiveSponsor].filter(Boolean) as string[]
-      const { data: candidates } = await supabaseAdmin
-        .from("employees")
-        .select("id, role")
-        .in("id", idsToCheck)
-
-      for (const cid of idsToCheck) {
-        const found = candidates?.find((c) => c.id === cid)
-        if (!found) {
-          return NextResponse.json({ error: "Buddy or sponsor employee not found." }, { status: 400 })
-        }
-        if (found.role === "intern") {
-          return NextResponse.json({ error: "Buddy and sponsor must be non-intern employees." }, { status: 400 })
-        }
-      }
-    }
 
     const { error } = await supabaseAdmin
       .from("employees")
@@ -216,11 +172,8 @@ export async function PATCH(request: Request) {
       .eq("id", id)
 
     if (error) {
-      const safeMsg = error.message?.includes("chk_buddy_sponsor_different")
-        ? "Buddy and sponsor must be different people."
-        : "Update failed."
       return NextResponse.json(
-        { error: safeMsg },
+        { error: "Update failed." },
         { status: 400 }
       )
     }

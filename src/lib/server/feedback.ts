@@ -186,40 +186,11 @@ export async function submitFeedback({
     throw new Error("answers exceeds maximum allowed count")
   }
 
-  const RESERVED_KEYS = new Set(["buddy_id", "sponsor_id"])
-  const normalizedAnswers = answers
-    .filter((answer) => !RESERVED_KEYS.has(answer.question_key))
-    .map((answer) => ({
-      question_key: normalizeText(answer.question_key, "question_key", 100),
-      question_text: normalizeText(answer.question_text, "question_text", 300),
-      answer_value: normalizeText(answer.answer_value, "answer_value", 4000),
-    }))
-
-  if (feedbackType === "intern") {
-    const supabaseCheck = getSupabaseAdmin()
-    const { data: submitterRecord } = await supabaseCheck
-      .from("employees")
-      .select("role, buddy_id, sponsor_id")
-      .eq("id", submittedById)
-      .single()
-
-    if (submitterRecord?.role === "intern") {
-      if (submitterRecord.buddy_id) {
-        normalizedAnswers.push({
-          question_key: "buddy_id",
-          question_text: "buddy (auto-captured)",
-          answer_value: submitterRecord.buddy_id,
-        })
-      }
-      if (submitterRecord.sponsor_id) {
-        normalizedAnswers.push({
-          question_key: "sponsor_id",
-          question_text: "sponsor (auto-captured)",
-          answer_value: submitterRecord.sponsor_id,
-        })
-      }
-    }
-  }
+  const normalizedAnswers = answers.map((answer) => ({
+    question_key: normalizeText(answer.question_key, "question_key", 100),
+    question_text: normalizeText(answer.question_text, "question_text", 300),
+    answer_value: normalizeText(answer.answer_value, "answer_value", 4000),
+  }))
 
   const supabaseAdmin = getSupabaseAdmin()
 

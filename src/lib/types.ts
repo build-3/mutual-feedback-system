@@ -68,8 +68,6 @@ export type Employee = {
   email?: string | null
   birthday?: string | null
   is_active?: boolean
-  buddy_id?: string | null
-  sponsor_id?: string | null
   created_at: string
 }
 

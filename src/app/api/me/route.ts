@@ -16,8 +16,6 @@ export async function GET() {
       email: auth.employee.email,
       role: auth.employee.role,
       birthday: auth.employee.birthday,
-      buddy_id: auth.employee.buddy_id,
-      sponsor_id: auth.employee.sponsor_id,
     },
   })
 }

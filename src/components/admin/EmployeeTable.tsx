@@ -14,7 +14,7 @@ import type { Employee, EmployeeRole, FeedbackSubmission } from "@/lib/types"
 
 type OnAdd = (name: string, role: "intern" | "full_timer", email: string) => Promise<void>
 type OnDelete = (id: string) => Promise<string | null>
-type OnUpdate = (id: string, updates: { role?: EmployeeRole; name?: string; email?: string; is_active?: boolean; buddy_id?: string | null; sponsor_id?: string | null }) => Promise<string | null>
+type OnUpdate = (id: string, updates: { role?: EmployeeRole; name?: string; email?: string; is_active?: boolean }) => Promise<string | null>
 
 export default function EmployeeTable({
   employees,
@@ -43,8 +43,6 @@ export default function EmployeeTable({
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editRole, setEditRole] = useState<EmployeeRole>("full_timer")
-  const [editBuddyId, setEditBuddyId] = useState<string | null>(null)
-  const [editSponsorId, setEditSponsorId] = useState<string | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState("")
 
@@ -70,24 +68,11 @@ export default function EmployeeTable({
     [employees]
   )
 
-  const buddySponsorCandidates = useMemo(
-    () => employees.filter((e) => e.role !== "intern" && e.is_active !== false),
-    [employees]
-  )
-
-  const employeeNameMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const e of employees) map.set(e.id, e.name)
-    return map
-  }, [employees])
-
   function startEdit(emp: Employee) {
     setEditingId(emp.id)
     setEditName(emp.name)
     setEditEmail(emp.email ?? "")
     setEditRole(emp.role)
-    setEditBuddyId(emp.buddy_id ?? null)
-    setEditSponsorId(emp.sponsor_id ?? null)
     setEditError("")
   }
 
@@ -100,18 +85,10 @@ export default function EmployeeTable({
     setEditSaving(true)
     setEditError("")
 
-    if (editBuddyId && editSponsorId && editBuddyId === editSponsorId) {
-      setEditError("buddy and sponsor must be different people.")
-      setEditSaving(false)
-      return
-    }
-
-    const updates: { name?: string; email?: string; role?: EmployeeRole; buddy_id?: string | null; sponsor_id?: string | null } = {}
+    const updates: { name?: string; email?: string; role?: EmployeeRole } = {}
     if (editName.trim() !== emp.name) updates.name = editName.trim()
     if ((editEmail.trim() || null) !== (emp.email || null)) updates.email = editEmail.trim()
     if (editRole !== emp.role) updates.role = editRole
-    if (editBuddyId !== (emp.buddy_id ?? null)) updates.buddy_id = editBuddyId
-    if (editSponsorId !== (emp.sponsor_id ?? null)) updates.sponsor_id = editSponsorId
 
     if (Object.keys(updates).length === 0) {
       cancelEdit()
@@ -282,40 +259,6 @@ export default function EmployeeTable({
                         />
                       </td>
                       <td colSpan={3} className="px-3 py-2">
-                        {editRole === "intern" && (
-                          <div className="flex flex-wrap gap-2 mb-1">
-                            <div className="min-w-[140px]">
-                              <label className="block text-[10px] font-semibold tracking-[0.08em] text-muted mb-0.5">buddy</label>
-                              <select
-                                value={editBuddyId ?? ""}
-                                onChange={(e) => setEditBuddyId(e.target.value || null)}
-                                className={fieldClasses({ size: "sm" })}
-                              >
-                                <option value="">none</option>
-                                {buddySponsorCandidates
-                                  .filter((c) => c.id !== editSponsorId)
-                                  .map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                  ))}
-                              </select>
-                            </div>
-                            <div className="min-w-[140px]">
-                              <label className="block text-[10px] font-semibold tracking-[0.08em] text-muted mb-0.5">sponsor</label>
-                              <select
-                                value={editSponsorId ?? ""}
-                                onChange={(e) => setEditSponsorId(e.target.value || null)}
-                                className={fieldClasses({ size: "sm" })}
-                              >
-                                <option value="">none</option>
-                                {buddySponsorCandidates
-                                  .filter((c) => c.id !== editBuddyId)
-                                  .map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                  ))}
-                              </select>
-                            </div>
-                          </div>
-                        )}
                         {editError && (
                           <span className="text-xs text-[#d35b52]">{editError}</span>
                         )}
@@ -353,20 +296,6 @@ export default function EmployeeTable({
                         <span className="ml-2 inline-block rounded-full bg-black/[0.06] px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-muted">
                           hidden
                         </span>
-                      )}
-                      {emp.role === "intern" && (emp.buddy_id || emp.sponsor_id) && (
-                        <div className="mt-0.5 flex flex-wrap gap-1">
-                          {emp.buddy_id && (
-                            <span className="inline-block rounded-full bg-brand-sky/20 px-2 py-0.5 text-[10px] font-semibold tracking-[0.04em] text-muted">
-                              buddy: {employeeNameMap.get(emp.buddy_id) ?? "—"}
-                            </span>
-                          )}
-                          {emp.sponsor_id && (
-                            <span className="inline-block rounded-full bg-brand-sage/20 px-2 py-0.5 text-[10px] font-semibold tracking-[0.04em] text-muted">
-                              sponsor: {employeeNameMap.get(emp.sponsor_id) ?? "—"}
-                            </span>
-                          )}
-                        </div>
                       )}
                     </td>
                     <td className="px-3 py-3">

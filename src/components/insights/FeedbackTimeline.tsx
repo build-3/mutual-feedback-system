@@ -462,7 +462,7 @@ const TimelineItem = memo(function TimelineItem({
               >
                 <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">
                   {submission.answers
-                    .filter((a) => a.question_key !== "trust_battery_detail" && a.question_key !== "buddy_id" && a.question_key !== "sponsor_id")
+                    .filter((a) => a.question_key !== "trust_battery_detail")
                     .map((answer) => (
                     <AnswerDisplay
                       key={answer.id}
