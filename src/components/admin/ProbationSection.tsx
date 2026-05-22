@@ -111,11 +111,6 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
   const [actionError, setActionError] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const [reviewForms, setReviewForms] = useState<
-    Record<string, { contributionLevel: string; backingScore: number }>
-  >({})
-  const [reviewLoading, setReviewLoading] = useState<string | null>(null)
-
   const loadData = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/probation", { cache: "no-store" })
@@ -157,40 +152,6 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
       return
     }
     await loadData()
-  }
-
-  async function handleSubmitReview(probationId: string) {
-    const form = reviewForms[probationId]
-    if (!form?.contributionLevel || !form?.backingScore) {
-      alert("Please fill in both review questions.")
-      return
-    }
-
-    setReviewLoading(probationId)
-    try {
-      const res = await fetch("/api/admin/probation/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          probationId,
-          contributionLevel: form.contributionLevel,
-          backingScore: form.backingScore,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        alert(data.error ?? "failed to submit review")
-        return
-      }
-      setReviewForms((prev) => {
-        const next = { ...prev }
-        delete next[probationId]
-        return next
-      })
-      await loadData()
-    } finally {
-      setReviewLoading(null)
-    }
   }
 
   async function handleConfirmAction() {
@@ -268,7 +229,6 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
         const days = daysUntil(p.end_date)
         const statusAccent = STATUS_ACCENT[p.status] ?? "ink"
         const signalAccent = p.signal ? getSignalAccent(p.signal) : "ink"
-        const form = reviewForms[p.id] ?? { contributionLevel: "", backingScore: 0 }
         const isExpanded = expandedId === p.id
         const recentFeedback = p.feedback_history.slice(0, 10)
 
@@ -456,84 +416,6 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
                       </span>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Review form (only for active/extended) */}
-            {isActive && (
-              <div className="mb-4 rounded-xl bg-white/60 border border-line p-4">
-                <div className="text-xs font-semibold text-ink mb-3">add assessment</div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[11px] text-muted font-medium block mb-1.5">
-                      what level of contribution are we seeing right now?
-                    </label>
-                    <div className="flex gap-2">
-                      {[
-                        { value: "independent_contributor", label: "Independent Contributor" },
-                        { value: "leader", label: "Leader" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() =>
-                            setReviewForms((prev) => ({
-                              ...prev,
-                              [p.id]: { ...form, contributionLevel: opt.value },
-                            }))
-                          }
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                            form.contributionLevel === opt.value
-                              ? "border-ink bg-ink text-white"
-                              : "border-line bg-white text-muted hover:border-ink/20"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-muted font-medium block mb-1.5">
-                      how ready are they for a full-time role?
-                    </label>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4, 5].map((score) => (
-                        <button
-                          key={score}
-                          type="button"
-                          onClick={() =>
-                            setReviewForms((prev) => ({
-                              ...prev,
-                              [p.id]: { ...form, backingScore: score },
-                            }))
-                          }
-                          className={`w-9 h-9 rounded-full border text-sm font-semibold transition-all ${
-                            form.backingScore === score
-                              ? score > 3
-                                ? "border-[#4a8c6f] bg-[#4a8c6f] text-white"
-                                : "border-[#d35b52] bg-[#d35b52] text-white"
-                              : "border-line bg-white text-muted hover:border-ink/20"
-                          }`}
-                        >
-                          {score}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex justify-between text-[10px] text-muted/60 mt-1 px-1">
-                      <span>not ready</span>
-                      <span>fully ready</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={reviewLoading === p.id}
-                    onClick={() => handleSubmitReview(p.id)}
-                    {...buttonClasses({ accent: "lavender", variant: "solid", size: "sm" })}
-                  >
-                    {reviewLoading === p.id ? "submitting..." : "submit assessment"}
-                  </button>
                 </div>
               </div>
             )}
