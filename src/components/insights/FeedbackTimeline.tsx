@@ -318,7 +318,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
         <div className="mt-2 text-lg font-semibold tracking-[-0.04em] text-ink">
           {questionKey === "trust_battery"
             ? `${numericValue}%`
-            : questionKey === "nps_score"
+            : questionKey === "nps_score" || questionKey === "buddy_nps" || questionKey === "sponsor_nps"
             ? `${numericValue}/10`
             : `${numericValue}/5`}
         </div>
