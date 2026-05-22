@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/server/require-admin"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 import { sendCardToSpace, getProfilePhotoUrl } from "@/lib/server/google-chat"
-import { persistKudos, getPreviousGiversForRecipient } from "@/lib/server/kudos"
+import { persistKudos } from "@/lib/server/kudos"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ALLOWED_GIF_PREFIXES = ["https://media.giphy.com/", "https://i.giphy.com/", "https://media0.giphy.com/", "https://media1.giphy.com/", "https://media2.giphy.com/", "https://media3.giphy.com/", "https://media4.giphy.com/"]
@@ -99,33 +99,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Failed to save kudos: ${msg}` }, { status: 500 })
   }
 
-  // Build "X, Y, Z and N more have given kudos too" footer.
-  // We compute previous givers across all recipients combined (distinct senders,
-  // excluding the current sender), so the social proof feels collective.
-  const previousGivers = await Promise.all(
-    photoResults.map((r) =>
-      getPreviousGiversForRecipient(r.id, auth.employee!.id, 10).catch(() => ({
-        names: [] as string[],
-        extraCount: 0,
-      }))
-    )
-  )
-  const allPriorNames: string[] = []
-  const seenNames = new Set<string>()
-  for (const pg of previousGivers) {
-    for (const n of pg.names) {
-      if (!seenNames.has(n)) {
-        seenNames.add(n)
-        allPriorNames.push(n)
-      }
-    }
-  }
-  const topThree = allPriorNames.slice(0, 3)
-  const extraCount = Math.max(0, allPriorNames.length - 3)
-  const priorBlurb = topThree.length === 0
-    ? null
-    : `*${topThree.join(", ")}*${extraCount > 0 ? ` and ${extraCount} more` : ""} ${topThree.length === 1 && extraCount === 0 ? "has" : "have"} given kudos too.`
-
   // Build one card per recipient as separate cardsV2 entries (stacked in one message)
   const isLast = (i: number) => i === photoResults.length - 1
   const cards = photoResults.map((r, i) => {
@@ -176,19 +149,6 @@ export async function POST(request: Request) {
           ],
         },
       ]
-      if (priorBlurb) {
-        sections.push({
-          widgets: [
-            {
-              decoratedText: {
-                text: priorBlurb,
-                wrapText: true,
-                startIcon: { knownIcon: "STAR" },
-              },
-            },
-          ],
-        })
-      }
       card.sections = sections
     }
     return { cardId: `kudos-${Date.now()}-${i}`, card }
