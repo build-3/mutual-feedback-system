@@ -24,8 +24,6 @@ const FEEDBACK_TYPES = new Set<FeedbackType>([
   "full_timer",
   "self",
   "adhoc",
-  "buddy",
-  "sponsor",
 ])
 
 

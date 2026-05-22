@@ -24,7 +24,7 @@ export type Accent =
   | "lavender"
   | "ink"
 
-export type FeedbackPath = "intern" | "build3" | "full_timer" | "self" | "adhoc" | "buddy" | "sponsor"
+export type FeedbackPath = "intern" | "build3" | "full_timer" | "self" | "adhoc"
 export type DateRange = "month" | "3months" | "all"
 
 type AlphaSwatch = {
@@ -138,8 +138,6 @@ export const FEEDBACK_TYPE_LABELS: Record<FeedbackPath, string> = {
   full_timer: "full timer",
   self: "self reflection",
   adhoc: "adhoc",
-  buddy: "buddy feedback",
-  sponsor: "sponsor feedback",
 }
 
 export function getFeedbackAccent(type: FeedbackPath): Accent {
@@ -147,8 +145,6 @@ export function getFeedbackAccent(type: FeedbackPath): Accent {
   if (type === "full_timer") return "sky"
   if (type === "self") return "sage"
   if (type === "adhoc") return "pink"
-  if (type === "buddy") return "sage"
-  if (type === "sponsor") return "sky"
   return "peach"
 }
 
@@ -198,33 +194,12 @@ export const SURFACE_STYLE = {
   },
 }
 
-export function getFeedbackPathOptions(opts?: {
-  isIntern?: boolean
-  hasBuddy?: boolean
-  hasSponsor?: boolean
-  buddyName?: string | null
-  sponsorName?: string | null
-}) {
-  const base: { key: FeedbackPath; label: string; blurb: string }[] = [
-    { key: "intern", label: "new recruit / intern", blurb: "peer notes for someone early in the build" },
-    { key: "build3", label: "build3", blurb: "how the studio feels, works, and can improve" },
-    { key: "full_timer", label: "full timer", blurb: "feedback for someone already in the thick of it" },
-    { key: "self", label: "self reflection", blurb: "a quick check-in with yourself" },
+export function getFeedbackPathOptions() {
+  return [
+    { key: "intern" as const, label: "new recruit / intern", blurb: "peer notes for someone early in the build" },
+    { key: "build3" as const, label: "build3", blurb: "how the studio feels, works, and can improve" },
+    { key: "full_timer" as const, label: "full timer", blurb: "feedback for someone already in the thick of it" },
+    { key: "self" as const, label: "self reflection", blurb: "a quick check-in with yourself" },
   ]
-  if (opts?.isIntern && opts?.hasBuddy) {
-    base.push({
-      key: "buddy",
-      label: "buddy feedback",
-      blurb: opts.buddyName ? `share how ${opts.buddyName} is doing as your buddy` : "feedback for your assigned buddy",
-    })
-  }
-  if (opts?.isIntern && opts?.hasSponsor) {
-    base.push({
-      key: "sponsor",
-      label: "sponsor feedback",
-      blurb: opts.sponsorName ? `share how ${opts.sponsorName} is doing as your sponsor` : "feedback for your assigned sponsor",
-    })
-  }
-  return base
 }
 

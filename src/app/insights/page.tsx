@@ -249,52 +249,6 @@ function InsightsContent() {
     [build3Submissions, selectedEmployeeId]
   )
 
-  // Buddy/Sponsor feedback: find intern submissions where the selected employee
-  // is the intern's buddy or sponsor, and extract only the relevant answers.
-  const buddyFeedback = useMemo(() => {
-    if (!selectedEmployeeId) return []
-    // Standalone buddy submissions (feedback_type === "buddy", feedback_for === this employee)
-    const standalone = filteredSubmissions.filter(
-      (s) => s.submission.feedback_type === "buddy" && s.submission.feedback_for_id === selectedEmployeeId
-    )
-    // Legacy: buddy answers embedded in intern submissions
-    const internsWithThisBuddy = employees.filter((e) => e.buddy_id === selectedEmployeeId)
-    const internIds = new Set(internsWithThisBuddy.map((e) => e.id))
-    const legacy = internIds.size > 0
-      ? filteredSubmissions
-          .filter((s) => s.submission.feedback_type === "intern" && internIds.has(s.submission.submitted_by_id))
-          .map((s) => {
-            const buddyAnswers = s.answers.filter((a) => a.question_key.startsWith("buddy_"))
-            if (buddyAnswers.length === 0) return null
-            return { ...s, answers: buddyAnswers }
-          })
-          .filter(Boolean) as SubmissionWithDetails[]
-      : []
-    return [...standalone, ...legacy]
-  }, [selectedEmployeeId, employees, filteredSubmissions])
-
-  const sponsorFeedback = useMemo(() => {
-    if (!selectedEmployeeId) return []
-    // Standalone sponsor submissions (feedback_type === "sponsor", feedback_for === this employee)
-    const standalone = filteredSubmissions.filter(
-      (s) => s.submission.feedback_type === "sponsor" && s.submission.feedback_for_id === selectedEmployeeId
-    )
-    // Legacy: sponsor answers embedded in intern submissions
-    const internsWithThisSponsor = employees.filter((e) => e.sponsor_id === selectedEmployeeId)
-    const internIds = new Set(internsWithThisSponsor.map((e) => e.id))
-    const legacy = internIds.size > 0
-      ? filteredSubmissions
-          .filter((s) => s.submission.feedback_type === "intern" && internIds.has(s.submission.submitted_by_id))
-          .map((s) => {
-            const sponsorAnswers = s.answers.filter((a) => a.question_key.startsWith("sponsor_"))
-            if (sponsorAnswers.length === 0) return null
-            return { ...s, answers: sponsorAnswers }
-          })
-          .filter(Boolean) as SubmissionWithDetails[]
-      : []
-    return [...standalone, ...legacy]
-  }, [selectedEmployeeId, employees, filteredSubmissions])
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#fffaf5] flex items-center justify-center">
@@ -464,26 +418,6 @@ function InsightsContent() {
               <FeedbackTimeline
                 submissions={insights.receivedSubmissions}
                 title="feedback received"
-                responsesByAnswer={responsesByAnswer}
-                currentUser={currentUser}
-                onResponseSaved={handleResponseSaved}
-              />
-            )}
-
-            {buddyFeedback.length > 0 && (
-              <FeedbackTimeline
-                submissions={buddyFeedback}
-                title="feedback as buddy"
-                responsesByAnswer={responsesByAnswer}
-                currentUser={currentUser}
-                onResponseSaved={handleResponseSaved}
-              />
-            )}
-
-            {sponsorFeedback.length > 0 && (
-              <FeedbackTimeline
-                submissions={sponsorFeedback}
-                title="feedback as sponsor"
                 responsesByAnswer={responsesByAnswer}
                 currentUser={currentUser}
                 onResponseSaved={handleResponseSaved}

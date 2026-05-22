@@ -34,10 +34,6 @@ const RESPONDABLE_KEYS = new Set([
   "trust_battery_detail",
   "adhoc_positive",
   "adhoc_improve",
-  "buddy_best_thing",
-  "buddy_improve",
-  "sponsor_best_thing",
-  "sponsor_improve",
 ])
 
 function parseValuesWithText(raw: string) {
@@ -56,8 +52,6 @@ const NUMERIC_DISPLAY = new Set([
   "nps_score",
   "trust_battery",
   "adhoc_rating",
-  "buddy_nps",
-  "sponsor_nps",
 ])
 
 interface Props {
@@ -318,7 +312,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
         <div className="mt-2 text-lg font-semibold tracking-[-0.04em] text-ink">
           {questionKey === "trust_battery"
             ? `${numericValue}%`
-            : questionKey === "nps_score" || questionKey === "buddy_nps" || questionKey === "sponsor_nps"
+            : questionKey === "nps_score"
             ? `${numericValue}/10`
             : `${numericValue}/5`}
         </div>

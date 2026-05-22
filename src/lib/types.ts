@@ -73,7 +73,7 @@ export type Employee = {
   created_at: string
 }
 
-export type FeedbackType = "intern" | "build3" | "full_timer" | "self" | "adhoc" | "buddy" | "sponsor"
+export type FeedbackType = "intern" | "build3" | "full_timer" | "self" | "adhoc"
 
 export type FeedbackSubmission = {
   id: string

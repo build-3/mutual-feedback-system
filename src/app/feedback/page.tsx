@@ -46,7 +46,7 @@ type SelfFeedbackData = {
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
-const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc", "buddy", "sponsor"])
+const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc"])
 
 type Phase = "identify" | "route" | "questions" | "self_review" | "stage_complete" | "submitting" | "done"
 
@@ -57,8 +57,6 @@ const STAGE_LABELS: Record<FeedbackPath, string> = {
   full_timer: "full timer review",
   intern: "intern review",
   adhoc: "quick note",
-  buddy: "buddy feedback",
-  sponsor: "sponsor feedback",
 }
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
@@ -79,8 +77,6 @@ export default function FeedbackPage() {
   const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
   const [hasSelfFeedback, setHasSelfFeedback] = useState<boolean | null>(null)
   const [hasBuild3Feedback, setHasBuild3Feedback] = useState<boolean | null>(null)
-  const [hasBuddyFeedback, setHasBuddyFeedback] = useState<boolean | null>(null)
-  const [hasSponsorFeedback, setHasSponsorFeedback] = useState<boolean | null>(null)
   // Multi-stage pipeline: when gates are required, stages lists the full journey
   // e.g. ["self", "build3", "full_timer"]. intendedPath is the user's original pick.
   const [intendedPath, setIntendedPath] = useState<FeedbackPath | null>(null)
@@ -93,10 +89,6 @@ export default function FeedbackPage() {
   const [error, setError] = useState("")
   const [sliderTouched, setSliderTouched] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [submitterBuddyId, setSubmitterBuddyId] = useState<string | null>(null)
-  const [submitterSponsorId, setSubmitterSponsorId] = useState<string | null>(null)
-  const [buddyName, setBuddyName] = useState<string | null>(null)
-  const [sponsorName, setSponsorName] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
@@ -133,8 +125,6 @@ export default function FeedbackPage() {
     selfCheckFetchedFor.current = submitter.id
     setHasSelfFeedback(null)
     setHasBuild3Feedback(null)
-    setHasBuddyFeedback(null)
-    setHasSponsorFeedback(null)
 
     fetch("/api/self-feedback-check")
       .then((res) => (res.ok ? res.json() : null))
@@ -155,27 +145,6 @@ export default function FeedbackPage() {
       .catch(() => {
         if (mountedRef.current) setHasBuild3Feedback(false)
       })
-
-    // Check buddy/sponsor feedback for interns
-    if (submitter.role === "intern") {
-      fetch("/api/buddy-sponsor-feedback-check")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (!mountedRef.current) return
-          setHasBuddyFeedback(data?.hasBuddyFeedback ?? false)
-          setHasSponsorFeedback(data?.hasSponsorFeedback ?? false)
-        })
-        .catch(() => {
-          if (mountedRef.current) {
-            setHasBuddyFeedback(false)
-            setHasSponsorFeedback(false)
-          }
-        })
-    } else {
-      // Non-interns don't need buddy/sponsor gates
-      setHasBuddyFeedback(true)
-      setHasSponsorFeedback(true)
-    }
 
     // Fetch active feedback session (for tagging intern/full_timer submissions)
     fetch("/api/session/current")
@@ -262,21 +231,6 @@ export default function FeedbackPage() {
           birthday: data.employee.birthday ?? null,
         }
         setSubmitter(me)
-        if (data.employee.buddy_id) setSubmitterBuddyId(data.employee.buddy_id)
-        if (data.employee.sponsor_id) setSubmitterSponsorId(data.employee.sponsor_id)
-        if (data.employee.buddy_id || data.employee.sponsor_id) {
-          const ids = [data.employee.buddy_id, data.employee.sponsor_id].filter(Boolean)
-          fetch(`/api/employee-search?ids=${ids.join(",")}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((d) => {
-              if (!mountedRef.current || !d?.employees) return
-              for (const emp of d.employees as { id: string; name: string }[]) {
-                if (emp.id === data.employee.buddy_id) setBuddyName(emp.name)
-                if (emp.id === data.employee.sponsor_id) setSponsorName(emp.name)
-              }
-            })
-            .catch(() => {})
-        }
         if (!data.employee.birthday) {
           setShowBirthdayDialog(true)
         }
@@ -335,13 +289,7 @@ export default function FeedbackPage() {
     const pct = qCount > 0 ? Math.round((step / qCount) * 100) : 0
     return { progress: Math.max(pct, 5), totalSteps: qCount, currentStep: step }
   }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, hasReviewStep])
-  const pathOptions = getFeedbackPathOptions({
-    isIntern: submitter?.role === "intern",
-    hasBuddy: !!submitterBuddyId,
-    hasSponsor: !!submitterSponsorId,
-    buddyName,
-    sponsorName,
-  })
+  const pathOptions = getFeedbackPathOptions()
 
   const animateTransition = useCallback(
     (forward: boolean, cb: () => void, historyState?: { formPhase: string; formQ: number }) => {
@@ -420,23 +368,18 @@ export default function FeedbackPage() {
   }, [deepLinkedPath])
 
   /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
-  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null && hasBuddyFeedback !== null && hasSponsorFeedback !== null
+  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
 
   /** Build the ordered pipeline of stages for a target path, given gate status.
    *  Only gates that are definitively not completed (false) are included.
    *  Must not be called until gateChecksLoaded is true. */
   function buildStages(targetPath: FeedbackPath): FeedbackPath[] {
-    // self, build3, adhoc, buddy, sponsor run standalone — no gating
-    if (targetPath === "adhoc" || targetPath === "self" || targetPath === "build3" || targetPath === "buddy" || targetPath === "sponsor") return [targetPath]
+    // self, build3, adhoc run standalone — no gating
+    if (targetPath === "adhoc" || targetPath === "self" || targetPath === "build3") return [targetPath]
     // intern and full_timer require self + build3 first if missing
     const result: FeedbackPath[] = []
     if (hasSelfFeedback === false) result.push("self")
     if (hasBuild3Feedback === false) result.push("build3")
-    // intern path also requires buddy/sponsor feedback if the intern has them assigned
-    if (targetPath === "intern" && submitter?.role === "intern") {
-      if (submitterBuddyId && hasBuddyFeedback === false) result.push("buddy")
-      if (submitterSponsorId && hasSponsorFeedback === false) result.push("sponsor")
-    }
     result.push(targetPath)
     return result
   }
@@ -444,8 +387,8 @@ export default function FeedbackPage() {
   /** Start the pipeline for a chosen path — sets up stages and jumps to first question.
    *  For paths that need gates (full_timer, intern), waits for gate checks to load. */
   function startPipeline(targetPath: FeedbackPath) {
-    // adhoc, self, build3, buddy, sponsor don't need gate checks
-    const needsGates = targetPath !== "adhoc" && targetPath !== "self" && targetPath !== "build3" && targetPath !== "buddy" && targetPath !== "sponsor"
+    // adhoc, self, and build3 don't need gate checks
+    const needsGates = targetPath !== "adhoc" && targetPath !== "self" && targetPath !== "build3"
     if (needsGates && !gateChecksLoaded) return
     const pipeline = buildStages(targetPath)
     const firstStage = pipeline[0]
@@ -455,13 +398,7 @@ export default function FeedbackPage() {
     setCurrentStageIndex(0)
     setIntendedPath(hasGates ? targetPath : null)
     setFeedbackPath(firstStage)
-    if (targetPath === "buddy" && submitterBuddyId) {
-      setFeedbackFor({ id: submitterBuddyId, name: buddyName || "Buddy", role: "full_timer", created_at: "" })
-    } else if (targetPath === "sponsor" && submitterSponsorId) {
-      setFeedbackFor({ id: submitterSponsorId, name: sponsorName || "Sponsor", role: "full_timer", created_at: "" })
-    } else {
-      setFeedbackFor(null)
-    }
+    setFeedbackFor(null)
     setAnswers({})
     pendingAnswers.current = {}
     setSelfFeedbackForTarget(null)
@@ -763,8 +700,6 @@ export default function FeedbackPage() {
       // Mark the completed gate as done
       if (feedbackPath === "self") setHasSelfFeedback(true)
       if (feedbackPath === "build3") setHasBuild3Feedback(true)
-      if (feedbackPath === "buddy") setHasBuddyFeedback(true)
-      if (feedbackPath === "sponsor") setHasSponsorFeedback(true)
 
       // Submit in background, don't wait
       submittingRef.current = false
@@ -789,14 +724,7 @@ export default function FeedbackPage() {
         if (!mountedRef.current) return
         setCurrentStageIndex(nextIdx)
         setFeedbackPath(nextStagePath)
-        // Auto-set feedbackFor for buddy/sponsor gate stages
-        if (nextStagePath === "buddy" && submitterBuddyId) {
-          setFeedbackFor({ id: submitterBuddyId, name: buddyName || "Buddy", role: "full_timer", created_at: "" })
-        } else if (nextStagePath === "sponsor" && submitterSponsorId) {
-          setFeedbackFor({ id: submitterSponsorId, name: sponsorName || "Sponsor", role: "full_timer", created_at: "" })
-        } else {
-          setFeedbackFor(null)
-        }
+        setFeedbackFor(null)
         setAnswers({})
         pendingAnswers.current = {}
         setCurrentQ(0)
@@ -813,8 +741,6 @@ export default function FeedbackPage() {
     // Mark completed feedback type so gates don't re-ask on "send another"
     if (feedbackPath === "self") setHasSelfFeedback(true)
     if (feedbackPath === "build3") setHasBuild3Feedback(true)
-    if (feedbackPath === "buddy") setHasBuddyFeedback(true)
-    if (feedbackPath === "sponsor") setHasSponsorFeedback(true)
 
     // Normal completion — show success
     setPhase("done")
@@ -1447,7 +1373,7 @@ export default function FeedbackPage() {
                 <div className="mt-8 space-y-3">
                   {pathOptions.map((option) => {
                     const active = feedbackPath === option.key || intendedPath === option.key
-                    const needsGates = option.key !== "self" && option.key !== "build3" && option.key !== "buddy" && option.key !== "sponsor"
+                    const needsGates = option.key !== "self" && option.key !== "build3"
                     const waiting = needsGates && !gateChecksLoaded
                     return (
                       <button
