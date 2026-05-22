@@ -151,18 +151,22 @@ export async function POST(request: Request) {
                 bottomLabel: `Given by ${senderName}`,
               },
             },
-            // "Kudos ++" button — opens our web app so the click is
-            // attributed via the user's existing Supabase session. This
-            // sidesteps the Chat interactive-callback flow which is
-            // unreliable when the Chat app is in Workspace add-on mode.
+            // "Kudos ++" interactive button — Google Chat POSTs a
+            // CARD_CLICKED event to /api/kudos/react when clicked.
+            // Requires the Chat app in GCP to have CARD_CLICKED trigger
+            // explicitly bound to the HTTP endpoint URL (under
+            // "Specify an HTTP endpoint URL for each trigger").
             {
               buttonList: {
                 buttons: [
                   {
                     text: "Kudos ++",
                     onClick: {
-                      openLink: {
-                        url: `https://build3.online/api/kudos/boost?id=${persistedKudosId}`,
+                      action: {
+                        function: "boostKudos",
+                        parameters: [
+                          { key: "kudosId", value: persistedKudosId },
+                        ],
                       },
                     },
                   },
