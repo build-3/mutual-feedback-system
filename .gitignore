@@ -38,3 +38,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local database backups (may contain PII)
+/supabase_backup_*.txt
+/supabase_backup_*.sql
+*.sql.bak
+
+# local debugging scripts (ad-hoc, not for shared use)
+/scripts/test-*.ts
+/scripts/join-space.ts
+/scripts/send-reminder.ts
+
+# browser test artifacts
+/.playwright-mcp/

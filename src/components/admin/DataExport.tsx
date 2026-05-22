@@ -89,37 +89,19 @@ export default function DataExport({
       if (probRes.ok) {
         const probData = await probRes.json()
         const probRows = (probData.probations ?? []).map((p: {
-          employees: { name: string } | null
-          join_date: string
-          probation_end_date: string
-          probation_status: string
-          extended_at: string | null
-          completed_at: string | null
-          concluded_at: string | null
-          decision_note: string | null
-          rules_last_sent_at: string | null
-          ceo_alerted_at: string | null
-          sessionCompletion: { sessionNumber: number; completedAssignments: number; totalAssignments: number }[]
+          employee_name: string
+          start_date: string
+          end_date: string
+          status: string
+          duration_months: number
+          signal: string | null
         }) => ({
-          Name: p.employees?.name ?? "Unknown",
-          "Join Date": new Date(p.join_date).toLocaleDateString(),
-          "Probation End": new Date(p.probation_end_date).toLocaleDateString(),
-          Status: p.probation_status,
-          "Extended At": p.extended_at ? new Date(p.extended_at).toLocaleDateString() : "",
-          "Completed At": p.completed_at ? new Date(p.completed_at).toLocaleDateString() : "",
-          "Concluded At": p.concluded_at ? new Date(p.concluded_at).toLocaleDateString() : "",
-          "Decision Note": p.decision_note ?? "",
-          "Last Standing Sent": p.rules_last_sent_at ? new Date(p.rules_last_sent_at).toLocaleDateString() : "",
-          "CEO Alerted": p.ceo_alerted_at ? new Date(p.ceo_alerted_at).toLocaleDateString() : "",
-          "Session 1": p.sessionCompletion?.find((s: { sessionNumber: number }) => s.sessionNumber === 1)
-            ? `${p.sessionCompletion.find((s: { sessionNumber: number }) => s.sessionNumber === 1)!.completedAssignments}/${p.sessionCompletion.find((s: { sessionNumber: number }) => s.sessionNumber === 1)!.totalAssignments}`
-            : "",
-          "Session 2": p.sessionCompletion?.find((s: { sessionNumber: number }) => s.sessionNumber === 2)
-            ? `${p.sessionCompletion.find((s: { sessionNumber: number }) => s.sessionNumber === 2)!.completedAssignments}/${p.sessionCompletion.find((s: { sessionNumber: number }) => s.sessionNumber === 2)!.totalAssignments}`
-            : "",
-          "Session 3": p.sessionCompletion?.find((s: { sessionNumber: number }) => s.sessionNumber === 3)
-            ? `${p.sessionCompletion.find((s: { sessionNumber: number }) => s.sessionNumber === 3)!.completedAssignments}/${p.sessionCompletion.find((s: { sessionNumber: number }) => s.sessionNumber === 3)!.totalAssignments}`
-            : "",
+          Name: p.employee_name,
+          "Start Date": new Date(p.start_date).toLocaleDateString(),
+          "End Date": new Date(p.end_date).toLocaleDateString(),
+          Status: p.status,
+          "Duration (months)": p.duration_months,
+          Signal: p.signal ?? "",
         }))
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(probRows), "Probation")
       }
@@ -144,7 +126,7 @@ export default function DataExport({
             <div className="text-sm font-medium text-ink">export to excel</div>
             <div className="text-xs text-muted mt-1">
               {employees.length} employees, {submissions.length} submissions,{" "}
-              {answers.length} answers, {responses.length} responses + probation data
+              {answers.length} answers, {responses.length} responses
             </div>
           </div>
           <button

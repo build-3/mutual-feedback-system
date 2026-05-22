@@ -62,6 +62,10 @@ const SelfReflectionsPanel = dynamic(
   () => import("@/components/insights/SelfReflectionsPanel"),
   { loading: LoadingSkeleton }
 )
+const ProbationSection = dynamic(
+  () => import("@/components/admin/ProbationSection"),
+  { loading: LoadingSkeleton }
+)
 
 const insightsAccent = SCREEN_ACCENTS.insights
 
@@ -344,7 +348,7 @@ function InsightsContent() {
       </div>
 
       {/* Content — pb-20 on mobile for bottom tab bar clearance */}
-      <div className="mx-auto max-w-5xl px-3 py-3 pb-20 sm:px-6 sm:py-5 sm:pb-5">
+      <div className="mx-auto max-w-5xl px-3 py-3 sm:px-6 sm:py-5">
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={orgMetrics}
@@ -445,6 +449,15 @@ function InsightsContent() {
           />
         )}
       </div>
+
+      {/* Probation — only when viewing an intern */}
+      {!showOrgOverview && insights.employee?.role === "intern" && (
+        <div className="mx-auto max-w-5xl px-3 pb-20 sm:px-6 sm:pb-5">
+          <div className="border-t border-line pt-8 mt-4">
+            <ProbationSection employeeId={insights.employee.id} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

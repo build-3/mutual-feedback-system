@@ -19,24 +19,22 @@ const DangerZone = dynamic(() => import("@/components/admin/DangerZone"), { ssr:
 const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard"), { ssr: false })
 const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { ssr: false })
 const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher"), { ssr: false })
-const ProbationDashboard = dynamic(() => import("@/components/admin/ProbationDashboard"), { ssr: false })
 const DataExport = dynamic(() => import("@/components/admin/DataExport"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "probation" | "usage" | "birthdays" | "export" | "danger"
+type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "birthdays" | "export" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
   { key: "activity", label: "activity" },
   { key: "employees", label: "employees" },
   { key: "submissions", label: "submissions" },
-  { key: "probation", label: "probation" },
   { key: "usage", label: "usage" },
   { key: "birthdays", label: "birthdays 🎂" },
   { key: "export", label: "export 📦" },
   { key: "danger", label: "danger zone" },
 ]
 
-export default function Glock17Page() {
+export default function AdminPage() {
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search)
@@ -187,7 +185,7 @@ export default function Glock17Page() {
           >
             &larr; back to app
           </Link>
-          <span className="text-[10px] font-mono text-muted/50">glock17</span>
+          <span className="text-[10px] font-mono text-muted/50">admin</span>
         </div>
 
         <SectionHeading
@@ -253,7 +251,6 @@ export default function Glock17Page() {
             onDelete={handleDeleteSubmissions}
           />
         )}
-        {tab === "probation" && <ProbationDashboard />}
         {tab === "usage" && (
           <UsageDashboard
             submissionCount={submissions.length}

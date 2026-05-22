@@ -84,22 +84,21 @@ export async function POST(request: Request) {
     }
 
     if (role === "intern") {
-      const { addMonthsSafe } = await import("@/lib/server/probation-rules")
-      const joinDate = new Date()
-      const endDate = addMonthsSafe(joinDate, 3)
+      const { createProbation, notifyReviewerGroup } = await import("@/lib/server/probation")
+      const probation = await createProbation(newEmployee.id)
 
-      const { error: probError } = await supabaseAdmin.from("probation_tracking").insert({
-        employee_id: newEmployee.id,
-        join_date: joinDate.toISOString(),
-        probation_end_date: endDate.toISOString(),
-      })
-
-      if (probError) {
+      if (!probation) {
         return NextResponse.json(
           { error: "Employee created but probation tracking failed. Contact admin." },
           { status: 500 }
         )
       }
+
+      notifyReviewerGroup(
+        normalizeName(body.name),
+        probation.start_date,
+        probation.end_date
+      ).catch((err) => console.error("[employees] reviewer notification failed:", err))
     }
 
     return NextResponse.json({ status: "created" }, { status: 201 })

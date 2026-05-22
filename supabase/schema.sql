@@ -97,16 +97,13 @@ CREATE INDEX idx_session_assignments_session ON session_assignments(session_id);
 CREATE TABLE probation_tracking (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-  join_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  probation_status TEXT NOT NULL DEFAULT 'active'
-    CHECK (probation_status IN ('active', 'extended', 'completed', 'concluded')),
-  probation_end_date TIMESTAMPTZ NOT NULL,
+  start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  duration_months INTEGER NOT NULL DEFAULT 3 CHECK (duration_months IN (3, 6)),
+  end_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'extended', 'promoted')),
   extended_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  concluded_at TIMESTAMPTZ,
-  decision_note TEXT,
-  rules_last_sent_at TIMESTAMPTZ,
-  ceo_alerted_at TIMESTAMPTZ,
+  promoted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -114,10 +111,61 @@ CREATE TABLE probation_tracking (
 ALTER TABLE probation_tracking ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_probation_employee ON probation_tracking(employee_id);
-CREATE INDEX idx_probation_status ON probation_tracking(probation_status);
-CREATE INDEX idx_probation_end_date ON probation_tracking(probation_end_date);
+CREATE INDEX idx_probation_status ON probation_tracking(status);
+CREATE INDEX idx_probation_end_date ON probation_tracking(end_date);
 CREATE UNIQUE INDEX idx_probation_active_per_employee
-  ON probation_tracking(employee_id) WHERE probation_status IN ('active', 'extended');
+  ON probation_tracking(employee_id) WHERE status IN ('active', 'extended');
+
+-- Probation reviews (reviewer feedback on interns)
+CREATE TABLE probation_reviews (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  probation_id UUID NOT NULL REFERENCES probation_tracking(id) ON DELETE CASCADE,
+  reviewer_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  contribution_level TEXT NOT NULL
+    CHECK (contribution_level IN ('independent_contributor', 'leader')),
+  backing_score INTEGER NOT NULL CHECK (backing_score >= 1 AND backing_score <= 5),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(probation_id, reviewer_id)
+);
+
+ALTER TABLE probation_reviews ENABLE ROW LEVEL SECURITY;
+CREATE INDEX idx_probation_reviews_probation ON probation_reviews(probation_id);
+
+-- Probation reviewer group (who gets notified about new probations)
+CREATE TABLE probation_reviewers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE probation_reviewers ENABLE ROW LEVEL SECURITY;
+INSERT INTO probation_reviewers (email) VALUES ('at@build3.org');
+
+-- ────────────────────────────────────────────────────────────────────
+-- Kudos: peer recognition posted to a Google Chat space, with persistence
+-- so we can show a leaderboard and "X others have also given kudos" footer.
+-- ────────────────────────────────────────────────────────────────────
+CREATE TABLE kudos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sender_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  gif_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE kudos ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE kudos_recipients (
+  kudos_id UUID NOT NULL REFERENCES kudos(id) ON DELETE CASCADE,
+  recipient_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  PRIMARY KEY (kudos_id, recipient_id)
+);
+
+ALTER TABLE kudos_recipients ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_kudos_sender ON kudos(sender_id);
+CREATE INDEX idx_kudos_created_at ON kudos(created_at DESC);
+CREATE INDEX idx_kudos_recipients_recipient ON kudos_recipients(recipient_id);
 
 -- Seed data: Full timers
 INSERT INTO employees (name, role, email) VALUES

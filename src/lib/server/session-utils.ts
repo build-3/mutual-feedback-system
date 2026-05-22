@@ -178,7 +178,7 @@ export async function generateSessionAssignments(sessionId: string): Promise<num
   const { data: probations } = await supabaseAdmin
     .from("probation_tracking")
     .select("employee_id")
-    .in("probation_status", ["active", "extended"])
+    .in("status", ["active", "extended"])
 
   if (!probations || probations.length === 0) return 0
 

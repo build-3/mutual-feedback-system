@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   const { data: probations } = await supabaseAdmin
     .from("probation_tracking")
     .select("employee_id")
-    .in("probation_status", ["active", "extended"])
+    .in("status", ["active", "extended"])
 
   if (!probations || probations.length === 0) {
     return NextResponse.json({ skipped: true, reason: "No active probation interns." })

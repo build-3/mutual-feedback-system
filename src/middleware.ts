@@ -46,14 +46,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  if (pathname === '/api/cron/probation-check') {
-    return NextResponse.next({ request })
-  }
-
-  if (pathname === '/api/cron/probation-rules') {
-    return NextResponse.next({ request })
-  }
-
   if (pathname === '/api/cron/session-reminder') {
     return NextResponse.next({ request })
   }

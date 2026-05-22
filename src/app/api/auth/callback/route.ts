@@ -40,9 +40,24 @@ export async function GET(request: Request) {
           .maybeSingle()
 
         if (!existing) {
-          await supabaseAdmin
+          const { data: newEmp } = await supabaseAdmin
             .from('employees')
             .insert({ email, name: displayName, role: 'intern' })
+            .select('id')
+            .single()
+
+          if (newEmp) {
+            try {
+              const { createProbation, notifyReviewerGroup } = await import('@/lib/server/probation')
+              const probation = await createProbation(newEmp.id)
+              if (probation) {
+                notifyReviewerGroup(displayName, probation.start_date, probation.end_date)
+                  .catch((err) => console.error('[auth-callback] reviewer notification failed:', err))
+              }
+            } catch (err) {
+              console.error('[auth-callback] probation creation failed:', err)
+            }
+          }
         }
       }
 

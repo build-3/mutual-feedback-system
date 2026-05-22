@@ -1,5 +1,25 @@
 export type EmployeeRole = "intern" | "full_timer" | "admin"
-export type ProbationStatus = "active" | "extended" | "completed" | "concluded"
+export type ProbationStatus = "active" | "extended" | "promoted"
+export type ContributionLevel = "independent_contributor" | "leader"
+
+export type Kudos = {
+  id: string
+  sender_id: string
+  message: string
+  gif_url: string | null
+  created_at: string
+}
+
+export type KudosRecipient = {
+  kudos_id: string
+  recipient_id: string
+}
+
+export type KudosLeaderboardEntry = {
+  employee_id: string
+  employee_name: string
+  count: number
+}
 
 export type SessionStatus = "upcoming" | "active" | "completed"
 
@@ -22,17 +42,23 @@ export type SessionAssignment = {
 export type ProbationTracking = {
   id: string
   employee_id: string
-  join_date: string
-  probation_status: ProbationStatus
-  probation_end_date: string
+  start_date: string
+  duration_months: 3 | 6
+  end_date: string
+  status: ProbationStatus
   extended_at: string | null
-  completed_at: string | null
-  concluded_at: string | null
-  decision_note: string | null
-  rules_last_sent_at: string | null
-  ceo_alerted_at: string | null
+  promoted_at: string | null
   created_at: string
   updated_at: string
+}
+
+export type ProbationReview = {
+  id: string
+  probation_id: string
+  reviewer_id: string
+  contribution_level: ContributionLevel
+  backing_score: number
+  created_at: string
 }
 
 export type Employee = {
@@ -200,32 +226,46 @@ export type Database = {
         Insert: {
           id?: string
           employee_id: string
-          join_date?: string
-          probation_status?: ProbationStatus
-          probation_end_date: string
+          start_date?: string
+          duration_months?: 3 | 6
+          end_date: string
+          status?: ProbationStatus
           extended_at?: string | null
-          completed_at?: string | null
-          concluded_at?: string | null
-          decision_note?: string | null
-          rules_last_sent_at?: string | null
-          ceo_alerted_at?: string | null
+          promoted_at?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           employee_id?: string
-          join_date?: string
-          probation_status?: ProbationStatus
-          probation_end_date?: string
+          start_date?: string
+          duration_months?: 3 | 6
+          end_date?: string
+          status?: ProbationStatus
           extended_at?: string | null
-          completed_at?: string | null
-          concluded_at?: string | null
-          decision_note?: string | null
-          rules_last_sent_at?: string | null
-          ceo_alerted_at?: string | null
+          promoted_at?: string | null
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      probation_reviews: {
+        Row: ProbationReview
+        Insert: {
+          id?: string
+          probation_id: string
+          reviewer_id: string
+          contribution_level: ContributionLevel
+          backing_score: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          probation_id?: string
+          reviewer_id?: string
+          contribution_level?: ContributionLevel
+          backing_score?: number
+          created_at?: string
         }
         Relationships: []
       }
