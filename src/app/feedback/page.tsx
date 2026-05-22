@@ -79,6 +79,8 @@ export default function FeedbackPage() {
   const [feedbackFor, setFeedbackFor] = useState<Employee | null>(null)
   const [hasSelfFeedback, setHasSelfFeedback] = useState<boolean | null>(null)
   const [hasBuild3Feedback, setHasBuild3Feedback] = useState<boolean | null>(null)
+  const [hasBuddyFeedback, setHasBuddyFeedback] = useState<boolean | null>(null)
+  const [hasSponsorFeedback, setHasSponsorFeedback] = useState<boolean | null>(null)
   // Multi-stage pipeline: when gates are required, stages lists the full journey
   // e.g. ["self", "build3", "full_timer"]. intendedPath is the user's original pick.
   const [intendedPath, setIntendedPath] = useState<FeedbackPath | null>(null)
@@ -131,6 +133,8 @@ export default function FeedbackPage() {
     selfCheckFetchedFor.current = submitter.id
     setHasSelfFeedback(null)
     setHasBuild3Feedback(null)
+    setHasBuddyFeedback(null)
+    setHasSponsorFeedback(null)
 
     fetch("/api/self-feedback-check")
       .then((res) => (res.ok ? res.json() : null))
@@ -151,6 +155,27 @@ export default function FeedbackPage() {
       .catch(() => {
         if (mountedRef.current) setHasBuild3Feedback(false)
       })
+
+    // Check buddy/sponsor feedback for interns
+    if (submitter.role === "intern") {
+      fetch("/api/buddy-sponsor-feedback-check")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!mountedRef.current) return
+          setHasBuddyFeedback(data?.hasBuddyFeedback ?? false)
+          setHasSponsorFeedback(data?.hasSponsorFeedback ?? false)
+        })
+        .catch(() => {
+          if (mountedRef.current) {
+            setHasBuddyFeedback(false)
+            setHasSponsorFeedback(false)
+          }
+        })
+    } else {
+      // Non-interns don't need buddy/sponsor gates
+      setHasBuddyFeedback(true)
+      setHasSponsorFeedback(true)
+    }
 
     // Fetch active feedback session (for tagging intern/full_timer submissions)
     fetch("/api/session/current")
@@ -395,7 +420,7 @@ export default function FeedbackPage() {
   }, [deepLinkedPath])
 
   /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
-  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
+  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null && hasBuddyFeedback !== null && hasSponsorFeedback !== null
 
   /** Build the ordered pipeline of stages for a target path, given gate status.
    *  Only gates that are definitively not completed (false) are included.
@@ -407,6 +432,11 @@ export default function FeedbackPage() {
     const result: FeedbackPath[] = []
     if (hasSelfFeedback === false) result.push("self")
     if (hasBuild3Feedback === false) result.push("build3")
+    // intern path also requires buddy/sponsor feedback if the intern has them assigned
+    if (targetPath === "intern" && submitter?.role === "intern") {
+      if (submitterBuddyId && hasBuddyFeedback === false) result.push("buddy")
+      if (submitterSponsorId && hasSponsorFeedback === false) result.push("sponsor")
+    }
     result.push(targetPath)
     return result
   }
@@ -733,6 +763,8 @@ export default function FeedbackPage() {
       // Mark the completed gate as done
       if (feedbackPath === "self") setHasSelfFeedback(true)
       if (feedbackPath === "build3") setHasBuild3Feedback(true)
+      if (feedbackPath === "buddy") setHasBuddyFeedback(true)
+      if (feedbackPath === "sponsor") setHasSponsorFeedback(true)
 
       // Submit in background, don't wait
       submittingRef.current = false
@@ -757,7 +789,14 @@ export default function FeedbackPage() {
         if (!mountedRef.current) return
         setCurrentStageIndex(nextIdx)
         setFeedbackPath(nextStagePath)
-        setFeedbackFor(null)
+        // Auto-set feedbackFor for buddy/sponsor gate stages
+        if (nextStagePath === "buddy" && submitterBuddyId) {
+          setFeedbackFor({ id: submitterBuddyId, name: buddyName || "Buddy", role: "full_timer", created_at: "" })
+        } else if (nextStagePath === "sponsor" && submitterSponsorId) {
+          setFeedbackFor({ id: submitterSponsorId, name: sponsorName || "Sponsor", role: "full_timer", created_at: "" })
+        } else {
+          setFeedbackFor(null)
+        }
         setAnswers({})
         pendingAnswers.current = {}
         setCurrentQ(0)
@@ -774,6 +813,8 @@ export default function FeedbackPage() {
     // Mark completed feedback type so gates don't re-ask on "send another"
     if (feedbackPath === "self") setHasSelfFeedback(true)
     if (feedbackPath === "build3") setHasBuild3Feedback(true)
+    if (feedbackPath === "buddy") setHasBuddyFeedback(true)
+    if (feedbackPath === "sponsor") setHasSponsorFeedback(true)
 
     // Normal completion — show success
     setPhase("done")
