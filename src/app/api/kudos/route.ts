@@ -88,12 +88,10 @@ export async function POST(request: Request) {
     ? namesBold.join(" and ")
     : `${namesBold.slice(0, -1).join(", ")} and ${namesBold[namesBold.length - 1]}`
 
-  // Persist kudos to DB first so social-proof footer reflects this send too.
-  // If persistence fails, fail the request — we never want a chat-only send.
-  let persistedKudosId: string
+  // Persist kudos to DB before sending. If persistence fails, fail the
+  // request — we never want a chat-only send.
   try {
-    const persisted = await persistKudos(auth.employee.id, recipientIds, trimmedMessage, gifUrl)
-    persistedKudosId = persisted.id
+    await persistKudos(auth.employee.id, recipientIds, trimmedMessage, gifUrl)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error"
     return NextResponse.json({ error: `Failed to save kudos: ${msg}` }, { status: 500 })
@@ -122,28 +120,6 @@ export async function POST(request: Request) {
                 text: `<i>"${trimmedMessage}"</i>`,
                 wrapText: true,
                 bottomLabel: `Given by ${senderName}`,
-              },
-            },
-            // "Kudos ++" interactive button — Google Chat POSTs a
-            // CARD_CLICKED event to /api/kudos/react when clicked.
-            // Requires the Chat app in GCP to have CARD_CLICKED trigger
-            // explicitly bound to the HTTP endpoint URL (under
-            // "Specify an HTTP endpoint URL for each trigger").
-            {
-              buttonList: {
-                buttons: [
-                  {
-                    text: "Kudos ++",
-                    onClick: {
-                      action: {
-                        function: "boostKudos",
-                        parameters: [
-                          { key: "kudosId", value: persistedKudosId },
-                        ],
-                      },
-                    },
-                  },
-                ],
               },
             },
           ],
