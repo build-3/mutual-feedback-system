@@ -50,6 +50,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
+  // Google Chat interactive callback for Kudos++ button. Authenticated at
+  // the route level via Bearer JWT from chat@system.gserviceaccount.com,
+  // not via user session cookie.
+  if (pathname === '/api/kudos/react') {
+    return NextResponse.next({ request })
+  }
+
   // ── Dev bypass: TEST_EMAIL skips OAuth entirely (non-production only) ──
   const testEmail = process.env.NODE_ENV !== 'production' ? process.env.TEST_EMAIL : undefined
   if (testEmail && !pathname.startsWith('/api/auth')) {
