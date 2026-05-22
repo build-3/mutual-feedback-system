@@ -11,6 +11,8 @@ import {
 import FormattedAnswer from "@/components/FormattedAnswer"
 import { contributionKeyToLabel } from "@/lib/insights-helpers"
 
+const LEVEL1_EMAILS = ["vc@build3.org", "at@build3.org"]
+
 type FeedbackAnswer = {
   question_key: string
   question_text: string
@@ -101,7 +103,8 @@ function daysUntil(dateStr: string): number {
   return Math.round((endDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-export default function ProbationSection({ employeeId }: { employeeId?: string }) {
+export default function ProbationSection({ employeeId, userEmail }: { employeeId?: string; userEmail?: string | null }) {
+  const isLevel1 = Boolean(userEmail && LEVEL1_EMAILS.includes(userEmail))
   const [probations, setProbations] = useState<ProbationRecord[]>([])
   const [totalActive, setTotalActive] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -420,8 +423,8 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
               </div>
             )}
 
-            {/* Actions */}
-            {isActive && (
+            {/* Actions — Level 1 only */}
+            {isActive && isLevel1 && (
               <div className="flex flex-wrap gap-2 pt-2 border-t border-line">
                 <button
                   type="button"

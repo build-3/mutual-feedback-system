@@ -13,6 +13,7 @@ export async function GET() {
     employee: {
       id: auth.employee.id,
       name: auth.employee.name,
+      email: auth.employee.email,
       role: auth.employee.role,
       birthday: auth.employee.birthday,
       buddy_id: auth.employee.buddy_id,

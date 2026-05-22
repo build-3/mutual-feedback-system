@@ -101,7 +101,7 @@ function InsightsContent() {
   const [responsesByAnswer, setResponsesByAnswer] = useState<
     Record<string, (FeedbackResponse & { responderName: string })[]>
   >({})
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email?: string | null } | null>(null)
 
   const buildResponsesByAnswer = useCallback(
     (employeeRows: Employee[], responseRows: FeedbackResponse[]) => {
@@ -192,7 +192,7 @@ function InsightsContent() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.employee?.id && data?.employee?.name) {
-          setCurrentUser({ id: data.employee.id, name: data.employee.name })
+          setCurrentUser({ id: data.employee.id, name: data.employee.name, email: data.employee.email ?? null })
         }
       })
       .catch(() => {})
@@ -248,6 +248,38 @@ function InsightsContent() {
       ),
     [build3Submissions, selectedEmployeeId]
   )
+
+  // Buddy/Sponsor feedback: find intern submissions where the selected employee
+  // is the intern's buddy or sponsor, and extract only the relevant answers.
+  const buddyFeedback = useMemo(() => {
+    if (!selectedEmployeeId) return []
+    const internsWithThisBuddy = employees.filter((e) => e.buddy_id === selectedEmployeeId)
+    const internIds = new Set(internsWithThisBuddy.map((e) => e.id))
+    if (internIds.size === 0) return []
+    return filteredSubmissions
+      .filter((s) => s.submission.feedback_type === "intern" && internIds.has(s.submission.submitted_by_id))
+      .map((s) => {
+        const buddyAnswers = s.answers.filter((a) => a.question_key.startsWith("buddy_"))
+        if (buddyAnswers.length === 0) return null
+        return { ...s, answers: buddyAnswers }
+      })
+      .filter(Boolean) as SubmissionWithDetails[]
+  }, [selectedEmployeeId, employees, filteredSubmissions])
+
+  const sponsorFeedback = useMemo(() => {
+    if (!selectedEmployeeId) return []
+    const internsWithThisSponsor = employees.filter((e) => e.sponsor_id === selectedEmployeeId)
+    const internIds = new Set(internsWithThisSponsor.map((e) => e.id))
+    if (internIds.size === 0) return []
+    return filteredSubmissions
+      .filter((s) => s.submission.feedback_type === "intern" && internIds.has(s.submission.submitted_by_id))
+      .map((s) => {
+        const sponsorAnswers = s.answers.filter((a) => a.question_key.startsWith("sponsor_"))
+        if (sponsorAnswers.length === 0) return null
+        return { ...s, answers: sponsorAnswers }
+      })
+      .filter(Boolean) as SubmissionWithDetails[]
+  }, [selectedEmployeeId, employees, filteredSubmissions])
 
   if (loading) {
     return (
@@ -424,6 +456,26 @@ function InsightsContent() {
               />
             )}
 
+            {buddyFeedback.length > 0 && (
+              <FeedbackTimeline
+                submissions={buddyFeedback}
+                title="feedback as buddy"
+                responsesByAnswer={responsesByAnswer}
+                currentUser={currentUser}
+                onResponseSaved={handleResponseSaved}
+              />
+            )}
+
+            {sponsorFeedback.length > 0 && (
+              <FeedbackTimeline
+                submissions={sponsorFeedback}
+                title="feedback as sponsor"
+                responsesByAnswer={responsesByAnswer}
+                currentUser={currentUser}
+                onResponseSaved={handleResponseSaved}
+              />
+            )}
+
             <FeedbackGivenPanel
               givenFeedbackSummary={insights.givenFeedbackSummary}
               totalTeamSize={employees.length}
@@ -454,7 +506,7 @@ function InsightsContent() {
       {!showOrgOverview && insights.employee?.role === "intern" && (
         <div className="mx-auto max-w-5xl px-3 pb-20 sm:px-6 sm:pb-5">
           <div className="border-t border-line pt-8 mt-4">
-            <ProbationSection employeeId={insights.employee.id} />
+            <ProbationSection employeeId={insights.employee.id} userEmail={currentUser?.email} />
           </div>
         </div>
       )}
