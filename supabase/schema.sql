@@ -63,6 +63,7 @@ CREATE INDEX idx_feedback_submissions_submitted_by ON feedback_submissions(submi
 CREATE INDEX idx_feedback_submissions_feedback_for ON feedback_submissions(feedback_for_id);
 CREATE INDEX idx_feedback_submissions_type ON feedback_submissions(feedback_type);
 CREATE INDEX idx_feedback_answers_submission ON feedback_answers(submission_id);
+CREATE INDEX idx_feedback_submissions_type_for ON feedback_submissions(feedback_type, feedback_for_id, created_at);
 CREATE INDEX idx_feedback_responses_answer ON feedback_responses(answer_id);
 CREATE INDEX idx_feedback_responses_responder ON feedback_responses(responder_id);
 

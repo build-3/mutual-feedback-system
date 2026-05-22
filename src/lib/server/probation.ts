@@ -361,50 +361,55 @@ export async function getProbationOverview(): Promise<{
   }
 
   const employeeIds = Array.from(new Set(records.map((r) => r.employee_id)))
-  const { data: emps } = employeeIds.length > 0
-    ? await supabaseAdmin.from("employees").select("id, name, email").in("id", employeeIds)
-    : { data: [] }
-  const empMap = new Map((emps ?? []).map((e) => [e.id, e]))
-
-  // Fetch probation reviews
   const probationIds = records.map((r) => r.id)
-  const { data: allReviews } = probationIds.length > 0
-    ? await supabaseAdmin.from("probation_reviews").select("*").in("probation_id", probationIds)
-    : { data: [] }
 
-  const reviewerIds = Array.from(new Set((allReviews ?? []).map((r) => r.reviewer_id)))
+  if (employeeIds.length === 0) {
+    return { probations: [], totalActive: 0 }
+  }
 
-  // Fetch all feedback submissions FOR these interns (type = 'intern')
-  const { data: submissions } = employeeIds.length > 0
-    ? await supabaseAdmin
-        .from("feedback_submissions")
-        .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
-        .eq("feedback_type", "intern")
-        .in("feedback_for_id", employeeIds)
-        .order("created_at", { ascending: true })
-    : { data: [] }
+  // Wave 1: three independent queries in parallel
+  const [empsResult, reviewsResult, submissionsResult] = await Promise.all([
+    supabaseAdmin.from("employees").select("id, name, email").in("id", employeeIds),
+    probationIds.length > 0
+      ? supabaseAdmin.from("probation_reviews").select("*").in("probation_id", probationIds)
+      : Promise.resolve({ data: [] as never[] }),
+    supabaseAdmin
+      .from("feedback_submissions")
+      .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
+      .eq("feedback_type", "intern")
+      .in("feedback_for_id", employeeIds)
+      .order("created_at", { ascending: true }),
+  ])
 
-  const submissionIds = (submissions ?? []).map((s) => s.id)
-  const submitterIds = Array.from(new Set((submissions ?? []).map((s) => s.submitted_by_id)))
+  const emps = empsResult.data ?? []
+  const empMap = new Map(emps.map((e) => [e.id, e]))
+  const allReviews = reviewsResult.data ?? []
+  const submissions = submissionsResult.data ?? []
 
-  // Fetch all answers for these submissions
-  const { data: allAnswers } = submissionIds.length > 0
-    ? await supabaseAdmin
-        .from("feedback_answers")
-        .select("id, submission_id, question_key, question_text, answer_value")
-        .in("submission_id", submissionIds)
-    : { data: [] }
+  const submissionIds = submissions.map((s) => s.id)
+  const submitterIds = Array.from(new Set(submissions.map((s) => s.submitted_by_id)))
+  const reviewerIds = Array.from(new Set(allReviews.map((r) => r.reviewer_id)))
 
-  // Fetch names for all submitters + reviewers
+  // Wave 2: answers + name lookup in parallel
   const allNameIds = Array.from(new Set([...submitterIds, ...reviewerIds]))
-  const { data: nameEmps } = allNameIds.length > 0
-    ? await supabaseAdmin.from("employees").select("id, name").in("id", allNameIds)
-    : { data: [] }
-  const nameMap = new Map((nameEmps ?? []).map((e) => [e.id, e.name]))
+  const [answersResult, nameEmpsResult] = await Promise.all([
+    submissionIds.length > 0
+      ? supabaseAdmin
+          .from("feedback_answers")
+          .select("id, submission_id, question_key, question_text, answer_value")
+          .in("submission_id", submissionIds)
+      : Promise.resolve({ data: [] as never[] }),
+    allNameIds.length > 0
+      ? supabaseAdmin.from("employees").select("id, name").in("id", allNameIds)
+      : Promise.resolve({ data: [] as never[] }),
+  ])
+
+  const allAnswers = answersResult.data ?? []
+  const nameMap = new Map((nameEmpsResult.data ?? []).map((e: { id: string; name: string }) => [e.id, e.name]))
 
   // Group answers by submission
   const answersBySubmission = new Map<string, typeof allAnswers>()
-  for (const a of allAnswers ?? []) {
+  for (const a of allAnswers) {
     const group = answersBySubmission.get(a.submission_id) ?? []
     group.push(a)
     answersBySubmission.set(a.submission_id, group)
@@ -412,7 +417,7 @@ export async function getProbationOverview(): Promise<{
 
   // Group reviews by probation
   const reviewsByProbation = new Map<string, typeof allReviews>()
-  for (const review of allReviews ?? []) {
+  for (const review of allReviews) {
     const group = reviewsByProbation.get(review.probation_id) ?? []
     group.push(review)
     reviewsByProbation.set(review.probation_id, group)
@@ -440,7 +445,8 @@ export async function getProbationOverview(): Promise<{
       return ms >= startMs && ms <= endMs
     })
 
-    // Build feedback history
+    // Build feedback history — full answers only for the last 10 (UI cap)
+    const recentIds = new Set(internSubmissions.slice(-10).map((s) => s.id))
     const feedbackHistory: FeedbackEntry[] = internSubmissions.map((s) => {
       const answers = answersBySubmission.get(s.id) ?? []
       const contribAnswer = answers.find((a) => a.question_key === "contribution_level")
@@ -452,11 +458,13 @@ export async function getProbationOverview(): Promise<{
         feedback_date: s.created_at,
         contribution_level: contribAnswer?.answer_value ?? null,
         recommend_rating: ratingAnswer ? Number(ratingAnswer.answer_value) || null : null,
-        answers: answers.map((a) => ({
-          question_key: a.question_key,
-          question_text: a.question_text,
-          answer_value: a.answer_value,
-        })),
+        answers: recentIds.has(s.id)
+          ? answers.map((a) => ({
+              question_key: a.question_key,
+              question_text: a.question_text,
+              answer_value: a.answer_value,
+            }))
+          : [],
       }
     })
 
