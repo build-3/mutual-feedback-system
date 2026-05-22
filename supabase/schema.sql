@@ -184,6 +184,23 @@ ALTER TABLE kudos_boosts ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_kudos_boosts_kudos ON kudos_boosts(kudos_id);
 CREATE INDEX idx_kudos_boosts_booster ON kudos_boosts(booster_email);
 
+-- Birthday notification log (for idempotency + admin visibility)
+CREATE TABLE birthday_notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  notification_type TEXT NOT NULL CHECK (notification_type IN ('monthly_roundup', 'eve_reminder', 'day_of')),
+  target_month TEXT,
+  employee_ids UUID[] NOT NULL DEFAULT '{}',
+  employee_names TEXT[] NOT NULL DEFAULT '{}',
+  chat_message_name TEXT,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE birthday_notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_birthday_notifications_type ON birthday_notifications(notification_type);
+CREATE INDEX idx_birthday_notifications_sent_at ON birthday_notifications(sent_at DESC);
+
 -- Seed data: Full timers
 INSERT INTO employees (name, role, email) VALUES
   ('Varun Chawla', 'full_timer', 'varun@build3.org'),

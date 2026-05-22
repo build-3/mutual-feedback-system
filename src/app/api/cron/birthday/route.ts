@@ -93,7 +93,16 @@ export async function GET(request: Request) {
         ],
       }
 
-      await sendCardToSpace(KUDOS_SPACE_ID, card)
+      const chatResult = await sendCardToSpace(KUDOS_SPACE_ID, card)
+
+      await supabaseAdmin.from("birthday_notifications" as never).insert({
+        notification_type: "day_of",
+        target_month: today,
+        employee_ids: [person.id],
+        employee_names: [person.name],
+        chat_message_name: chatResult.messageName,
+      } as never)
+
       results.push({ name: person.name, success: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error"

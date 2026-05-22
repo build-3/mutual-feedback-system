@@ -14,6 +14,14 @@
       "schedule": "30 3 * * *"
     },
     {
+      "path": "/api/cron/birthday-eve",
+      "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/birthday-monthly",
+      "schedule": "30 11 28-31 * *"
+    },
+    {
       "path": "/api/cron/session-reminder",
       "schedule": "0 3 * * 1"
     }
