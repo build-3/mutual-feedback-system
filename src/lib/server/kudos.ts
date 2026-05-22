@@ -106,6 +106,52 @@ export async function getPreviousGiversForRecipient(
 }
 
 /**
+ * Record a "Kudos ++" boost from a Google Chat user click.
+ * Idempotent: PK on (kudos_id, booster_email) means duplicate clicks are
+ * silently no-ops (returns { alreadyBoosted: true } so caller can adapt
+ * the reply text).
+ */
+export async function recordBoost(
+  kudosId: string,
+  boosterEmail: string,
+): Promise<{ alreadyBoosted: boolean; boosterName: string | null; totalBoosts: number }> {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  // Best-effort resolution of email → employee id + name for nicer display
+  const { data: emp } = await supabaseAdmin
+    .from("employees")
+    .select("id, name")
+    .eq("email", boosterEmail)
+    .maybeSingle()
+
+  const empRow = emp as unknown as { id: string; name: string } | null
+
+  const { error } = await supabaseAdmin
+    .from("kudos_boosts" as never)
+    .insert({
+      kudos_id: kudosId,
+      booster_email: boosterEmail,
+      booster_id: empRow?.id ?? null,
+    } as never)
+
+  const alreadyBoosted = error?.code === "23505" // unique_violation
+  if (error && !alreadyBoosted) {
+    throw new Error(`Failed to record boost: ${error.message}`)
+  }
+
+  const { count } = await supabaseAdmin
+    .from("kudos_boosts" as never)
+    .select("kudos_id", { count: "exact", head: true })
+    .eq("kudos_id", kudosId)
+
+  return {
+    alreadyBoosted,
+    boosterName: empRow?.name ?? null,
+    totalBoosts: count ?? 0,
+  }
+}
+
+/**
  * Returns the top `limit` recipients by total kudos count.
  */
 export async function getTopRecipients(

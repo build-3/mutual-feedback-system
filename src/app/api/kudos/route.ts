@@ -90,8 +90,10 @@ export async function POST(request: Request) {
 
   // Persist kudos to DB first so social-proof footer reflects this send too.
   // If persistence fails, fail the request — we never want a chat-only send.
+  let persistedKudosId: string
   try {
-    await persistKudos(auth.employee.id, recipientIds, trimmedMessage, gifUrl)
+    const persisted = await persistKudos(auth.employee.id, recipientIds, trimmedMessage, gifUrl)
+    persistedKudosId = persisted.id
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error"
     return NextResponse.json({ error: `Failed to save kudos: ${msg}` }, { status: 500 })
@@ -147,6 +149,25 @@ export async function POST(request: Request) {
                 text: `<i>"${trimmedMessage}"</i>`,
                 wrapText: true,
                 bottomLabel: `Given by ${senderName}`,
+              },
+            },
+            // "Kudos ++" interactive button — Google Chat will POST to the
+            // app's HTTP endpoint URL (/api/kudos/react) when clicked.
+            {
+              buttonList: {
+                buttons: [
+                  {
+                    text: "Kudos ++",
+                    onClick: {
+                      action: {
+                        function: "boostKudos",
+                        parameters: [
+                          { key: "kudosId", value: persistedKudosId },
+                        ],
+                      },
+                    },
+                  },
+                ],
               },
             },
           ],

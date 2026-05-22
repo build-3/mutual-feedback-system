@@ -167,6 +167,23 @@ CREATE INDEX idx_kudos_sender ON kudos(sender_id);
 CREATE INDEX idx_kudos_created_at ON kudos(created_at DESC);
 CREATE INDEX idx_kudos_recipients_recipient ON kudos_recipients(recipient_id);
 
+-- One-click "Kudos ++" boosts from teammates clicking the button on a kudos
+-- card in Google Chat. Stored separately from the originating kudos so
+-- duplicate-boost from the same person is enforced via PK (kudos_id,
+-- booster_email).
+CREATE TABLE kudos_boosts (
+  kudos_id UUID NOT NULL REFERENCES kudos(id) ON DELETE CASCADE,
+  booster_email TEXT NOT NULL,
+  booster_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (kudos_id, booster_email)
+);
+
+ALTER TABLE kudos_boosts ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_kudos_boosts_kudos ON kudos_boosts(kudos_id);
+CREATE INDEX idx_kudos_boosts_booster ON kudos_boosts(booster_email);
+
 -- Seed data: Full timers
 INSERT INTO employees (name, role, email) VALUES
   ('Varun Chawla', 'full_timer', 'varun@build3.org'),
