@@ -13,6 +13,8 @@ import {
 
 type Status = "idle" | "sending" | "done" | "error"
 
+type LeaderboardEntry = { employee_id: string; employee_name: string; count: number }
+
 export default function KudosCard() {
   const [recipients, setRecipients] = useState<Employee[]>([])
   const [message, setMessage] = useState("")
@@ -21,6 +23,27 @@ export default function KudosCard() {
   const [status, setStatus] = useState<Status>("idle")
   const [errorMessage, setErrorMessage] = useState("")
   const [senderId, setSenderId] = useState<string | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true)
+
+  const loadLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true)
+    try {
+      const res = await fetch("/api/kudos/leaderboard?limit=5&sinceDays=30")
+      if (res.ok) {
+        const data = await res.json()
+        setLeaderboard(data.top ?? [])
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLeaderboardLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadLeaderboard()
+  }, [loadLeaderboard])
 
   useEffect(() => {
     fetch("/api/me")
@@ -92,6 +115,7 @@ export default function KudosCard() {
       }
 
       setStatus("done")
+      void loadLeaderboard()
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Something went wrong.")
       setStatus("error")
@@ -155,8 +179,33 @@ export default function KudosCard() {
         accent="yellow"
         eyebrow="shout it out"
         title="send kudos"
-        description="recognize a teammate for something awesome they did."
+        description="recognize a teammate for something awesome they did. it gets posted with a celebration gif to the team chat."
       />
+
+      {/* Leaderboard — most-recognized teammates in the last 30 days */}
+      {!leaderboardLoading && leaderboard.length > 0 && (
+        <BrandPanel accent="yellow" tone="soft" className="p-4 sm:p-5">
+          <div className="text-[11px] font-semibold tracking-wide text-muted uppercase mb-3">
+            🏆 most recognized · last 30 days
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {leaderboard.map((entry, idx) => {
+              const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null
+              return (
+                <span
+                  key={entry.employee_id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs font-medium text-ink"
+                >
+                  {medal && <span>{medal}</span>}
+                  <span>{entry.employee_name}</span>
+                  <span className="text-muted">·</span>
+                  <span className="text-muted">{entry.count}</span>
+                </span>
+              )
+            })}
+          </div>
+        </BrandPanel>
+      )}
 
       <BrandPanel accent="yellow" tone="washed" className="p-5 sm:p-6 space-y-5">
         {/* Recipients */}
@@ -193,7 +242,7 @@ export default function KudosCard() {
         {/* Message */}
         <div className="space-y-2">
           <label className="text-xs font-semibold tracking-wide text-muted">
-            what did they do?
+            why are they getting kudos?
           </label>
           <textarea
             value={message}
@@ -201,7 +250,7 @@ export default function KudosCard() {
               setMessage(e.target.value)
               if (errorMessage) setErrorMessage("")
             }}
-            placeholder="they absolutely crushed it when..."
+            placeholder="for helping us ship X — they absolutely crushed it when..."
             rows={3}
             maxLength={500}
             className={fieldClasses({ hasError: !!errorMessage })}
