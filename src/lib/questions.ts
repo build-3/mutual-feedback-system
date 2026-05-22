@@ -358,7 +358,7 @@ export const SELF_REVIEW_KEYS = [
 export type SelfReviewKey = (typeof SELF_REVIEW_KEYS)[number]
 
 export function getQuestionsForPath(
-  path: "intern" | "build3" | "full_timer" | "self" | "adhoc"
+  path: "intern" | "build3" | "full_timer" | "self" | "adhoc" | "buddy" | "sponsor"
 ): Question[] {
   switch (path) {
     case "intern":
@@ -371,5 +371,9 @@ export function getQuestionsForPath(
       return SELF_QUESTIONS
     case "adhoc":
       return ADHOC_QUESTIONS
+    case "buddy":
+      return BUDDY_QUESTIONS
+    case "sponsor":
+      return SPONSOR_QUESTIONS
   }
 }

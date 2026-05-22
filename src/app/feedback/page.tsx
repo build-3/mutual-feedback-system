@@ -24,8 +24,6 @@ import { SCREEN_ACCENTS, getFeedbackPathOptions, type FeedbackPath } from "@/lib
 import {
   Question,
   getQuestionsForPath,
-  BUDDY_QUESTIONS,
-  SPONSOR_QUESTIONS,
   SELF_REVIEW_KEYS,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
@@ -48,7 +46,7 @@ type SelfFeedbackData = {
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
-const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc"])
+const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc", "buddy", "sponsor"])
 
 type Phase = "identify" | "route" | "questions" | "self_review" | "stage_complete" | "submitting" | "done"
 
@@ -59,6 +57,8 @@ const STAGE_LABELS: Record<FeedbackPath, string> = {
   full_timer: "full timer review",
   intern: "intern review",
   adhoc: "quick note",
+  buddy: "buddy feedback",
+  sponsor: "sponsor feedback",
 }
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
@@ -263,23 +263,8 @@ export default function FeedbackPage() {
 
   const questions: Question[] = useMemo(() => {
     if (!feedbackPath) return []
-    const base = getQuestionsForPath(feedbackPath)
-    if (feedbackPath !== "intern" || submitter?.role !== "intern") return base
-    const extra: Question[] = []
-    if (submitterBuddyId) {
-      extra.push(...BUDDY_QUESTIONS.map((q) => ({
-        ...q,
-        text: buddyName ? q.text.replace("your buddy", `${buddyName}, your buddy`) : q.text,
-      })))
-    }
-    if (submitterSponsorId) {
-      extra.push(...SPONSOR_QUESTIONS.map((q) => ({
-        ...q,
-        text: sponsorName ? q.text.replace("your sponsor", `${sponsorName}, your sponsor`) : q.text,
-      })))
-    }
-    return [...base, ...extra]
-  }, [feedbackPath, submitter?.role, submitterBuddyId, submitterSponsorId, buddyName, sponsorName])
+    return getQuestionsForPath(feedbackPath)
+  }, [feedbackPath])
 
   // Progress: for multi-stage pipelines, compute total questions across all stages.
   // For single-stage, it's just the current path's questions + setup.
@@ -325,7 +310,13 @@ export default function FeedbackPage() {
     const pct = qCount > 0 ? Math.round((step / qCount) * 100) : 0
     return { progress: Math.max(pct, 5), totalSteps: qCount, currentStep: step }
   }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, hasReviewStep])
-  const pathOptions = getFeedbackPathOptions()
+  const pathOptions = getFeedbackPathOptions({
+    isIntern: submitter?.role === "intern",
+    hasBuddy: !!submitterBuddyId,
+    hasSponsor: !!submitterSponsorId,
+    buddyName,
+    sponsorName,
+  })
 
   const animateTransition = useCallback(
     (forward: boolean, cb: () => void, historyState?: { formPhase: string; formQ: number }) => {
@@ -410,8 +401,8 @@ export default function FeedbackPage() {
    *  Only gates that are definitively not completed (false) are included.
    *  Must not be called until gateChecksLoaded is true. */
   function buildStages(targetPath: FeedbackPath): FeedbackPath[] {
-    // self and build3 paths run standalone — no gating
-    if (targetPath === "adhoc" || targetPath === "self" || targetPath === "build3") return [targetPath]
+    // self, build3, adhoc, buddy, sponsor run standalone — no gating
+    if (targetPath === "adhoc" || targetPath === "self" || targetPath === "build3" || targetPath === "buddy" || targetPath === "sponsor") return [targetPath]
     // intern and full_timer require self + build3 first if missing
     const result: FeedbackPath[] = []
     if (hasSelfFeedback === false) result.push("self")
@@ -423,8 +414,8 @@ export default function FeedbackPage() {
   /** Start the pipeline for a chosen path — sets up stages and jumps to first question.
    *  For paths that need gates (full_timer, intern), waits for gate checks to load. */
   function startPipeline(targetPath: FeedbackPath) {
-    // adhoc, self, and build3 don't need gate checks
-    const needsGates = targetPath !== "adhoc" && targetPath !== "self" && targetPath !== "build3"
+    // adhoc, self, build3, buddy, sponsor don't need gate checks
+    const needsGates = targetPath !== "adhoc" && targetPath !== "self" && targetPath !== "build3" && targetPath !== "buddy" && targetPath !== "sponsor"
     if (needsGates && !gateChecksLoaded) return
     const pipeline = buildStages(targetPath)
     const firstStage = pipeline[0]
@@ -434,7 +425,13 @@ export default function FeedbackPage() {
     setCurrentStageIndex(0)
     setIntendedPath(hasGates ? targetPath : null)
     setFeedbackPath(firstStage)
-    setFeedbackFor(null)
+    if (targetPath === "buddy" && submitterBuddyId) {
+      setFeedbackFor({ id: submitterBuddyId, name: buddyName || "Buddy", role: "full_timer", created_at: "" })
+    } else if (targetPath === "sponsor" && submitterSponsorId) {
+      setFeedbackFor({ id: submitterSponsorId, name: sponsorName || "Sponsor", role: "full_timer", created_at: "" })
+    } else {
+      setFeedbackFor(null)
+    }
     setAnswers({})
     pendingAnswers.current = {}
     setSelfFeedbackForTarget(null)
@@ -1409,7 +1406,7 @@ export default function FeedbackPage() {
                 <div className="mt-8 space-y-3">
                   {pathOptions.map((option) => {
                     const active = feedbackPath === option.key || intendedPath === option.key
-                    const needsGates = option.key !== "self" && option.key !== "build3"
+                    const needsGates = option.key !== "self" && option.key !== "build3" && option.key !== "buddy" && option.key !== "sponsor"
                     const waiting = needsGates && !gateChecksLoaded
                     return (
                       <button

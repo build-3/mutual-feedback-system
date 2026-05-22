@@ -24,7 +24,7 @@ CREATE TABLE feedback_submissions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   submitted_by_id UUID NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
   feedback_for_id UUID REFERENCES employees(id) ON DELETE RESTRICT,
-  feedback_type TEXT NOT NULL CHECK (feedback_type IN ('intern', 'build3', 'full_timer', 'self', 'adhoc')),
+  feedback_type TEXT NOT NULL CHECK (feedback_type IN ('intern', 'build3', 'full_timer', 'self', 'adhoc', 'buddy', 'sponsor')),
   notified_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
