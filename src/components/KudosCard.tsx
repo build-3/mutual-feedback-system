@@ -19,6 +19,7 @@ export default function KudosCard() {
   const [recipients, setRecipients] = useState<Employee[]>([])
   const [message, setMessage] = useState("")
   const [gifUrl, setGifUrl] = useState<string | null>(null)
+  const [nextGifUrl, setNextGifUrl] = useState<string | null>(null)
   const [gifLoading, setGifLoading] = useState(false)
   const [status, setStatus] = useState<Status>("idle")
   const [errorMessage, setErrorMessage] = useState("")
@@ -54,24 +55,60 @@ export default function KudosCard() {
       .catch(() => {})
   }, [])
 
-  const fetchGif = useCallback(async () => {
-    setGifLoading(true)
-    try {
-      const res = await fetch("/api/kudos/gif")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.url) setGifUrl(data.url)
-      }
-    } catch {
-      // keep existing gif
-    } finally {
-      setGifLoading(false)
-    }
+  // Fetch a gif url and fully preload its bytes (so swapping is instant).
+  const fetchAndPreload = useCallback(async (): Promise<string | null> => {
+    const res = await fetch("/api/kudos/gif")
+    if (!res.ok) return null
+    const data = await res.json()
+    if (!data.url) return null
+    await new Promise<void>((resolve) => {
+      const img = new window.Image()
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+      img.src = data.url
+    })
+    return data.url as string
   }, [])
 
+  // Prefetch the next gif in the background so shuffle is instant.
+  const prefetchNext = useCallback(async () => {
+    const url = await fetchAndPreload()
+    if (url) setNextGifUrl(url)
+  }, [fetchAndPreload])
+
+  // First load: fetch current, then prefetch next.
   useEffect(() => {
-    fetchGif()
-  }, [fetchGif])
+    let cancelled = false
+    void (async () => {
+      setGifLoading(true)
+      const url = await fetchAndPreload()
+      if (cancelled) return
+      if (url) setGifUrl(url)
+      setGifLoading(false)
+      void prefetchNext()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [fetchAndPreload, prefetchNext])
+
+  // Shuffle: instant swap if we have one preloaded, then queue the next.
+  const shuffleGif = useCallback(() => {
+    if (nextGifUrl) {
+      setGifUrl(nextGifUrl)
+      setNextGifUrl(null)
+      void prefetchNext()
+      return
+    }
+    // Fallback if prefetch hasn't completed yet.
+    setGifLoading(true)
+    void (async () => {
+      const url = await fetchAndPreload()
+      if (url) setGifUrl(url)
+      setGifLoading(false)
+      void prefetchNext()
+    })()
+  }, [nextGifUrl, fetchAndPreload, prefetchNext])
 
   function addRecipient(employee: Employee | null) {
     if (!employee) return
@@ -125,10 +162,10 @@ export default function KudosCard() {
   function handleReset() {
     setRecipients([])
     setMessage("")
-    setGifUrl(null)
     setStatus("idle")
     setErrorMessage("")
-    fetchGif()
+    // Use the prefetched gif for the next compose, keep flow instant.
+    shuffleGif()
   }
 
   const canSend = recipients.length > 0 && message.trim().length >= 10 && gifUrl && status !== "sending"
@@ -271,7 +308,7 @@ export default function KudosCard() {
             <label className="text-xs font-semibold tracking-wide text-muted">celebration gif</label>
             <button
               type="button"
-              onClick={fetchGif}
+              onClick={shuffleGif}
               disabled={gifLoading}
               className={shuffleBtn.className}
               style={shuffleBtn.style}
