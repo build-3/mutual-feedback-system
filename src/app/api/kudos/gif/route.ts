@@ -105,7 +105,14 @@ async function resolveGifUrl(id: string): Promise<string | null> {
   if (!res.ok) return null
 
   const json = await res.json()
-  const url = json?.data?.images?.downsized?.url || json?.data?.images?.original?.url
+  // Prefer small, fast-loading variants. fixed_height ≈ 200px tall, usually
+  // 100–400 KB; falls back to downsized/original only if Giphy omits it.
+  const images = json?.data?.images ?? {}
+  const url =
+    images.fixed_height?.url ||
+    images.fixed_height_downsampled?.url ||
+    images.downsized?.url ||
+    images.original?.url
   if (!url) return null
 
   if (urlCache.size > 200) urlCache.clear()
