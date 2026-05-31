@@ -41,12 +41,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  // Vercel cron — authenticated by CRON_SECRET header, not user auth
-  if (pathname === '/api/cron/birthday') {
-    return NextResponse.next({ request })
-  }
-
-  if (pathname === '/api/cron/session-reminder') {
+  // Vercel cron — every cron route authenticates itself via CRON_SECRET
+  // (Bearer header), never a user session. Match the whole prefix so new
+  // cron routes can't be silently blocked by a forgotten allow-list edit.
+  if (pathname.startsWith('/api/cron/')) {
     return NextResponse.next({ request })
   }
 
