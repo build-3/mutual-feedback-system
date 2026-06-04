@@ -37,6 +37,7 @@ function LoginContent() {
         redirectTo: `${location.origin}/api/auth/callback`,
         queryParams: {
           hd: 'build3.org',
+          prompt: 'select_account',
         },
       },
     })
