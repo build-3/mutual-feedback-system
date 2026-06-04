@@ -4,7 +4,12 @@ import { getSupabaseAdmin, hasServerSupabaseConfig } from '@/lib/server/supabase
 import { signValue } from '@/lib/server/signed-cookie'
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams, origin: rawOrigin } = new URL(request.url)
+  // Behind a reverse proxy (Coolify/Traefik) Next.js sees the internal
+  // http://localhost:3000 URL — trust forwarded headers for the public origin.
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+  const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : rawOrigin
   const code = searchParams.get('code')
 
   if (code) {
