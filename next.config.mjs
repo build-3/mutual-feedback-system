@@ -4,6 +4,11 @@ const isDev = process.env.NODE_ENV === "development"
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
+  // Skip lint + typecheck during production build. The Coolify host is
+  // memory-constrained (1.9GB RAM) and tsc/eslint thrash there. Run them
+  // locally / in CI instead.
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   experimental: {
     optimizePackageImports: ["recharts", "framer-motion"],
     serverComponentsExternalPackages: ["google-auth-library"],
