@@ -166,7 +166,7 @@ export default function UsageDashboard({
           hosting &amp; compute
         </h3>
         <p className="mt-1 text-xs text-muted">
-          build3.online · pro plan
+          mutualfeedback.build3.online · pro plan
         </p>
 
         <div className="mt-4 space-y-3">

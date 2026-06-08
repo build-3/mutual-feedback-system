@@ -13,7 +13,7 @@ import {
 } from "@/lib/server/session-utils"
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://build3.online"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
 
 export async function GET(request: Request) {
   if (!CRON_SECRET) {

@@ -8,7 +8,7 @@ import { persistKudos } from "@/lib/server/kudos"
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ALLOWED_GIF_PREFIXES = ["https://media.giphy.com/", "https://i.giphy.com/", "https://media0.giphy.com/", "https://media1.giphy.com/", "https://media2.giphy.com/", "https://media3.giphy.com/", "https://media4.giphy.com/"]
 const KUDOS_SPACE_ID = process.env.GOOGLE_CHAT_KUDOS_SPACE_ID ?? ""
-const DEFAULT_AVATAR = "https://build3.online/apple-icon.png"
+const DEFAULT_AVATAR = (process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online") + "/apple-icon.png"
 const MAX_RECIPIENTS = 20
 
 export async function POST(request: Request) {

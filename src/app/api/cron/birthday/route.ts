@@ -4,7 +4,7 @@ import { sendCardToSpace, getProfilePhotoUrl } from "@/lib/server/google-chat"
 
 const KUDOS_SPACE_ID = process.env.GOOGLE_CHAT_KUDOS_SPACE_ID ?? ""
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
-const DEFAULT_AVATAR = "https://build3.online/apple-icon.png"
+const DEFAULT_AVATAR = (process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online") + "/apple-icon.png"
 
 const BIRTHDAY_MESSAGES = [
   "Happy Birthday! 🎂 Hope your day is filled with joy and cake!",

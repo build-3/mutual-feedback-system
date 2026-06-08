@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { waitUntil } from "@vercel/functions"
 import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 import { hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { submitFeedback, sendNotificationForSubmission } from "@/lib/server/feedback"
@@ -53,12 +52,11 @@ export async function POST(request: Request) {
       submitterVerified: true, // requireAuth already confirmed this employee
     })
 
-    // Fire notification in background
+    // Fire notification in background — long-running Node server keeps the
+    // promise alive after we return, no waitUntil needed (was Vercel-only).
     if (result.feedbackForId) {
-      waitUntil(
-        sendNotificationForSubmission(result.submissionId).catch((err) =>
-          console.error("[notify] Background notification failed:", err)
-        )
+      void sendNotificationForSubmission(result.submissionId).catch((err) =>
+        console.error("[notify] Background notification failed:", err)
       )
     }
 

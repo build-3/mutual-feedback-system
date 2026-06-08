@@ -270,7 +270,8 @@ export async function sendNotificationForSubmission(submissionId: string) {
 
   const submitterName = submitterDetail?.name || "Someone"
   const recipientName = recipientDetail.name || "there"
-  const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nCheck it out: https://build3.online/insights?employee=${typedSubmission.feedback_for_id}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
+  const message = `Hello ${recipientName} - you got feedback from ${submitterName}.\n\nCheck it out: ${appUrl}/insights?employee=${typedSubmission.feedback_for_id}`
 
   await sendDirectMessage(recipientDetail.email, message)
 
@@ -374,7 +375,7 @@ export async function saveFeedbackResponse({
 }
 
 /**
- * Send notification for a feedback response — meant to be called via waitUntil().
+ * Send notification for a feedback response — fire-and-forget from the route.
  */
 export async function sendResponseNotification({
   responderId,
@@ -417,7 +418,7 @@ export async function sendResponseNotification({
 
       await sendDirectMessage(
         recipientEmail,
-        `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: https://build3.online/insights?employee=${feedbackForId ?? notifyId}`
+        `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: ${process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"}/insights?employee=${feedbackForId ?? notifyId}`
       )
     })
   )

@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     description: "build3's internal feedback system. peer reviews, self-reflections, and team insight in one place.",
     siteName: "build3",
     type: "website",
-    url: "https://build3.online",
+    url: process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online",
   },
   twitter: {
     card: "summary",

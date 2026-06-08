@@ -2,7 +2,7 @@ import "server-only"
 
 import { getProfilePhotoUrl } from "./google-chat"
 
-const DEFAULT_AVATAR = "https://build3.online/apple-icon.png"
+const DEFAULT_AVATAR = (process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online") + "/apple-icon.png"
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",

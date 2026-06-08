@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { waitUntil } from "@vercel/functions"
 import { saveFeedbackResponse, sendResponseNotification } from "@/lib/server/feedback"
 import {
   consumeRateLimit,
@@ -61,11 +60,10 @@ export async function POST(request: Request) {
       isAdmin: auth.employee.role === "admin",
     })
 
-    // Fire notification in background — don't block the response
-    waitUntil(
-      sendResponseNotification(notificationContext).catch((err) =>
-        console.error("[notify] Background response notification failed:", err)
-      )
+    // Fire notification in background — long-running Node server keeps the
+    // promise alive after we return, no waitUntil needed (was Vercel-only).
+    void sendResponseNotification(notificationContext).catch((err) =>
+      console.error("[notify] Background response notification failed:", err)
     )
 
     return NextResponse.json({ status: "saved", response })
