@@ -31,7 +31,10 @@ export async function GET(request: Request) {
   }
 
   // Only fire the Monday before a 2nd-Tuesday session, matching session-reminder.
-  if (!isReminderDay()) {
+  // Pass ?force=true to bypass the date check (for on-demand sends).
+  const url = new URL(request.url)
+  const force = url.searchParams.get("force") === "true"
+  if (!force && !isReminderDay()) {
     return NextResponse.json({ skipped: true, reason: "Tomorrow is not a 2nd Tuesday." })
   }
 
