@@ -43,10 +43,19 @@ export function isSecondTuesday(date: Date): boolean {
  * Check if tomorrow (IST) is a 2nd Tuesday — used by reminder cron (runs on Monday).
  */
 export function isReminderDay(): boolean {
-  const today = getISTDate()
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  return isSecondTuesday(tomorrow)
+  // Add 24h in UTC millis (TZ-independent), then re-derive day/weekday in IST.
+  // Previous impl used setDate(getDate()+1) which silently used the process's
+  // local timezone — correct in IST, off-by-one in UTC (Coolify host).
+  const istTodayMidnight = getISTDate()
+  const istTomorrow = new Date(istTodayMidnight.getTime() + 24 * 60 * 60 * 1000)
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(istTomorrow)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ""
+  const day = parseInt(get("day"), 10)
+  return get("weekday") === "Tue" && day >= 8 && day <= 14
 }
 
 /**
