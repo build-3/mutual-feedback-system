@@ -114,6 +114,14 @@ export const BUILD3_VALUE_KEYWORDS = [
 /** Separator used in values_with_text answers: "indices|||explanation" */
 export const VALUES_SEP = '|||'
 
+/**
+ * Prefix on answer_value that marks a row as "v2 era" — its indices should
+ * resolve against the current BUILD3_VALUES (post-ecoashram update).
+ * Rows without this prefix predate the values change and resolve against
+ * BUILD3_VALUES_LEGACY. New submissions always write the prefix.
+ */
+export const VALUES_VERSION_PREFIX = 'v2:'
+
 /** Keys that store values_with_text format */
 export const VALUES_WITH_TEXT_KEYS = new Set([
   'value_strength',
@@ -122,17 +130,35 @@ export const VALUES_WITH_TEXT_KEYS = new Set([
   'value_to_improve',
 ])
 
-/** Parse a values_with_text answer into selected value names + explanation text */
+/**
+ * Parse a values_with_text answer into selected value names + explanation text.
+ * Honors the v2 prefix: if present, indices map to the passed-in `valueList`
+ * (current values). Otherwise, dynamically import the legacy list and map
+ * against it so historical answers keep their original labels.
+ */
 export function parseValuesWithText(raw: string, valueList: string[]): { values: string[]; text: string } {
   if (!raw.includes(VALUES_SEP)) return { values: [], text: raw }
-  const parts = raw.split(VALUES_SEP)
+
+  // Detect version. Strip prefix; legacy rows have no prefix.
+  let payload = raw
+  let resolveList = valueList
+  if (raw.startsWith(VALUES_VERSION_PREFIX)) {
+    payload = raw.slice(VALUES_VERSION_PREFIX.length)
+  } else {
+    // Lazy require to avoid circular import with questions.ts at top of file.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { BUILD3_VALUES_LEGACY } = require('./questions') as { BUILD3_VALUES_LEGACY: string[] }
+    resolveList = BUILD3_VALUES_LEGACY
+  }
+
+  const parts = payload.split(VALUES_SEP)
   const indicesPart = parts[0] || ''
   const text = parts.slice(1).join(VALUES_SEP)
   const values: string[] = []
   for (const s of indicesPart.split(',')) {
     const n = parseInt(s, 10)
-    if (Number.isFinite(n) && n >= 0 && n < valueList.length) {
-      values.push(valueList[n])
+    if (Number.isFinite(n) && n >= 0 && n < resolveList.length) {
+      values.push(resolveList[n])
     }
   }
   return { values, text }

@@ -1,4 +1,9 @@
-export const BUILD3_VALUES = [
+/**
+ * Pre-ecoashram values. Kept ONLY so existing feedback answers (which store
+ * value selections as indices) still resolve to their original labels.
+ * Never reference this list for new submissions or UI pickers.
+ */
+export const BUILD3_VALUES_LEGACY = [
   "We build big, beautiful things and we do it with care.",
   "Community is gold. We mine it together.",
   "We back builders who want to make a real dent.",
@@ -7,6 +12,25 @@ export const BUILD3_VALUES = [
   "We work honestly, with craft and follow-through.",
   "We build for diversity in people, ideas, and action.",
   "We keep purpose and profit in the same room.",
+]
+
+/**
+ * Current values (4 extrinsic + 4 intrinsic) — used for the picker, the
+ * "what we build around" card, and any new feedback submission going forward.
+ * New submissions are written with the "v2:" prefix in answer_value so the
+ * parser knows to resolve indices against THIS list, not the legacy one.
+ */
+export const BUILD3_VALUES = [
+  // — 4 extrinsic (what we do) —
+  "Holistic wellbeing — caring for our mental, physical, emotional, and spiritual health.",
+  "Natural living — in harmony with nature, off the land where we can.",
+  "Creativity — color, craft, and culture sit at the centre, not the edge.",
+  "Social enterprise — startups as a force for good, where purpose meets profit.",
+  // — 4 intrinsic (how we work) —
+  "Honest work — we do the work ourselves, in service of the community.",
+  "Equality and togetherness — roles, not hierarchy; built and lived together.",
+  "Humility and learning — beginner's eyes, lifelong learners, open hearts.",
+  "Mettaa — loving kindness as the energy we put out, every day.",
 ]
 
 export const CONTRIBUTION_LEVELS = [

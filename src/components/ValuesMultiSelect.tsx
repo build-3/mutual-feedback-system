@@ -2,6 +2,7 @@
 
 import { BUILD3_VALUES } from "@/lib/questions"
 import { fieldClasses } from "@/components/ui/brand"
+import { VALUES_VERSION_PREFIX } from "@/lib/insights-helpers"
 
 interface ValuesMultiSelectProps {
   /** Comma-separated selected value indices stored as answer, plus text after a separator */
@@ -14,7 +15,15 @@ interface ValuesMultiSelectProps {
 const SEP = "|||"
 
 function parseValue(raw: string): { selected: Set<number>; text: string } {
-  const parts = raw.split(SEP)
+  // Strip the v2 prefix when reading an in-progress draft. Pre-existing rows
+  // without the prefix are legacy-indexed and shouldn't be edited via this
+  // picker (different value list); they show up as empty selections, which is
+  // the safe behaviour — user can re-pick using the new values.
+  const payload = raw.startsWith(VALUES_VERSION_PREFIX)
+    ? raw.slice(VALUES_VERSION_PREFIX.length)
+    : raw
+
+  const parts = payload.split(SEP)
   const indicesPart = parts[0] || ""
   const text = parts.slice(1).join(SEP)
 
@@ -31,7 +40,9 @@ function parseValue(raw: string): { selected: Set<number>; text: string } {
 function serialize(selected: Set<number>, text: string): string {
   const indices = Array.from(selected).sort((a, b) => a - b).join(",")
   if (!indices && !text) return ""
-  return `${indices}${SEP}${text}`
+  // Tag new submissions with the v2 prefix so the parser resolves indices
+  // against BUILD3_VALUES (new list) instead of BUILD3_VALUES_LEGACY.
+  return `${VALUES_VERSION_PREFIX}${indices}${SEP}${text}`
 }
 
 export default function ValuesMultiSelect({
