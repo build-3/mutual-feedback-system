@@ -236,4 +236,6 @@ export const QUESTION_LABELS: Record<string, string> = {
   teal_concepts: 'teal principles',
   ideal_team_player_matrix: 'ideal team player traits',
   feedback_for: 'feedback for',
+  // Peer review — overall comment on self-reflection
+  review_overall_comment: 'overall comment on self-reflection',
 }

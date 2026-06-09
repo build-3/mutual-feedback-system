@@ -34,6 +34,7 @@ const RESPONDABLE_KEYS = new Set([
   "trust_battery_detail",
   "adhoc_positive",
   "adhoc_improve",
+  "review_overall_comment",
 ])
 
 function parseValuesWithText(raw: string) {
