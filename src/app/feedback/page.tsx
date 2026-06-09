@@ -583,7 +583,11 @@ export default function FeedbackPage() {
 
     if (question.type === "values_with_text") {
       if (question.optional) return true
-      const raw = answers[question.key] || ""
+      let raw = answers[question.key] || ""
+      // Strip the v2 prefix that new submissions carry so the indices parse.
+      // Without this, a single selection like "v2:0|||" fails parseInt and the
+      // validator wrongly reports "no value picked".
+      if (raw.startsWith("v2:")) raw = raw.slice(3)
       const sep = "|||"
       const parts = raw.split(sep)
       const indicesPart = parts[0] || ""
@@ -870,7 +874,8 @@ export default function FeedbackPage() {
       return true
     }
     if (question.type === "values_with_text") {
-      const raw = pendingAnswers.current[question.key] || ""
+      let raw = pendingAnswers.current[question.key] || ""
+      if (raw.startsWith("v2:")) raw = raw.slice(3)
       const sep = "|||"
       const indicesPart = raw.split(sep)[0] || ""
       return indicesPart.split(",").some((s) => {
