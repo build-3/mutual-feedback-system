@@ -28,15 +28,15 @@ export const BUILD3_VALUES_LEGACY = [
  */
 export const BUILD3_VALUES = [
   // — 4 extrinsic (what we do) —
-  "Holistic wellbeing. Living consciously across our mental, physical, emotional and spiritual health.",
-  "Natural living. In harmony with nature, growing our own food and powered by renewable energy.",
-  "Creativity. Color, craft, and culture at the centre, through art, music, food, theatre and more.",
-  "Social enterprise. Startups as a force for good, balancing purpose with profit.",
+  "Holistic wellbeing. Living consciously across our mental, physical, emotional and spiritual health, learning and growing in each. This shows up as plant based food, natural farming, meditation, yoga, medicinal herbs, non violent communication, and teal practices that keep our community harmonious.",
+  "Natural living. Living with nature, understanding her, in harmony where we together thrive. Homes built of natural materials, food and furniture and clothing from the land, negligible plastic, natural pools of water, growing our own food, and energy drawn from sun and wind.",
+  "Creativity. Color, craft, and culture sit at the centre, not the edge. Visual, dramatic, poetic, musical, culinary or any other form, creative humans bring vibrancy and play a vital role in rejuvenating and inspiring us all. We welcome them to live with us, share their craft, and enjoy our community.",
+  "Social enterprise. Startups can be a force for good, and we want to champion the best version of entrepreneurship, one that makes the world better while keeping us economically sustainable. An academy, an accelerator, a venture builder and volunteering programs, all balancing purpose with profit.",
   // — 4 intrinsic (how we work) —
-  "Honest work. We do the work ourselves, in service of the community, with no external labor.",
-  "Equality and togetherness. Roles, not hierarchy. We eat, build, and celebrate as one.",
-  "Humility and learning. Beginner's eyes, lifelong learners, open hearts.",
-  "Mettaa. Loving kindness as the energy we put out, every day.",
+  "Honest work. Everyone here carries on some work in service of the community, most of us full time at 6 to 8 hours a day, part time at minimum. We don't hire external labor, we work for us, as farmers, builders, entrepreneurs, cooks, wellness practitioners, musicians, tailors and more.",
+  "Equality and togetherness. There are roles but no hierarchy. As long as we contribute earnestly, we hold the same rights, respect and benefits as anyone else, and most things (food, housing, energy, events) are provisioned by the community for all equally. We eat together, build together, celebrate together, no individual kitchens or hired hands.",
+  "Humility and learning. We are diverse individuals who can learn from and support each other, but only if we truly listen and open our hearts. Arrogance leads to competition, politics and unpleasantness, humility leads to joy, growth, and the lifelong delight of learning with beginner's eyes.",
+  "Mettaa. A pali word meaning loving kindness, the energy we want to foster every day. We always have the choice to wake up on the grumpy side or the kind side. The energy we put out is the energy that resonates back, so choose kind.",
 ]
 
 export const CONTRIBUTION_LEVELS = [

@@ -71,7 +71,7 @@ export default function ValuesMultiSelect({
   return (
     <div className="space-y-4">
       {/* Value cards — 2-column grid, uniform height, title + description */}
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 sm:auto-rows-fr">
         {BUILD3_VALUES.map((val, index) => {
           const active = selected.has(index)
           const firstPeriod = val.indexOf(". ")
