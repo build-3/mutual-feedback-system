@@ -20,17 +20,23 @@ export const BUILD3_VALUES_LEGACY = [
  * New submissions are written with the "v2:" prefix in answer_value so the
  * parser knows to resolve indices against THIS list, not the legacy one.
  */
+/**
+ * Each entry is "Title. Description." — the picker UI splits on the first
+ * period to render Title (bold) above Description (lighter). Insights chips
+ * show just the Title for compactness. Keep this shape: short clear title,
+ * one-sentence description, ending in a period.
+ */
 export const BUILD3_VALUES = [
   // — 4 extrinsic (what we do) —
-  "Holistic wellbeing — caring for our mental, physical, emotional, and spiritual health.",
-  "Natural living — in harmony with nature, off the land where we can.",
-  "Creativity — color, craft, and culture sit at the centre, not the edge.",
-  "Social enterprise — startups as a force for good, where purpose meets profit.",
+  "Holistic wellbeing. Living consciously across our mental, physical, emotional and spiritual health.",
+  "Natural living. In harmony with nature, growing our own food and powered by renewable energy.",
+  "Creativity. Color, craft, and culture at the centre, through art, music, food, theatre and more.",
+  "Social enterprise. Startups as a force for good, balancing purpose with profit.",
   // — 4 intrinsic (how we work) —
-  "Honest work — we do the work ourselves, in service of the community.",
-  "Equality and togetherness — roles, not hierarchy; built and lived together.",
-  "Humility and learning — beginner's eyes, lifelong learners, open hearts.",
-  "Mettaa — loving kindness as the energy we put out, every day.",
+  "Honest work. We do the work ourselves, in service of the community, with no external labor.",
+  "Equality and togetherness. Roles, not hierarchy. We eat, build, and celebrate as one.",
+  "Humility and learning. Beginner's eyes, lifelong learners, open hearts.",
+  "Mettaa. Loving kindness as the energy we put out, every day.",
 ]
 
 export const CONTRIBUTION_LEVELS = [

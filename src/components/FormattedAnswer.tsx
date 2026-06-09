@@ -27,14 +27,21 @@ export default function FormattedAnswer({ questionKey, value }: FormattedAnswerP
     <div className="space-y-2">
       {values.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {values.map((v, i) => (
-            <span
-              key={i}
-              className="inline-block rounded-full border border-brand-peach/40 bg-brand-peach/10 px-2.5 py-0.5 text-xs font-medium text-ink"
-            >
-              {v.replace(/\.$/, "")}
-            </span>
-          ))}
+          {values.map((v, i) => {
+            // Show only the title (text before the first ". ") in chip form;
+            // the full description would overflow.
+            const firstPeriod = v.indexOf(". ")
+            const label = firstPeriod === -1 ? v.replace(/\.$/, "") : v.slice(0, firstPeriod)
+            return (
+              <span
+                key={i}
+                title={v}
+                className="inline-block rounded-full border border-brand-peach/40 bg-brand-peach/10 px-2.5 py-0.5 text-xs font-medium text-ink"
+              >
+                {label}
+              </span>
+            )
+          })}
         </div>
       )}
       {text.trim() && (
