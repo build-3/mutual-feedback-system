@@ -41,16 +41,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ skipped: true, reason: "No employees found." })
   }
 
-  // Google Chat plain-text formatting:
-  //   *bold*  _italic_  <url|display>
+  // Google Chat plain-text formatting: *bold*  _italic_. Use BARE urls — the
+  // <url|display> form renders the "|display" as literal text in DMs.
   const message = [
     `hey team 👋`,
     ``,
-    `our next mutual feedback session is coming up — please head over to <https://mutualfeedback.build3.online|mutualfeedback.build3.online> and complete both your *self-reflection* and your *feedback to build3* before we meet.`,
+    `our next *mutual feedback session* is coming up. before you join, please head to https://mutualfeedback.build3.online and complete both:`,
     ``,
-    `note: both are _mandatory_ before the session.`,
+    `• your *self-reflection*`,
+    `• your *feedback to build3*`,
     ``,
-    `thank you 🙏`,
+    `filling both in *before* the session is _mandatory_. it's what makes the session actually useful, so please don't skip it 🙏`,
+    ``,
+    `takes just a few minutes. thank you!`,
   ].join("\n")
 
   const results: { name: string; sent: boolean; reason?: string; error?: string }[] = []
