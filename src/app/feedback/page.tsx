@@ -74,6 +74,50 @@ const STAGE_LABELS: Record<FeedbackPath, string> = {
 
 const feedbackAccent = SCREEN_ACCENTS.feedback
 
+/** Draft persistence — typed answers survive refreshes and accidental
+ *  navigation. Stored in localStorage with a TTL; cleared on submit/reset. */
+const DRAFT_KEY = "b3-feedback-draft-v1"
+const DRAFT_TTL_MS = 12 * 60 * 60 * 1000
+
+type FeedbackDraft = {
+  savedAt: number
+  deepLinkedPath: FeedbackPath | null
+  phase: Phase
+  currentQ: number
+  answers: Record<string, string>
+  reviewAnswers: Record<string, string>
+  feedbackPath: FeedbackPath | null
+  intendedPath: FeedbackPath | null
+  stages: FeedbackPath[]
+  currentStageIndex: number
+  feedbackFor: Employee | null
+  selfFeedbackForTarget: SelfFeedbackData | null
+}
+
+function readDraft(): FeedbackDraft | null {
+  try {
+    const raw = window.localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const draft = JSON.parse(raw) as FeedbackDraft
+    if (!draft || typeof draft.savedAt !== "number") return null
+    if (Date.now() - draft.savedAt > DRAFT_TTL_MS) {
+      window.localStorage.removeItem(DRAFT_KEY)
+      return null
+    }
+    return draft
+  } catch {
+    return null
+  }
+}
+
+function clearDraft() {
+  try {
+    window.localStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // storage unavailable — nothing to clear
+  }
+}
+
 export default function FeedbackPage() {
   const searchParams = useSearchParams()
   const pathParam = searchParams.get("path")
@@ -112,9 +156,12 @@ export default function FeedbackPage() {
 
   // Form generation — bumped whenever the form restarts (reset, deep-link
   // change, final submit) so history entries from a previous run can't
-  // restore a dead state with wiped answers. The mirror ref lets the
-  // popstate handler read live values without stale closures.
-  const formGen = useRef(0)
+  // restore a dead state with wiped answers. Seeded with the mount time so
+  // entries written before a page refresh can never match the fresh run
+  // (a 0-seed collided with pre-refresh entries and restored empty forms).
+  // The mirror ref lets the popstate handler read live values without
+  // stale closures.
+  const formGen = useRef(Date.now())
   const latestForm = useRef({ phase, currentQ, feedbackPath, currentStageIndex, stages })
   latestForm.current = { phase, currentQ, feedbackPath, currentStageIndex, stages }
 
@@ -135,6 +182,7 @@ export default function FeedbackPage() {
   useEffect(() => {
     if (prevDeepLinkedPath.current === deepLinkedPath) return
     prevDeepLinkedPath.current = deepLinkedPath
+    clearDraft()
     setPhase("identify")
     setFeedbackPath(deepLinkedPath)
     setCurrentQ(0)
@@ -367,8 +415,15 @@ export default function FeedbackPage() {
   )
 
   // Browser history integration: back/forward navigates between questions
+  const historySeededRef = useRef(false)
   useEffect(() => {
-    window.history.replaceState(historyStateFor("identify", 0), "")
+    // Seed the initial entry exactly once — StrictMode re-runs this effect,
+    // and a second replaceState would clobber the entry the draft-restore
+    // effect below writes (sending the first back-press to "identify").
+    if (!historySeededRef.current) {
+      historySeededRef.current = true
+      window.history.replaceState(historyStateFor("identify", 0), "")
+    }
 
     const handlePopState = (event: PopStateEvent) => {
       const state = event.state as Partial<FormHistoryState> | null
@@ -384,7 +439,14 @@ export default function FeedbackPage() {
         const inStagedFlow = state.formPhase === "questions" || state.formPhase === "self_review"
         const stale =
           state.gen !== formGen.current ||
-          (inStagedFlow && live.stages.length > 0 && state.stageIdx !== live.currentStageIndex)
+          // Never step out of the stage_complete celebration — its timer is
+          // already committed to advancing; restoring the submitted stage
+          // would let the timer wipe anything retyped there.
+          live.phase === "stage_complete" ||
+          (inStagedFlow && live.stages.length > 0 && state.stageIdx !== live.currentStageIndex) ||
+          // Entries written for a different lane (same run, pre-lane-switch)
+          // would restore a question index against the wrong question list.
+          (inStagedFlow && !!state.stagePath && !!live.feedbackPath && state.stagePath !== live.feedbackPath)
         if (stale) {
           window.history.replaceState(historyStateFor(live.phase, live.currentQ), "")
           return
@@ -409,7 +471,105 @@ export default function FeedbackPage() {
     return () => window.removeEventListener("popstate", handlePopState)
   }, [animateTransition, historyStateFor])
 
+  // Restore an in-progress draft after refresh/close so typed answers are
+  // never lost. Runs once, after the history effect above, so its
+  // replaceState wins and back-nav repairs target the restored screen.
+  const draftLoadedRef = useRef(false)
+  useEffect(() => {
+    if (draftLoadedRef.current) return
+    draftLoadedRef.current = true
+    if (isKudos) return
+    const draft = readDraft()
+    if (!draft) return
+    // A draft from a different deep link belongs to another flow — drop it.
+    if ((draft.deepLinkedPath ?? null) !== deepLinkedPath) {
+      clearDraft()
+      return
+    }
+    const restorable: Phase[] = ["route", "questions", "self_review"]
+    if (!restorable.includes(draft.phase)) return
+    if ((draft.phase === "questions" || draft.phase === "self_review") && !draft.feedbackPath) return
+    if (draft.phase === "self_review" && (!draft.selfFeedbackForTarget || !draft.feedbackFor)) return
+
+    setPhase(draft.phase)
+    setCurrentQ(draft.currentQ ?? 0)
+    setAnswers(draft.answers ?? {})
+    pendingAnswers.current = { ...(draft.answers ?? {}) }
+    setReviewAnswers(draft.reviewAnswers ?? {})
+    setFeedbackPath(draft.feedbackPath)
+    setIntendedPath(draft.intendedPath ?? null)
+    setStages(draft.stages ?? [])
+    setCurrentStageIndex(draft.currentStageIndex ?? 0)
+    setFeedbackFor(draft.feedbackFor ?? null)
+    setSelfFeedbackForTarget(draft.selfFeedbackForTarget ?? null)
+    // Restored review answers belong to this target — a same-target refetch
+    // must not wipe them.
+    lastReviewTargetRef.current = draft.feedbackFor?.id ?? null
+    // Rebuild the in-form back stack for the restored run — pre-refresh
+    // entries carry a dead generation, so without this the back button
+    // would only "repair" in place instead of walking to earlier questions.
+    const stageOver = { stagePath: draft.feedbackPath, stageIdx: draft.currentStageIndex ?? 0 }
+    const basePhase: Phase = draft.deepLinkedPath ? "identify" : "route"
+    window.history.replaceState(historyStateFor(basePhase, 0, stageOver), "")
+    if (draft.phase !== "route") {
+      window.history.pushState(historyStateFor("questions", 0, stageOver), "")
+      const hasReviewEntry = !!draft.selfFeedbackForTarget && draft.feedbackPath === "full_timer"
+      if (draft.phase === "self_review") {
+        window.history.pushState(historyStateFor("self_review", 0, stageOver), "")
+      } else {
+        const restoredQ = draft.currentQ ?? 0
+        if (hasReviewEntry && restoredQ >= 1) {
+          window.history.pushState(historyStateFor("self_review", 0, stageOver), "")
+        }
+        for (let q = 1; q <= restoredQ; q++) {
+          window.history.pushState(historyStateFor("questions", q, stageOver), "")
+        }
+      }
+    }
+  }, [isKudos, deepLinkedPath, historyStateFor])
+
+  // Persist the draft on every meaningful change. Transient phases are
+  // skipped: identify has nothing worth saving, and stage_complete/
+  // submitting/done must not resurrect answers that were already sent.
+  useEffect(() => {
+    if (!draftLoadedRef.current || isKudos) return
+    if (phase !== "route" && phase !== "questions" && phase !== "self_review") return
+    const draft: FeedbackDraft = {
+      savedAt: Date.now(),
+      deepLinkedPath,
+      phase,
+      currentQ,
+      answers,
+      reviewAnswers,
+      feedbackPath,
+      intendedPath,
+      stages,
+      currentStageIndex,
+      feedbackFor,
+      selfFeedbackForTarget,
+    }
+    try {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    } catch {
+      // storage full/unavailable — the form still works, just without drafts
+    }
+  }, [
+    isKudos,
+    deepLinkedPath,
+    phase,
+    currentQ,
+    answers,
+    reviewAnswers,
+    feedbackPath,
+    intendedPath,
+    stages,
+    currentStageIndex,
+    feedbackFor,
+    selfFeedbackForTarget,
+  ])
+
   const resetForm = useCallback(() => {
+    clearDraft()
     setPhase("route")
     setFeedbackPath(deepLinkedPath)
     setCurrentQ(0)
@@ -469,20 +629,32 @@ export default function FeedbackPage() {
       return
     }
 
+    // Different pipeline, but its first stage is the stage the user was
+    // already mid-way through (e.g. they backed out to the lane picker while
+    // filling self-reflection inside a gated full-timer run, then clicked
+    // "self reflection" directly — or the reverse). Carry the typed answers
+    // over instead of wiping them; only a genuinely different first stage
+    // starts clean.
+    const activeStagePath = stages.length > 0 ? stages[currentStageIndex] ?? null : null
+    const carryOver = activeStagePath !== null && pipeline[0] === activeStagePath
+
     setStages(pipeline)
     setCurrentStageIndex(0)
     setIntendedPath(hasGates ? targetPath : null)
     setFeedbackPath(firstStage)
-    setFeedbackFor(null)
-    setAnswers({})
-    pendingAnswers.current = {}
-    setSelfFeedbackForTarget(null)
-    setReviewAnswers({})
+    if (!carryOver) {
+      setFeedbackFor(null)
+      setAnswers({})
+      pendingAnswers.current = {}
+      setSelfFeedbackForTarget(null)
+      setReviewAnswers({})
+    }
 
+    const startQ = carryOver ? currentQ : 0
     animateTransition(true, () => {
-      setCurrentQ(0)
+      setCurrentQ(startQ)
       setPhase("questions")
-    }, historyStateFor("questions", 0, { stagePath: firstStage, stageIdx: 0 }))
+    }, historyStateFor("questions", startQ, { stagePath: firstStage, stageIdx: 0 }))
   }
 
   function goNext() {
@@ -794,7 +966,10 @@ export default function FeedbackPage() {
 
       // Show stage_complete briefly, then auto-advance. Deliberately NOT
       // written into history — restoring it via back would show a dead
-      // celebration screen with no timer and no buttons.
+      // celebration screen with no timer and no buttons. Drop the draft now:
+      // these answers are submitted, and a refresh during the celebration
+      // must not resurrect (and re-submit) them.
+      clearDraft()
       const nextIdx = currentStageIndex + 1
       const nextStagePath = stages[nextIdx]
       setPhase("stage_complete")
@@ -823,6 +998,8 @@ export default function FeedbackPage() {
 
     // Normal completion — show success. Bump the form generation so back
     // can't wander into the just-submitted form and resubmit a duplicate.
+    // The draft is only cleared once the server confirms the save — if the
+    // POST fails, a refresh restores the answers so nothing is lost.
     formGen.current += 1
     setPhase("done")
     window.history.replaceState(historyStateFor("done", 0), "")
@@ -845,15 +1022,18 @@ export default function FeedbackPage() {
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}))
         console.error("Submit failed:", payload.error)
-        // Show error on the done screen — don't yank user back to form
+        // Show error on the done screen — don't yank user back to form.
+        // Draft is kept so a refresh restores the answers for a retry.
         if (mountedRef.current) {
-          setError(payload.error || "your feedback may not have saved. try sending another one.")
+          setError(payload.error || "your feedback may not have saved. refresh this page to get your answers back and try again.")
         }
+      } else {
+        clearDraft()
       }
     } catch (submissionError) {
       console.error("Submit error:", submissionError)
       if (mountedRef.current) {
-        setError("your feedback may not have saved. check your connection and try again.")
+        setError("your feedback did not send. check your connection, then refresh this page to get your answers back and try again.")
       }
     } finally {
       submittingRef.current = false
@@ -963,6 +1143,7 @@ export default function FeedbackPage() {
 
   /** Fetch target's self-feedback and transition to review or skip to next question */
   const fetchingSelfFeedbackRef = useRef(false)
+  const lastReviewTargetRef = useRef<string | null>(null)
   function fetchSelfFeedbackAndAdvance(employeeId: string) {
     if (fetchingSelfFeedbackRef.current) return
     fetchingSelfFeedbackRef.current = true
@@ -973,7 +1154,13 @@ export default function FeedbackPage() {
         fetchingSelfFeedbackRef.current = false
         if (data?.submission?.answers?.length > 0) {
           setSelfFeedbackForTarget({ answers: data.submission.answers })
-          setReviewAnswers({})
+          // Only wipe review answers when the target actually changed —
+          // re-entering the review step for the same person (back-nav, or
+          // clicking "keep going" on question 0 again) keeps what was typed.
+          if (lastReviewTargetRef.current !== employeeId) {
+            lastReviewTargetRef.current = employeeId
+            setReviewAnswers({})
+          }
           animateTransition(true, () => setPhase("self_review"), historyStateFor("self_review", 0))
         } else {
           // No self-feedback — skip review, go to question 1
