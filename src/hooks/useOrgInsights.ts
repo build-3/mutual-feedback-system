@@ -3,7 +3,8 @@
 import { useMemo } from 'react'
 import { Employee } from '@/lib/types'
 import { SubmissionWithDetails } from '@/app/insights/types'
-import { parseNumericAnswer, contributionKeyToLabel, BUILD3_VALUE_KEYWORDS, extractValuesText } from '@/lib/insights-helpers'
+import { parseNumericAnswer, contributionKeyToLabel, selectedValueTitles } from '@/lib/insights-helpers'
+import { BUILD3_VALUES } from '@/lib/questions'
 
 export interface NpsBreakdown {
   promoters: number
@@ -188,20 +189,14 @@ export function useOrgInsights(
             }
             break
           case 'value_strength': {
-            const text = extractValuesText(ans.answer_value).toLowerCase()
-            for (const keyword of BUILD3_VALUE_KEYWORDS) {
-              if (text.includes(keyword.toLowerCase())) {
-                valueStrengthCounts[keyword] = (valueStrengthCounts[keyword] || 0) + 1
-              }
+            for (const title of selectedValueTitles(ans.answer_value, BUILD3_VALUES)) {
+              valueStrengthCounts[title] = (valueStrengthCounts[title] || 0) + 1
             }
             break
           }
           case 'value_improvement': {
-            const text = extractValuesText(ans.answer_value).toLowerCase()
-            for (const keyword of BUILD3_VALUE_KEYWORDS) {
-              if (text.includes(keyword.toLowerCase())) {
-                valueImprovementCounts[keyword] = (valueImprovementCounts[keyword] || 0) + 1
-              }
+            for (const title of selectedValueTitles(ans.answer_value, BUILD3_VALUES)) {
+              valueImprovementCounts[title] = (valueImprovementCounts[title] || 0) + 1
             }
             break
           }

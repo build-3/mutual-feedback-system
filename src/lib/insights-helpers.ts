@@ -178,6 +178,27 @@ export function extractValuesText(raw: string): string {
   return raw.slice(raw.indexOf(VALUES_SEP) + VALUES_SEP.length)
 }
 
+/** Short display title of a value entry ("Title. Description." → "Title") */
+export function valueShortTitle(value: string): string {
+  const dot = value.indexOf('. ')
+  return (dot === -1 ? value : value.slice(0, dot)).replace(/\.$/, '')
+}
+
+/**
+ * Value names selected in a values_with_text answer, as short titles for
+ * chart bucketing. v2 rows resolve their indices against the passed-in
+ * current list. Legacy rows (no prefix) predate reliable index storage, so
+ * keep the historical behaviour for them: keyword-scan the free text.
+ */
+export function selectedValueTitles(raw: string, valueList: string[]): string[] {
+  if (raw.startsWith(VALUES_VERSION_PREFIX)) {
+    const { values } = parseValuesWithText(raw, valueList)
+    return values.map(valueShortTitle)
+  }
+  const lower = extractValuesText(raw).toLowerCase()
+  return BUILD3_VALUE_KEYWORDS.filter((k) => lower.includes(k.toLowerCase()))
+}
+
 // Numeric question keys — MUST match keys from questions.ts
 export const NUMERIC_KEYS = new Set([
   'recommend_rating',         // intern path, star 1-5

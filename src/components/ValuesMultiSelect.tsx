@@ -23,6 +23,13 @@ function parseValue(raw: string): { selected: Set<number>; text: string } {
     ? raw.slice(VALUES_VERSION_PREFIX.length)
     : raw
 
+  // No separator means this isn't the indices|||text format — it's bare text
+  // (e.g. a voice transcript saved before any chip was picked). Surface it in
+  // the explanation box instead of silently dropping it.
+  if (payload && !payload.includes(SEP)) {
+    return { selected: new Set<number>(), text: payload }
+  }
+
   const parts = payload.split(SEP)
   const indicesPart = parts[0] || ""
   const text = parts.slice(1).join(SEP)

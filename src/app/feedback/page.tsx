@@ -21,6 +21,7 @@ import {
   fieldClasses,
 } from "@/components/ui/brand"
 import { SCREEN_ACCENTS, getFeedbackPathOptions, type FeedbackPath } from "@/lib/brand"
+import { VALUES_SEP, VALUES_VERSION_PREFIX, VALUES_WITH_TEXT_KEYS } from "@/lib/insights-helpers"
 import {
   Question,
   getQuestionsForPath,
@@ -49,6 +50,18 @@ const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 const VALID_PATHS = new Set<FeedbackPath>(["intern", "build3", "full_timer", "self", "adhoc"])
 
 type Phase = "identify" | "route" | "questions" | "self_review" | "stage_complete" | "submitting" | "done"
+
+/** Shape stored in window.history state entries so back/forward can restore
+ *  (or safely refuse to restore) a form position. `gen` marks which "run" of
+ *  the form the entry belongs to; `stagePath`/`stageIdx` pin the entry to a
+ *  pipeline stage so back can never resurface a submitted or wiped stage. */
+type FormHistoryState = {
+  formPhase: Phase
+  formQ: number
+  stagePath: FeedbackPath | null
+  stageIdx: number
+  gen: number
+}
 
 /** Human-readable labels for stage pills in the stepper */
 const STAGE_LABELS: Record<FeedbackPath, string> = {
@@ -97,6 +110,25 @@ export default function FeedbackPage() {
   const pendingPopState = useRef<(() => void) | null>(null)
   const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
 
+  // Form generation — bumped whenever the form restarts (reset, deep-link
+  // change, final submit) so history entries from a previous run can't
+  // restore a dead state with wiped answers. The mirror ref lets the
+  // popstate handler read live values without stale closures.
+  const formGen = useRef(0)
+  const latestForm = useRef({ phase, currentQ, feedbackPath, currentStageIndex, stages })
+  latestForm.current = { phase, currentQ, feedbackPath, currentStageIndex, stages }
+
+  const historyStateFor = useCallback(
+    (formPhase: Phase, formQ: number, over?: { stagePath?: FeedbackPath | null; stageIdx?: number }): FormHistoryState => ({
+      formPhase,
+      formQ,
+      stagePath: over?.stagePath !== undefined ? over.stagePath : latestForm.current.feedbackPath,
+      stageIdx: over?.stageIdx !== undefined ? over.stageIdx : latestForm.current.currentStageIndex,
+      gen: formGen.current,
+    }),
+    []
+  )
+
   // Reset form when the URL path param changes (e.g. switching between
   // /feedback and /feedback?path=adhoc while the component stays mounted)
   const prevDeepLinkedPath = useRef(deepLinkedPath)
@@ -114,8 +146,9 @@ export default function FeedbackPage() {
     setStages([])
     setCurrentStageIndex(0)
     setError("")
-    window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
-  }, [deepLinkedPath])
+    formGen.current += 1
+    window.history.replaceState(historyStateFor("identify", 0, { stagePath: deepLinkedPath, stageIdx: 0 }), "")
+  }, [deepLinkedPath, historyStateFor])
 
   // Check if the current user has completed self-feedback and build3 feedback
   const selfCheckFetchedFor = useRef<string | null>(null)
@@ -178,14 +211,24 @@ export default function FeedbackPage() {
       if (!key) return
       const current = voiceAnswersRef.current[key] || ""
 
-      // For values_with_text, append transcript to the text portion (after |||)
-      const VALUES_SEP = "|||"
-      if (current.includes(VALUES_SEP)) {
-        const sepIdx = current.indexOf(VALUES_SEP)
-        const indices = current.slice(0, sepIdx)
-        const existingText = current.slice(sepIdx + VALUES_SEP.length)
+      // values_with_text answers must keep the "indices|||text" format —
+      // a bare transcript would be parsed as indices and become invisible
+      // (then destroyed by the next chip click).
+      if (VALUES_WITH_TEXT_KEYS.has(key)) {
+        if (current.includes(VALUES_SEP)) {
+          const sepIdx = current.indexOf(VALUES_SEP)
+          const indices = current.slice(0, sepIdx)
+          const existingText = current.slice(sepIdx + VALUES_SEP.length)
+          const spacer = existingText && !existingText.endsWith(" ") ? " " : ""
+          const updated = `${indices}${VALUES_SEP}${existingText}${spacer}${text}`
+          setAnswers((prev) => ({ ...prev, [key]: updated }))
+          return
+        }
+        // No separator yet (nothing picked): store as v2 format with empty
+        // indices, folding in any bare text a previous transcript left behind.
+        const existingText = current.startsWith(VALUES_VERSION_PREFIX) ? "" : current
         const spacer = existingText && !existingText.endsWith(" ") ? " " : ""
-        const updated = `${indices}${VALUES_SEP}${existingText}${spacer}${text}`
+        const updated = `${VALUES_VERSION_PREFIX}${VALUES_SEP}${existingText}${spacer}${text}`
         setAnswers((prev) => ({ ...prev, [key]: updated }))
         return
       }
@@ -292,7 +335,7 @@ export default function FeedbackPage() {
   const pathOptions = getFeedbackPathOptions()
 
   const animateTransition = useCallback(
-    (forward: boolean, cb: () => void, historyState?: { formPhase: string; formQ: number }) => {
+    (forward: boolean, cb: () => void, historyState?: FormHistoryState) => {
       if (isAnimating.current) {
         skipNextPush.current = false
         return
@@ -325,13 +368,27 @@ export default function FeedbackPage() {
 
   // Browser history integration: back/forward navigates between questions
   useEffect(() => {
-    window.history.replaceState({ formPhase: "identify", formQ: 0 }, "")
+    window.history.replaceState(historyStateFor("identify", 0), "")
 
     const handlePopState = (event: PopStateEvent) => {
-      const state = event.state as { formPhase?: Phase; formQ?: number } | null
+      const state = event.state as Partial<FormHistoryState> | null
       if (!state?.formPhase) return
 
       const navigate = () => {
+        const live = latestForm.current
+        // Refuse to restore entries from a previous form run (gen mismatch)
+        // or from a pipeline stage that has already been completed — their
+        // answers were wiped or submitted, so restoring would show empty or
+        // wrong-stage questions. Repair the entry to the current screen
+        // instead, so back never resurrects a dead state.
+        const inStagedFlow = state.formPhase === "questions" || state.formPhase === "self_review"
+        const stale =
+          state.gen !== formGen.current ||
+          (inStagedFlow && live.stages.length > 0 && state.stageIdx !== live.currentStageIndex)
+        if (stale) {
+          window.history.replaceState(historyStateFor(live.phase, live.currentQ), "")
+          return
+        }
         skipNextPush.current = true
         animateTransition(false, () => {
           setPhase(state.formPhase as Phase)
@@ -350,7 +407,7 @@ export default function FeedbackPage() {
 
     window.addEventListener("popstate", handlePopState)
     return () => window.removeEventListener("popstate", handlePopState)
-  }, [animateTransition])
+  }, [animateTransition, historyStateFor])
 
   const resetForm = useCallback(() => {
     setPhase("route")
@@ -364,8 +421,9 @@ export default function FeedbackPage() {
     setStages([])
     setCurrentStageIndex(0)
     setError("")
-    window.history.replaceState({ formPhase: "route", formQ: 0 }, "")
-  }, [deepLinkedPath])
+    formGen.current += 1
+    window.history.replaceState(historyStateFor("route", 0, { stagePath: deepLinkedPath, stageIdx: 0 }), "")
+  }, [deepLinkedPath, historyStateFor])
 
   /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
   const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
@@ -394,6 +452,23 @@ export default function FeedbackPage() {
     const firstStage = pipeline[0]
     const hasGates = pipeline.length > 1
 
+    // Re-entering the same lane (e.g. after pressing back to "pick the lane")
+    // resumes the in-progress run instead of wiping everything typed so far.
+    // The lane button optimistically sets feedbackPath to the clicked lane, so
+    // restore the current stage's path rather than trusting feedbackPath here.
+    const resuming =
+      stages.length === pipeline.length &&
+      stages.every((stage, i) => stage === pipeline[i]) &&
+      currentStageIndex < pipeline.length
+    if (resuming) {
+      const stagePath = stages[currentStageIndex]
+      setFeedbackPath(stagePath)
+      animateTransition(true, () => {
+        setPhase("questions")
+      }, historyStateFor("questions", currentQ, { stagePath, stageIdx: currentStageIndex }))
+      return
+    }
+
     setStages(pipeline)
     setCurrentStageIndex(0)
     setIntendedPath(hasGates ? targetPath : null)
@@ -407,7 +482,7 @@ export default function FeedbackPage() {
     animateTransition(true, () => {
       setCurrentQ(0)
       setPhase("questions")
-    }, { formPhase: "questions", formQ: 0 })
+    }, historyStateFor("questions", 0, { stagePath: firstStage, stageIdx: 0 }))
   }
 
   function goNext() {
@@ -428,7 +503,7 @@ export default function FeedbackPage() {
       if (deepLinkedPath && gateChecksLoaded) {
         startPipeline(deepLinkedPath)
       } else {
-        animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+        animateTransition(true, () => setPhase("route"), historyStateFor("route", 0))
       }
       return
     }
@@ -457,7 +532,7 @@ export default function FeedbackPage() {
       animateTransition(true, () => {
         setCurrentQ(1)
         setPhase("questions")
-      }, { formPhase: "questions", formQ: 1 })
+      }, historyStateFor("questions", 1))
       return
     }
 
@@ -473,6 +548,9 @@ export default function FeedbackPage() {
       }
 
       const question = questions[currentQ]
+      // No question to validate — can happen if history restores a questions
+      // phase after the form was reset. Never crash; just do nothing.
+      if (!question) return
       if (!validateAnswer(question)) return
 
       // Full-timer question 0 (feedback_for): auto-advance from SearchableDropdown
@@ -486,10 +564,7 @@ export default function FeedbackPage() {
 
       const nextQ = getNextQ(currentQ, answers)
       if (nextQ !== null) {
-        animateTransition(true, () => setCurrentQ(nextQ), {
-          formPhase: "questions",
-          formQ: nextQ,
-        })
+        animateTransition(true, () => setCurrentQ(nextQ), historyStateFor("questions", nextQ))
       } else {
         void handleSubmit()
       }
@@ -587,9 +662,8 @@ export default function FeedbackPage() {
       // Strip the v2 prefix that new submissions carry so the indices parse.
       // Without this, a single selection like "v2:0|||" fails parseInt and the
       // validator wrongly reports "no value picked".
-      if (raw.startsWith("v2:")) raw = raw.slice(3)
-      const sep = "|||"
-      const parts = raw.split(sep)
+      if (raw.startsWith(VALUES_VERSION_PREFIX)) raw = raw.slice(VALUES_VERSION_PREFIX.length)
+      const parts = raw.split(VALUES_SEP)
       const indicesPart = parts[0] || ""
       const hasSelection = indicesPart.split(",").some((s) => {
         const n = parseInt(s, 10)
@@ -718,11 +792,12 @@ export default function FeedbackPage() {
         }),
       }).catch(() => {})
 
-      // Show stage_complete briefly, then auto-advance
+      // Show stage_complete briefly, then auto-advance. Deliberately NOT
+      // written into history — restoring it via back would show a dead
+      // celebration screen with no timer and no buttons.
       const nextIdx = currentStageIndex + 1
       const nextStagePath = stages[nextIdx]
       setPhase("stage_complete")
-      window.history.replaceState({ formPhase: "stage_complete", formQ: 0 }, "")
 
       safeTimeout(() => {
         if (!mountedRef.current) return
@@ -737,7 +812,7 @@ export default function FeedbackPage() {
         }
         animateTransition(true, () => {
           setPhase("questions")
-        }, { formPhase: "questions", formQ: 0 })
+        }, historyStateFor("questions", 0, { stagePath: nextStagePath, stageIdx: nextIdx }))
       }, 1500)
       return
     }
@@ -746,9 +821,11 @@ export default function FeedbackPage() {
     if (feedbackPath === "self") setHasSelfFeedback(true)
     if (feedbackPath === "build3") setHasBuild3Feedback(true)
 
-    // Normal completion — show success
+    // Normal completion — show success. Bump the form generation so back
+    // can't wander into the just-submitted form and resubmit a duplicate.
+    formGen.current += 1
     setPhase("done")
-    window.history.replaceState({ formPhase: "done", formQ: 0 }, "")
+    window.history.replaceState(historyStateFor("done", 0), "")
 
     try {
       const res = await fetch("/api/feedback-submit", {
@@ -837,14 +914,12 @@ export default function FeedbackPage() {
       if (voiceState === "recording" || voiceState === "transcribing") return
 
       const question = questions[currentQ]
+      if (!question) return
       if (!validateAnswerFromRef(question)) return
 
       const nextQ = getNextQ(currentQ, pendingAnswers.current)
       if (nextQ !== null) {
-        animateTransition(true, () => setCurrentQ(nextQ), {
-          formPhase: "questions",
-          formQ: nextQ,
-        })
+        animateTransition(true, () => setCurrentQ(nextQ), historyStateFor("questions", nextQ))
       } else {
         void handleSubmit()
       }
@@ -875,9 +950,8 @@ export default function FeedbackPage() {
     }
     if (question.type === "values_with_text") {
       let raw = pendingAnswers.current[question.key] || ""
-      if (raw.startsWith("v2:")) raw = raw.slice(3)
-      const sep = "|||"
-      const indicesPart = raw.split(sep)[0] || ""
+      if (raw.startsWith(VALUES_VERSION_PREFIX)) raw = raw.slice(VALUES_VERSION_PREFIX.length)
+      const indicesPart = raw.split(VALUES_SEP)[0] || ""
       return indicesPart.split(",").some((s) => {
         const n = parseInt(s, 10)
         return Number.isFinite(n) && n >= 0
@@ -900,14 +974,11 @@ export default function FeedbackPage() {
         if (data?.submission?.answers?.length > 0) {
           setSelfFeedbackForTarget({ answers: data.submission.answers })
           setReviewAnswers({})
-          animateTransition(true, () => setPhase("self_review"), { formPhase: "self_review", formQ: 0 })
+          animateTransition(true, () => setPhase("self_review"), historyStateFor("self_review", 0))
         } else {
           // No self-feedback — skip review, go to question 1
           setSelfFeedbackForTarget(null)
-          animateTransition(true, () => setCurrentQ(1), {
-            formPhase: "questions",
-            formQ: 1,
-          })
+          animateTransition(true, () => setCurrentQ(1), historyStateFor("questions", 1))
         }
       })
       .catch(() => {
@@ -915,10 +986,7 @@ export default function FeedbackPage() {
         if (!mountedRef.current) return
         // On error, skip review
         setSelfFeedbackForTarget(null)
-        animateTransition(true, () => setCurrentQ(1), {
-          formPhase: "questions",
-          formQ: 1,
-        })
+        animateTransition(true, () => setCurrentQ(1), historyStateFor("questions", 1))
       })
   }
 
@@ -939,10 +1007,7 @@ export default function FeedbackPage() {
                     return
                   }
                   if (currentQ < questions.length - 1) {
-                    animateTransition(true, () => setCurrentQ((prev) => prev + 1), {
-                      formPhase: "questions",
-                      formQ: currentQ + 1,
-                    })
+                    animateTransition(true, () => setCurrentQ((prev) => prev + 1), historyStateFor("questions", currentQ + 1))
                   }
                 }, 200)
               }
@@ -1255,7 +1320,7 @@ export default function FeedbackPage() {
               if (deepLinkedPath && gateChecksLoaded) {
                 startPipeline(deepLinkedPath)
               } else {
-                animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+                animateTransition(true, () => setPhase("route"), historyStateFor("route", 0))
               }
             }, 300)
           }
@@ -1264,8 +1329,8 @@ export default function FeedbackPage() {
 
       <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:py-3 sm:px-6">
-          {/* Stage stepper pills — only when multi-stage pipeline */}
-          {stages.length > 1 && (
+          {/* Stage stepper pills — only mid-pipeline, not on identify/route */}
+          {stages.length > 1 && phase !== "identify" && phase !== "route" && (
             <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto">
               {stages.map((stage, idx) => {
                 const isDone = idx < currentStageIndex
@@ -1355,7 +1420,7 @@ export default function FeedbackPage() {
                         if (employee) {
                           safeTimeout(() => {
                             if (!mountedRef.current) return
-                            animateTransition(true, () => setPhase("route"), { formPhase: "route", formQ: 0 })
+                            animateTransition(true, () => setPhase("route"), historyStateFor("route", 0))
                           }, 200)
                         }
                       }}
