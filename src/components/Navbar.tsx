@@ -120,6 +120,14 @@ function NavbarInner() {
   }
 
   async function handleSignOut() {
+    // Wipe any in-progress feedback draft so a candid half-written review
+    // never leaks to the next account on a shared machine.
+    // (Key must match DRAFT_KEY in src/app/feedback/page.tsx.)
+    try {
+      window.localStorage.removeItem("b3-feedback-draft-v1")
+    } catch {
+      // storage unavailable — nothing to clear
+    }
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')

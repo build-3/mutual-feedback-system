@@ -28,6 +28,16 @@ async function verifySignedCookie(raw: string): Promise<string | null> {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Route handlers trust x-verified-email, so it must never pass through
+  // from the client. Build request-header overrides that strip any inbound
+  // value and (optionally) carry the middleware-verified one.
+  const cleanRequestHeaders = (verifiedEmail?: string) => {
+    const headers = new Headers(request.headers)
+    headers.delete('x-verified-email')
+    if (verifiedEmail) headers.set('x-verified-email', verifiedEmail)
+    return headers
+  }
+
   // ── Fast paths: skip auth entirely for routes that don't need it ──
   // Root always redirects to /login, no auth needed
   if (pathname === '/') {
@@ -38,21 +48,21 @@ export async function middleware(request: NextRequest) {
 
   // Auth callback handles its own token exchange — no getUser() needed
   if (pathname === '/api/auth/callback') {
-    return NextResponse.next({ request })
+    return NextResponse.next({ request: { headers: cleanRequestHeaders() } })
   }
 
   // Vercel cron — every cron route authenticates itself via CRON_SECRET
   // (Bearer header), never a user session. Match the whole prefix so new
   // cron routes can't be silently blocked by a forgotten allow-list edit.
   if (pathname.startsWith('/api/cron/')) {
-    return NextResponse.next({ request })
+    return NextResponse.next({ request: { headers: cleanRequestHeaders() } })
   }
 
   // Google Chat interactive callback for Kudos++ button. Authenticated at
   // the route level via Bearer JWT from chat@system.gserviceaccount.com,
   // not via user session cookie.
   if (pathname === '/api/kudos/react') {
-    return NextResponse.next({ request })
+    return NextResponse.next({ request: { headers: cleanRequestHeaders() } })
   }
 
   // ── Dev bypass: TEST_EMAIL skips OAuth entirely (non-production only) ──
@@ -63,13 +73,15 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/feedback'
       return NextResponse.redirect(url)
     }
-    const response = NextResponse.next({ request })
-    response.headers.set('x-verified-email', testEmail)
-    return response
+    return NextResponse.next({
+      request: { headers: cleanRequestHeaders(testEmail) },
+    })
   }
 
   // ── Auth check for everything else ──
-  let supabaseResponse = NextResponse.next({ request })
+  let supabaseResponse = NextResponse.next({
+    request: { headers: cleanRequestHeaders() },
+  })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,7 +95,9 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next({
+            request: { headers: cleanRequestHeaders() },
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -132,7 +146,9 @@ export async function middleware(request: NextRequest) {
               cookiesToSet.forEach(({ name, value }) =>
                 request.cookies.set(name, value)
               )
-              supabaseResponse = NextResponse.next({ request })
+              supabaseResponse = NextResponse.next({
+                request: { headers: cleanRequestHeaders() },
+              })
               cookiesToSet.forEach(({ name, value, options }) =>
                 supabaseResponse.cookies.set(name, value, options)
               )
@@ -172,10 +188,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Pass verified user email to downstream route handlers via header
-  // so they can skip the expensive second getUser() call
+  // Pass verified user email to downstream route handlers via a request
+  // header override so they can skip the expensive second getUser() call.
+  // (A response header never reaches route handlers; a request override does.)
   if (user?.email) {
-    supabaseResponse.headers.set('x-verified-email', user.email)
+    const finalResponse = NextResponse.next({
+      request: { headers: cleanRequestHeaders(user.email) },
+    })
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie)
+    })
+    return finalResponse
   }
 
   return supabaseResponse

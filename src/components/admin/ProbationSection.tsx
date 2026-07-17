@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   BrandPanel,
   SectionHeading,
@@ -114,9 +114,15 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
   const [actionError, setActionError] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
+  // Guards against a slow response for a previous employee landing after
+  // the user has already switched profiles (stale data under the new name).
+  const latestEmployeeIdRef = useRef(employeeId)
+  latestEmployeeIdRef.current = employeeId
+
   const loadData = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/probation", { cache: "no-store" })
+      if (latestEmployeeIdRef.current !== employeeId) return
       // Non-admins (e.g. an intern viewing their own /insights page) get 401/403.
       // Hide the section silently instead of showing an error.
       if (res.status === 401 || res.status === 403) {
@@ -127,6 +133,7 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
       }
       if (!res.ok) throw new Error("failed to load data")
       const data = await res.json()
+      if (latestEmployeeIdRef.current !== employeeId) return
       const all: ProbationRecord[] = data.probations ?? []
       const filtered = employeeId ? all.filter((p) => p.employee_id === employeeId) : all
       setProbations(filtered)

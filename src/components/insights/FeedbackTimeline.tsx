@@ -14,6 +14,7 @@ import {
   VALUES_SEP,
   parseValuesWithText as parseValuesWithTextRaw,
   contributionKeyToLabel,
+  valueShortTitle,
 } from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
@@ -352,9 +353,10 @@ const AnswerDisplay = memo(function AnswerDisplay({
             {parsed.values.map((v, i) => (
               <span
                 key={i}
+                title={v}
                 className="inline-block rounded-full border border-brand-peach/40 bg-brand-peach/10 px-3 py-1 text-xs font-medium text-ink"
               >
-                {v.replace(/\.$/, "")}
+                {valueShortTitle(v)}
               </span>
             ))}
           </div>

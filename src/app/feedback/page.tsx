@@ -81,6 +81,9 @@ const DRAFT_TTL_MS = 12 * 60 * 60 * 1000
 
 type FeedbackDraft = {
   savedAt: number
+  /** Employee id of the account the draft belongs to — a draft written by a
+   *  different signed-in user on the same machine must never be restored. */
+  userId: string | null
   deepLinkedPath: FeedbackPath | null
   phase: Phase
   currentQ: number
@@ -322,6 +325,13 @@ export default function FeedbackPage() {
           birthday: data.employee.birthday ?? null,
         }
         setSubmitter(me)
+        // Draft hygiene: a draft saved under a different account (shared
+        // machine) must not leak into this session — wipe it and reset.
+        const existingDraft = readDraft()
+        if (existingDraft?.userId && existingDraft.userId !== me.id) {
+          clearDraft()
+          resetFormRef.current?.()
+        }
         if (!data.employee.birthday) {
           setShowBirthdayDialog(true)
         }
@@ -536,6 +546,7 @@ export default function FeedbackPage() {
     if (phase !== "route" && phase !== "questions" && phase !== "self_review") return
     const draft: FeedbackDraft = {
       savedAt: Date.now(),
+      userId: submitter?.id ?? null,
       deepLinkedPath,
       phase,
       currentQ,
@@ -566,7 +577,12 @@ export default function FeedbackPage() {
     currentStageIndex,
     feedbackFor,
     selfFeedbackForTarget,
+    submitter,
   ])
+
+  // Ref indirection so effects declared above (e.g. the /api/me prefill)
+  // can trigger a reset without depending on the callback identity.
+  const resetFormRef = useRef<(() => void) | null>(null)
 
   const resetForm = useCallback(() => {
     clearDraft()
@@ -584,6 +600,7 @@ export default function FeedbackPage() {
     formGen.current += 1
     window.history.replaceState(historyStateFor("route", 0, { stagePath: deepLinkedPath, stageIdx: 0 }), "")
   }, [deepLinkedPath, historyStateFor])
+  resetFormRef.current = resetForm
 
   /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
   const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
@@ -951,18 +968,42 @@ export default function FeedbackPage() {
       if (feedbackPath === "self") setHasSelfFeedback(true)
       if (feedbackPath === "build3") setHasBuild3Feedback(true)
 
-      // Submit in background, don't wait
-      submittingRef.current = false
+      // Submit in the background so the celebration isn't blocked — but hold
+      // the double-submit guard until the request settles, keep the request
+      // alive across a refresh, and surface failures: a silently dropped gate
+      // stage is unrecoverable data loss.
+      const gatePath = feedbackPath
       fetch("/api/feedback-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify({
           feedbackForId: feedbackPath === "build3" || feedbackPath === "self" ? null : feedbackFor?.id || null,
           feedbackType: feedbackPath as FeedbackType,
           answers: answerRows,
           sessionId: (feedbackPath === "intern" || feedbackPath === "full_timer") ? sessionId : null,
         }),
-      }).catch(() => {})
+      })
+        .then(async (res) => {
+          if (res.ok || !mountedRef.current) return
+          const payload = await res.json().catch(() => ({}))
+          // Re-open the gate so the stage is asked again instead of vanishing.
+          if (gatePath === "self") setHasSelfFeedback(false)
+          if (gatePath === "build3") setHasBuild3Feedback(false)
+          setError(
+            payload.error ||
+              `your ${gatePath === "self" ? "self-reflection" : "build3 feedback"} did not save — it will be asked again.`
+          )
+        })
+        .catch(() => {
+          if (!mountedRef.current) return
+          if (gatePath === "self") setHasSelfFeedback(false)
+          if (gatePath === "build3") setHasBuild3Feedback(false)
+          setError("your last stage did not save. check your connection — it will be asked again.")
+        })
+        .finally(() => {
+          submittingRef.current = false
+        })
 
       // Show stage_complete briefly, then auto-advance. Deliberately NOT
       // written into history — restoring it via back would show a dead
@@ -1324,9 +1365,10 @@ export default function FeedbackPage() {
         if (!sliderVal) {
           queueMicrotask(() => setAnswer(question.key, "50"))
         }
+        const parsedSlider = Number(answers[question.key])
         return (
           <TrustSlider
-            value={Number(answers[question.key]) || 50}
+            value={Number.isFinite(parsedSlider) && sliderVal ? parsedSlider : 50}
             min={question.min}
             max={question.max}
             onChange={(value) => setAnswer(question.key, String(value))}
@@ -1339,7 +1381,8 @@ export default function FeedbackPage() {
         if (!compoundSliderVal) {
           queueMicrotask(() => setAnswer(question.key, "50"))
         }
-        const sliderNum = Number(answers[question.key]) || 50
+        const parsedCompound = Number(answers[question.key])
+        const sliderNum = Number.isFinite(parsedCompound) && compoundSliderVal ? parsedCompound : 50
         const fu = question.followup
         const isHigh = fu ? sliderNum >= fu.threshold : false
         const followupPrompt = fu ? (isHigh ? fu.highPrompt : fu.lowPrompt) : ""

@@ -11,7 +11,8 @@ const PAGE_SIZE = 1000
  */
 async function fetchAll<T>(
   table: string,
-  columns: string
+  columns: string,
+  orderBy = "id"
 ): Promise<{ data: T[]; error: unknown }> {
   const supabaseAdmin = getSupabaseAdmin()
   const allRows: T[] = []
@@ -19,9 +20,12 @@ async function fetchAll<T>(
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    // Stable order is required: without it Postgres may shuffle rows
+    // between page requests, duplicating some and dropping others.
     const { data, error } = await supabaseAdmin
       .from(table)
       .select(columns)
+      .order(orderBy, { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1)
 
     if (error) return { data: [], error }
@@ -44,16 +48,15 @@ export async function fetchDashboardData() {
 
   const [employeeResult, submissionResult, answerResult, responseResult] =
     await Promise.all([
-      supabaseAdmin
-        .from("employees")
-        .select("id, name, role, email, birthday, is_active, created_at")
-        .order("name")
-        .range(0, PAGE_SIZE - 1),
-      supabaseAdmin
-        .from("feedback_submissions")
-        .select("id, submitted_by_id, feedback_for_id, feedback_type, notified_at, created_at")
-        .order("created_at", { ascending: false })
-        .range(0, PAGE_SIZE - 1),
+      fetchAll(
+        "employees",
+        "id, name, role, email, birthday, is_active, created_at",
+        "name"
+      ),
+      fetchAll(
+        "feedback_submissions",
+        "id, submitted_by_id, feedback_for_id, feedback_type, notified_at, created_at"
+      ),
       fetchAll(
         "feedback_answers",
         "id, submission_id, question_key, question_text, answer_value, created_at"
@@ -74,10 +77,15 @@ export async function fetchDashboardData() {
     return { error: firstError }
   }
 
+  // Consumers (timeline, admin browser) expect newest-first submissions —
+  // pagination fetches by id for stability, so restore the display order here.
+  const submissions = (submissionResult.data || []) as { created_at: string }[]
+  submissions.sort((a, b) => b.created_at.localeCompare(a.created_at))
+
   return {
     data: {
       employees: employeeResult.data || [],
-      submissions: submissionResult.data || [],
+      submissions,
       answers: answerResult.data || [],
       responses: responseResult.data || [],
     },

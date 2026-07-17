@@ -38,6 +38,7 @@ export async function GET(request: Request) {
     .from("employees")
     .select("id, name, email")
     .eq("birthday", today)
+    .eq("is_active", true)
 
   if (error) {
     return NextResponse.json({ error: "DB query failed." }, { status: 500 })
@@ -47,9 +48,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ wished: 0, today })
   }
 
+  // Dedup: a retried/double-fired cron must not wish the same person twice.
+  const { data: alreadySentRows } = await supabaseAdmin
+    .from("birthday_notifications" as never)
+    .select("employee_ids")
+    .eq("notification_type", "day_of")
+    .eq("target_month", today)
+  const alreadyWished = new Set(
+    ((alreadySentRows ?? []) as { employee_ids: string[] | null }[]).flatMap(
+      (r) => r.employee_ids ?? []
+    )
+  )
+
   const results: { name: string; success: boolean; error?: string }[] = []
 
   for (const person of birthdayPeople) {
+    if (alreadyWished.has(person.id)) {
+      results.push({ name: person.name, success: true, error: "already wished — skipped" })
+      continue
+    }
     try {
       const photoUrl = person.email ? await getProfilePhotoUrl(person.email) : null
       const message = BIRTHDAY_MESSAGES[Math.floor(Math.random() * BIRTHDAY_MESSAGES.length)]

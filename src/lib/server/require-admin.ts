@@ -68,13 +68,16 @@ async function lookupEmployee(email: string) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data: employee, error } = await supabaseAdmin
     .from("employees")
-    .select("id, name, role, email, birthday")
+    .select("id, name, role, email, birthday, is_active")
     .eq("email", email)
     .single()
 
   if (error || !employee) return null
+  // Deactivated employees keep a valid Google session until it expires —
+  // without this check they retain full app (and admin) access.
+  if (employee.is_active === false) return null
 
-  const normalized = { ...employee, email: employee.email ?? null, birthday: employee.birthday ?? null }
+  const normalized = { id: employee.id, name: employee.name, role: employee.role, email: employee.email ?? null, birthday: employee.birthday ?? null }
   setCachedEmployee(email, normalized)
   return normalized
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Navbar from "@/components/Navbar"
 import { SectionHeading, EmptyState } from "@/components/ui/brand"
@@ -129,7 +129,7 @@ function InsightsContent() {
     setLoadError(null)
 
     try {
-      const res = await fetch("/api/insights/data")
+      const res = await fetch("/api/insights/data", { cache: "no-store" })
       const payload = await res.json().catch(() => ({}))
 
       if (!res.ok) {
@@ -198,13 +198,20 @@ function InsightsContent() {
       .catch(() => {})
   }, [])
 
-  // Auto-select employee from URL param, or fall back to current user
+  // Auto-select employee from URL param, or fall back to current user.
+  // Runs once per navigation — without the guard, every dashboard refetch
+  // (new `employees` array identity) or late /api/me response would snap
+  // the view back to the initial person while the user is browsing someone
+  // else's profile.
+  const autoSelectedRef = useRef(false)
   useEffect(() => {
+    if (autoSelectedRef.current) return
     if (employees.length === 0) return
     const employeeParam = searchParams.get("employee")
     if (employeeParam) {
       const exists = employees.some((e) => e.id === employeeParam)
       if (exists) {
+        autoSelectedRef.current = true
         setSelectedEmployeeId(employeeParam)
         setShowOrgOverview(false)
       }
@@ -214,6 +221,7 @@ function InsightsContent() {
     if (currentUser) {
       const exists = employees.some((e) => e.id === currentUser.id)
       if (exists) {
+        autoSelectedRef.current = true
         setSelectedEmployeeId(currentUser.id)
         setShowOrgOverview(false)
       }

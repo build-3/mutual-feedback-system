@@ -378,7 +378,7 @@ export async function getProbationOverview(): Promise<{
       .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
       .eq("feedback_type", "intern")
       .in("feedback_for_id", employeeIds)
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: false }),
   ])
 
   const emps = empsResult.data ?? []
@@ -445,8 +445,8 @@ export async function getProbationOverview(): Promise<{
       return ms >= startMs && ms <= endMs
     })
 
-    // Build feedback history — full answers only for the last 10 (UI cap)
-    const recentIds = new Set(internSubmissions.slice(-10).map((s) => s.id))
+    // History is newest-first; full answers only for the newest 10 (UI cap)
+    const recentIds = new Set(internSubmissions.slice(0, 10).map((s) => s.id))
     const feedbackHistory: FeedbackEntry[] = internSubmissions.map((s) => {
       const answers = answersBySubmission.get(s.id) ?? []
       const contribAnswer = answers.find((a) => a.question_key === "contribution_level")
