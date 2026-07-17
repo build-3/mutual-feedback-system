@@ -584,12 +584,14 @@ export default function FeedbackPage() {
   // can trigger a reset without depending on the callback identity.
   const resetFormRef = useRef<(() => void) | null>(null)
 
+  /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
+  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
+
   const resetForm = useCallback(() => {
     clearDraft()
-    setPhase("route")
-    setFeedbackPath(deepLinkedPath)
     setCurrentQ(0)
     setAnswers({})
+    pendingAnswers.current = {}
     setFeedbackFor(null)
     setSelfFeedbackForTarget(null)
     setReviewAnswers({})
@@ -598,12 +600,40 @@ export default function FeedbackPage() {
     setCurrentStageIndex(0)
     setError("")
     formGen.current += 1
-    window.history.replaceState(historyStateFor("route", 0, { stagePath: deepLinkedPath, stageIdx: 0 }), "")
-  }, [deepLinkedPath, historyStateFor])
-  resetFormRef.current = resetForm
 
-  /** Whether the gate checks (self-feedback, build3-feedback) have finished loading. */
-  const gateChecksLoaded = hasSelfFeedback !== null && hasBuild3Feedback !== null
+    // "Send another one" must restart the SAME flow the user arrived in. For a
+    // deep-linked entry (e.g. quick note = ?path=adhoc) the lane picker doesn't
+    // even list that option, so jump straight back into a fresh run of it
+    // instead of dumping the user on an unrelated picker. Only entries that
+    // began at the picker return to the picker.
+    const deepGateBlocked =
+      deepLinkedPath !== null &&
+      deepLinkedPath !== "adhoc" &&
+      deepLinkedPath !== "self" &&
+      deepLinkedPath !== "build3" &&
+      !gateChecksLoaded
+
+    if (deepLinkedPath && !deepGateBlocked) {
+      setFeedbackPath(deepLinkedPath)
+      window.history.replaceState(
+        historyStateFor("identify", 0, { stagePath: deepLinkedPath, stageIdx: 0 }),
+        ""
+      )
+      startPipeline(deepLinkedPath, { fresh: true })
+      return
+    }
+
+    // No deep link (or gates not ready yet) — return to the appropriate entry.
+    const base: Phase = deepLinkedPath ? "identify" : "route"
+    setPhase(base)
+    setFeedbackPath(deepLinkedPath)
+    window.history.replaceState(
+      historyStateFor(base, 0, { stagePath: deepLinkedPath, stageIdx: 0 }),
+      ""
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkedPath, historyStateFor, gateChecksLoaded])
+  resetFormRef.current = resetForm
 
   /** Build the ordered pipeline of stages for a target path, given gate status.
    *  Only gates that are definitively not completed (false) are included.
@@ -620,8 +650,10 @@ export default function FeedbackPage() {
   }
 
   /** Start the pipeline for a chosen path — sets up stages and jumps to first question.
-   *  For paths that need gates (full_timer, intern), waits for gate checks to load. */
-  function startPipeline(targetPath: FeedbackPath) {
+   *  For paths that need gates (full_timer, intern), waits for gate checks to load.
+   *  `fresh` forces a brand-new run (used by "send another one"), bypassing the
+   *  resume/carry-over heuristics that would otherwise reuse stale progress. */
+  function startPipeline(targetPath: FeedbackPath, opts?: { fresh?: boolean }) {
     // adhoc, self, and build3 don't need gate checks
     const needsGates = targetPath !== "adhoc" && targetPath !== "self" && targetPath !== "build3"
     if (needsGates && !gateChecksLoaded) return
@@ -634,6 +666,7 @@ export default function FeedbackPage() {
     // The lane button optimistically sets feedbackPath to the clicked lane, so
     // restore the current stage's path rather than trusting feedbackPath here.
     const resuming =
+      !opts?.fresh &&
       stages.length === pipeline.length &&
       stages.every((stage, i) => stage === pipeline[i]) &&
       currentStageIndex < pipeline.length
@@ -653,7 +686,7 @@ export default function FeedbackPage() {
     // over instead of wiping them; only a genuinely different first stage
     // starts clean.
     const activeStagePath = stages.length > 0 ? stages[currentStageIndex] ?? null : null
-    const carryOver = activeStagePath !== null && pipeline[0] === activeStagePath
+    const carryOver = !opts?.fresh && activeStagePath !== null && pipeline[0] === activeStagePath
 
     setStages(pipeline)
     setCurrentStageIndex(0)
