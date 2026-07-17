@@ -1,8 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
+import { createClient } from "@/lib/supabase/client"
 import Navbar from "@/components/Navbar"
 import KudosCard from "@/components/KudosCard"
 import SearchableDropdown from "@/components/SearchableDropdown"
@@ -122,6 +123,7 @@ function clearDraft() {
 }
 
 export default function FeedbackPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const pathParam = searchParams.get("path")
   const isKudos = pathParam === "kudos"
@@ -341,6 +343,23 @@ export default function FeedbackPage() {
       })
   }, [])
 
+  // The identify screen used to offer a "pick someone else" dropdown, but the
+  // server always attributes submissions to the signed-in session user (see
+  // src/app/api/feedback-submit/route.ts) — picking a different name never
+  // changed who the feedback was recorded as, it just misled the submitter.
+  // If this really isn't your account, the honest fix is to sign out.
+  // (Same sign-out call as Navbar.tsx's handleSignOut.)
+  const handleWrongAccount = useCallback(async () => {
+    try {
+      window.localStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // storage unavailable — nothing to clear
+    }
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/login")
+  }, [router])
+
   const questions: Question[] = useMemo(() => {
     if (!feedbackPath) return []
     return getQuestionsForPath(feedbackPath)
@@ -354,6 +373,16 @@ export default function FeedbackPage() {
 
   const { progress } = useMemo(() => {
     if (phase === "identify" || phase === "route") {
+      // Deep-linked quick notes (?path=adhoc) skip the "route" picker entirely and
+      // go identify -> questions directly. Treat identify as step 1 of the same
+      // step count the question phase will use below, so the bar advances
+      // smoothly instead of jumping from a flat 5% straight to ~33%.
+      if (phase === "identify" && feedbackPath === "adhoc") {
+        const qCount = questions.length - adhocSkipped
+        const total = qCount + 1
+        const pct = total > 0 ? Math.round((1 / total) * 100) : 5
+        return { progress: Math.max(pct, 5), totalSteps: total, currentStep: 1 }
+      }
       return { progress: phase === "identify" ? 5 : 10, totalSteps: 2, currentStep: phase === "identify" ? 1 : 2 }
     }
 
@@ -385,8 +414,14 @@ export default function FeedbackPage() {
     }
 
     // Single stage
-    const qCount = questions.length - adhocSkipped - build3Skipped + (hasReviewStep ? 1 : 0)
-    const step = phase === "self_review" ? 1 : currentQ + 1 + (hasReviewStep ? 1 : 0)
+    // adhoc is only ever reached via deep link (the lane picker never lists it),
+    // so it has no separate "route" screen — count the identify screen itself
+    // as step 1 here so the bar continues the same sequence it started above
+    // instead of jumping straight to a large fraction.
+    const isAdhoc = feedbackPath === "adhoc"
+    const introSteps = isAdhoc ? 1 : 0
+    const qCount = questions.length - adhocSkipped - build3Skipped + (hasReviewStep ? 1 : 0) + introSteps
+    const step = (phase === "self_review" ? 1 : currentQ + 1 + (hasReviewStep ? 1 : 0)) + introSteps
     const pct = qCount > 0 ? Math.round((step / qCount) * 100) : 0
     return { progress: Math.max(pct, 5), totalSteps: qCount, currentStep: step }
   }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, hasReviewStep])
@@ -1573,10 +1608,10 @@ export default function FeedbackPage() {
     <div className="min-h-screen">
       <Navbar />
       {showBirthdayDialog && (
-        <BirthdayDialog onSaved={() => {
+        <BirthdayDialog onSaved={(birthday) => {
           setShowBirthdayDialog(false)
           if (submitter && phase === "identify") {
-            const updated = { ...submitter, birthday: new Date().toISOString().split('T')[0] }
+            const updated = { ...submitter, birthday }
             setSubmitter(updated)
             safeTimeout(() => {
               if (!mountedRef.current) return
@@ -1658,7 +1693,7 @@ export default function FeedbackPage() {
                     eyebrow="who are we hearing from?"
                     title={submitter ? `hey, ${submitter.name.split(" ")[0]}` : "start with your name"}
                     description={submitter
-                      ? "this is you, right? hit keep going to start, or switch below."
+                      ? "this is you, right? hit keep going to start."
                       : "we keep it simple. pick yourself first, then we will route the rest."}
                   />
                   <div className="mt-8">
@@ -1669,10 +1704,10 @@ export default function FeedbackPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSubmitter(null)}
+                        onClick={handleWrongAccount}
                         className="text-sm text-muted underline decoration-line underline-offset-4 hover:text-ink"
                       >
-                        not you? pick someone else
+                        wrong account? sign out
                       </button>
                     </div>
                   ) : (

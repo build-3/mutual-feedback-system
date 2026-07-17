@@ -132,6 +132,55 @@ export async function requireAdmin(): Promise<
 }
 
 /**
+ * Verify that the current request is from an authenticated user
+ * whose employee record has role === "admin" or role === "full_timer".
+ */
+export async function requireAdminOrFullTimer(): Promise<
+  | { employee: { id: string; name: string; role: string; email: string | null; birthday: string | null;  }; error?: never }
+  | { employee?: never; error: NextResponse }
+> {
+  if (!hasServerSupabaseConfig()) {
+    return {
+      error: NextResponse.json(
+        { error: "Server configuration is incomplete." },
+        { status: 503 }
+      ),
+    }
+  }
+
+  const email = await resolveUserEmail()
+  if (!email) {
+    return {
+      error: NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      ),
+    }
+  }
+
+  const employee = await lookupEmployee(email)
+  if (!employee) {
+    return {
+      error: NextResponse.json(
+        { error: "Your account is not linked to an employee record." },
+        { status: 403 }
+      ),
+    }
+  }
+
+  if (employee.role !== "admin" && employee.role !== "full_timer") {
+    return {
+      error: NextResponse.json(
+        { error: "Only admins and full timers can add people." },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return { employee }
+}
+
+/**
  * Verify the current request is from any authenticated @build3.org user.
  * Returns their employee record if found (or null if no employee record).
  */

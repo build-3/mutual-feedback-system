@@ -1,6 +1,6 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useState } from "react"
 import { timeAgo } from "@/lib/date-utils"
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts"
 import { SubmissionWithDetails } from "@/app/insights/types"
@@ -74,6 +74,54 @@ function NpsBar({
   )
 }
 
+// Attribution names are shown via title= (hover) which is unreachable on touch.
+// NpsSegmentLabel adds a tap-to-toggle popover alongside the hover tooltip so
+// touch users can also see who's in each segment.
+function NpsSegmentLabel({
+  segmentKey,
+  names,
+  label,
+  openSegment,
+  setOpenSegment,
+}: {
+  segmentKey: string
+  names: string[]
+  label: string
+  openSegment: string | null
+  setOpenSegment: (key: string | null) => void
+}) {
+  const isOpen = openSegment === segmentKey
+
+  return (
+    <span
+      title={names.join(", ") || "no one"}
+      className="relative cursor-help"
+      onClick={(e) => {
+        e.stopPropagation()
+        setOpenSegment(isOpen ? null : segmentKey)
+      }}
+    >
+      {label}
+      {isOpen && (
+        <div className="absolute left-0 top-full z-10 mt-1 min-w-[10rem] rounded-lg border border-black/[0.06] bg-white px-3 py-2 shadow-lg">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+            {label}
+          </p>
+          {names.length > 0 ? (
+            names.map((name, i) => (
+              <p key={i} className="text-xs font-medium text-ink">
+                {name}
+              </p>
+            ))
+          ) : (
+            <p className="text-xs font-medium text-ink">no one</p>
+          )}
+        </div>
+      )}
+    </span>
+  )
+}
+
 function getContributionRows(distribution: Record<string, number>) {
   const rows = [
     { label: "finding their feet", match: ["a", "finding"], color: CHART_COLORS.neutral },
@@ -104,6 +152,8 @@ export default memo(function OrgOverview({
   onResponseSaved,
 }: Props) {
   const employeeNameMap = new Map(employees.map((e) => [e.id, e.name]))
+  const [openNpsSegment, setOpenNpsSegment] = useState<string | null>(null)
+  const [openContributionRow, setOpenContributionRow] = useState<string | null>(null)
   const {
     totalEmployees,
     avgTrustBattery,
@@ -147,7 +197,13 @@ export default memo(function OrgOverview({
     .filter((row) => row.strength > 0 || row.improvement > 0)
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6"
+      onClick={() => {
+        setOpenNpsSegment(null)
+        setOpenContributionRow(null)
+      }}
+    >
       <SectionHeading
         accent="sky"
         eyebrow="org overview"
@@ -159,8 +215,12 @@ export default memo(function OrgOverview({
         <StatPill
           accent="sky"
           label="nps"
-          value={npsScore > 0 ? `+${npsScore}` : npsScore}
-          detail={`${promoters} promoters, ${passives} passives, ${detractors} detractors`}
+          value={npsScore !== null ? (npsScore > 0 ? `+${npsScore}` : npsScore) : "n/a"}
+          detail={
+            npsScore !== null
+              ? `${promoters} promoters, ${passives} passives, ${detractors} detractors`
+              : "not enough data yet"
+          }
         />
         <StatPill
           accent="sage"
@@ -199,16 +259,20 @@ export default memo(function OrgOverview({
                 className="text-4xl sm:text-6xl font-bold tracking-[-0.09em]"
                 style={{
                   color:
-                    npsScore >= 30
+                    npsScore === null
+                      ? CHART_COLORS.neutral
+                      : npsScore >= 30
                       ? CHART_COLORS.success
                       : npsScore >= 0
                       ? CHART_COLORS.secondary
                       : CHART_COLORS.danger,
                 }}
               >
-                {npsScore > 0 ? `+${npsScore}` : npsScore}
+                {npsScore !== null ? (npsScore > 0 ? `+${npsScore}` : npsScore) : "n/a"}
               </div>
-              <div className="mt-1 text-sm text-muted">team recommendation score.</div>
+              <div className="mt-1 text-sm text-muted">
+                {npsScore !== null ? "team recommendation score." : "not enough data yet"}
+              </div>
             </div>
             <div className="min-w-0 flex-1">
               <NpsBar
@@ -217,24 +281,33 @@ export default memo(function OrgOverview({
                 detractors={detractors}
               />
               <div className="mt-3 flex flex-wrap gap-4 text-xs tracking-[0.08em] text-muted">
-                <span
-                  title={npsBreakdown.detractorNames.join(", ") || "no one"}
-                  className="cursor-help"
-                >
-                  {detractors} detractors
-                </span>
-                <span
-                  title={npsBreakdown.passiveNames.join(", ") || "no one"}
-                  className="cursor-help"
-                >
-                  {passives} passives
-                </span>
-                <span
-                  title={npsBreakdown.promoterNames.join(", ") || "no one"}
-                  className="cursor-help"
-                >
-                  {promoters} promoters
-                </span>
+                {npsScore !== null ? (
+                  <>
+                    <NpsSegmentLabel
+                      segmentKey="detractors"
+                      names={npsBreakdown.detractorNames}
+                      label={`${detractors} detractors`}
+                      openSegment={openNpsSegment}
+                      setOpenSegment={setOpenNpsSegment}
+                    />
+                    <NpsSegmentLabel
+                      segmentKey="passives"
+                      names={npsBreakdown.passiveNames}
+                      label={`${passives} passives`}
+                      openSegment={openNpsSegment}
+                      setOpenSegment={setOpenNpsSegment}
+                    />
+                    <NpsSegmentLabel
+                      segmentKey="promoters"
+                      names={npsBreakdown.promoterNames}
+                      label={`${promoters} promoters`}
+                      openSegment={openNpsSegment}
+                      setOpenSegment={setOpenNpsSegment}
+                    />
+                  </>
+                ) : (
+                  <span>n/a</span>
+                )}
               </div>
             </div>
           </div>
@@ -333,9 +406,18 @@ export default memo(function OrgOverview({
               const tooltip = attribution
                 .map((a) => `${a.raterName} → ${a.targetName}`)
                 .join("\n")
+              const isOpen = openContributionRow === row.label
 
               return (
-                <div key={row.label} title={tooltip || undefined}>
+                <div
+                  key={row.label}
+                  className="relative"
+                  title={tooltip || undefined}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setOpenContributionRow(isOpen ? null : row.label)
+                  }}
+                >
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="font-semibold capitalize text-ink">{row.label}</span>
                     <span className="text-muted">
@@ -348,6 +430,18 @@ export default memo(function OrgOverview({
                       style={{ width: `${pct}%`, backgroundColor: row.color }}
                     />
                   </div>
+                  {isOpen && attribution.length > 0 && (
+                    <div className="absolute left-0 top-full z-10 mt-1 max-w-xs rounded-lg border border-black/[0.06] bg-white px-3 py-2 shadow-lg">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                        rated by
+                      </p>
+                      {attribution.map((a, i) => (
+                        <p key={i} className="text-xs font-medium text-ink">
+                          {a.raterName} → {a.targetName}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}

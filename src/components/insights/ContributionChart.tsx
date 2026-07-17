@@ -88,6 +88,7 @@ export default memo(function ContributionChart({ contributionCounts, contributio
   })
 
   return (
+    <div onClick={() => setHoveredLabel(null)}>
     <BrandPanel accent="lavender" tone="soft" className="brand-lines p-4 sm:p-6">
       <Eyebrow accent="lavender">contribution view</Eyebrow>
       <h3 className="mt-1.5 sm:mt-2 text-base sm:text-lg font-bold tracking-[-0.04em] text-ink">
@@ -109,6 +110,11 @@ export default memo(function ContributionChart({ contributionCounts, contributio
               className="relative"
               onMouseEnter={() => row.count > 0 ? setHoveredLabel(row.label) : undefined}
               onMouseLeave={() => setHoveredLabel(null)}
+              onClick={(e) => {
+                if (row.count === 0) return
+                e.stopPropagation()
+                setHoveredLabel(isHovered ? null : row.label)
+              }}
             >
               <div className="mb-1 sm:mb-1.5 flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-medium tracking-[-0.01em] text-ink">
@@ -150,5 +156,6 @@ export default memo(function ContributionChart({ contributionCounts, contributio
         })}
       </div>
     </BrandPanel>
+    </div>
   )
 })

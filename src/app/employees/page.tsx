@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import Navbar from "@/components/Navbar"
 import {
   BrandPanel,
   EmptyState,
-  Modal,
   NoticeCard,
   SectionHeading,
   buttonClasses,
@@ -16,22 +16,6 @@ import { Employee } from "@/lib/types"
 
 const employeesAccent = SCREEN_ACCENTS.employees
 
-const CANCEL_BTN = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
-const CONFIRM_BTN = buttonClasses({ accent: employeesAccent, variant: "solid", size: "sm" })
-
-function ModalDeleteActions({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
-  return (
-    <div className="flex flex-wrap gap-3">
-      <button type="button" className={CANCEL_BTN.className} style={CANCEL_BTN.style} onClick={onCancel}>
-        keep them
-      </button>
-      <button type="button" className={CONFIRM_BTN.className} style={CONFIRM_BTN.style} onClick={onConfirm}>
-        remove from roster
-      </button>
-    </div>
-  )
-}
-
 type NoticeState = {
   tone: "success" | "error"
   message: string
@@ -40,19 +24,34 @@ type NoticeState = {
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"intern" | "full_timer">("full_timer")
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState<NoticeState>(null)
-  const [pendingDelete, setPendingDelete] = useState<Employee | null>(null)
+  const [currentRole, setCurrentRole] = useState<"intern" | "full_timer" | "admin" | null>(null)
 
   useEffect(() => {
     void loadEmployees()
+
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.employee?.role) {
+          setCurrentRole(data.employee.role)
+        }
+      })
+      .catch(() => {
+        // role stays unknown — add form simply stays hidden
+      })
   }, [])
+
+  const canAdd = currentRole === "admin" || currentRole === "full_timer"
 
   async function loadEmployees() {
     setLoading(true)
+    setLoadError(false)
     try {
       const res = await fetch("/api/admin/employees")
       const payload = await res.json().catch(() => ({}))
@@ -64,6 +63,7 @@ export default function EmployeesPage() {
       setEmployees((payload.employees || []) as Employee[])
     } catch (loadError) {
       console.error(loadError)
+      setLoadError(true)
       setNotice({
         tone: "error",
         message: "we could not load the roster just yet.",
@@ -109,6 +109,9 @@ export default function EmployeesPage() {
       const payload = await res.json().catch(() => ({}))
 
       if (!res.ok) {
+        if (res.status === 403) {
+          throw new Error("you don't have permission to add people.")
+        }
         throw new Error(payload.error || "we could not add that person. please try again.")
       }
 
@@ -123,40 +126,10 @@ export default function EmployeesPage() {
       console.error(addError)
       setNotice({
         tone: "error",
-        message: "we could not add that person. please try again.",
+        message: addError instanceof Error ? addError.message : "we could not add that person. please try again.",
       })
     } finally {
       setAdding(false)
-    }
-  }
-
-  async function confirmDelete() {
-    if (!pendingDelete) return
-
-    try {
-      const res = await fetch("/api/admin/employees", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: pendingDelete.id }),
-      })
-      const payload = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        throw new Error(payload.error || "that delete did not stick. please try once more.")
-      }
-
-      setNotice({
-        tone: "success",
-        message: `${pendingDelete.name} has been removed from the roster.`,
-      })
-      setPendingDelete(null)
-      await loadEmployees()
-    } catch (deleteError) {
-      console.error(deleteError)
-      setNotice({
-        tone: "error",
-        message: "that delete did not stick. please try once more.",
-      })
     }
   }
 
@@ -176,7 +149,7 @@ export default function EmployeesPage() {
     <div className="min-h-screen">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 sm:py-12 sm:pb-12">
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-12 sm:pb-12">
         <div className="space-y-6">
           <SectionHeading
             accent={employeesAccent}
@@ -189,6 +162,19 @@ export default function EmployeesPage() {
             <NoticeCard
               accent={notice.tone === "success" ? employeesAccent : "peach"}
               title={notice.tone === "success" ? "all good" : "something needs attention"}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setNotice(null)}
+                  aria-label="dismiss notice"
+                  className="rounded-full p-1 text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              }
             >
               {notice.message}
             </NoticeCard>
@@ -208,51 +194,57 @@ export default function EmployeesPage() {
                 </p>
               </div>
 
-              <form onSubmit={handleAdd} className="mt-8 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-ink">
-                    name
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="a builder's name"
-                    className={fieldClasses({ size: "lg" })}
-                  />
-                </div>
+              {canAdd ? (
+                <form onSubmit={handleAdd} className="mt-8 space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-ink">
+                      name
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="a builder's name"
+                      className={fieldClasses({ size: "lg" })}
+                    />
+                  </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-ink">
-                    email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="name@build3.org"
-                    className={fieldClasses({ size: "lg" })}
-                  />
-                </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-ink">
+                      email
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="name@build3.org"
+                      className={fieldClasses({ size: "lg" })}
+                    />
+                  </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-ink">
-                    role
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(event) => setRole(event.target.value as "intern" | "full_timer")}
-                    className={fieldClasses({ size: "lg" })}
-                  >
-                    <option value="full_timer">full timer</option>
-                    <option value="intern">intern</option>
-                  </select>
-                </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-ink">
+                      role
+                    </label>
+                    <select
+                      value={role}
+                      onChange={(event) => setRole(event.target.value as "intern" | "full_timer")}
+                      className={fieldClasses({ size: "lg" })}
+                    >
+                      <option value="full_timer">full timer</option>
+                      <option value="intern">intern</option>
+                    </select>
+                  </div>
 
-                <button type="submit" disabled={adding} className={primaryButton.className} style={primaryButton.style}>
-                  {adding ? "adding..." : "add to roster"}
-                </button>
-              </form>
+                  <button type="submit" disabled={adding} className={primaryButton.className} style={primaryButton.style}>
+                    {adding ? "adding..." : "add to roster"}
+                  </button>
+                </form>
+              ) : (
+                <p className="mt-8 text-sm leading-6 text-muted">
+                  only admins and full timers can add people.
+                </p>
+              )}
             </BrandPanel>
 
             <BrandPanel accent={employeesAccent} tone="plain" className="overflow-hidden">
@@ -274,7 +266,25 @@ export default function EmployeesPage() {
                 </div>
               </div>
 
-              {!loading && employees.length === 0 ? (
+              {!loading && loadError ? (
+                <div className="p-6">
+                  <EmptyState
+                    accent="peach"
+                    title="we could not load the roster"
+                    description="something went wrong fetching the team list. give it another try."
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => void loadEmployees()}
+                        className={secondaryButton.className}
+                        style={secondaryButton.style}
+                      >
+                        retry
+                      </button>
+                    }
+                  />
+                </div>
+              ) : !loading && employees.length === 0 ? (
                 <div className="p-6">
                   <EmptyState
                     accent={employeesAccent}
@@ -296,9 +306,6 @@ export default function EmployeesPage() {
                         <th className="hidden border-b border-line px-4 py-4 text-left text-xs font-semibold tracking-[0.08em] text-muted sm:table-cell sm:px-6">
                           email
                         </th>
-                        <th className="border-b border-line px-4 py-4 text-right text-xs font-semibold tracking-[0.08em] text-muted sm:px-6">
-                          action
-                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -307,8 +314,13 @@ export default function EmployeesPage() {
 
                         return (
                           <tr key={employee.id} className="transition-colors hover:bg-[rgba(121,192,166,0.08)]">
-                            <td className="border-b border-line px-4 py-4 text-sm font-semibold text-ink sm:px-6">
-                              {employee.name}
+                            <td className="border-b border-line px-4 py-4 text-sm font-semibold sm:px-6">
+                              <Link
+                                href={`/insights?employee=${employee.id}`}
+                                className="text-ink underline decoration-black/20 underline-offset-2 transition-colors hover:text-brand-sage hover:decoration-current focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-sage focus-visible:ring-offset-2"
+                              >
+                                {employee.name}
+                              </Link>
                             </td>
                             <td className="whitespace-nowrap border-b border-line px-4 py-4 text-sm text-muted sm:px-6">
                               <span
@@ -332,16 +344,6 @@ export default function EmployeesPage() {
                             <td className="hidden border-b border-line px-4 py-4 text-sm text-muted sm:table-cell sm:px-6">
                               {employee.email || <span className="text-xs italic text-black/25">no email</span>}
                             </td>
-                            <td className="border-b border-line px-4 py-4 text-right sm:px-6">
-                              <button
-                                type="button"
-                                className={secondaryButton.className}
-                                style={secondaryButton.style}
-                                onClick={() => setPendingDelete(employee)}
-                              >
-                                remove
-                              </button>
-                            </td>
                           </tr>
                         )
                       })}
@@ -353,23 +355,6 @@ export default function EmployeesPage() {
           </div>
         </div>
       </main>
-
-      <Modal
-        open={Boolean(pendingDelete)}
-        onClose={() => setPendingDelete(null)}
-        accent={employeesAccent}
-        title="remove this person?"
-        description={
-          pendingDelete
-            ? `${pendingDelete.name} will be removed only if they are not linked to any existing feedback. we block destructive deletes to protect history.`
-            : undefined
-        }
-      >
-        <ModalDeleteActions
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => void confirmDelete()}
-        />
-      </Modal>
     </div>
   )
 }

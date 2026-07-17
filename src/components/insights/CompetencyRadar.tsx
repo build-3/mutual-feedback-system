@@ -33,7 +33,9 @@ export default memo(function CompetencyRadar({ metrics, orgAvgMetrics }: Props) 
   // Only show dimensions that have actual data — full_timer only has teal,
   // interns have both teal + ITP
   const activeDimensions = DIMENSIONS.filter((d) => metrics[d.key]?.count > 0)
-  if (activeDimensions.length === 0) return null
+  // A radar with fewer than 3 dimensions renders as a degenerate dot/line —
+  // the numeric pills below already surface the values, so just hide it.
+  if (activeDimensions.length < 3) return null
 
   const data = activeDimensions.map((dimension) => ({
     dimension: dimension.label,

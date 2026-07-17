@@ -166,7 +166,7 @@ function ReplyBox({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); setError(null) }}
         className={`${btn.className} mt-2`}
         style={btn.style}
       >
@@ -259,7 +259,7 @@ function ReplyBox({
         </button>
         <button
           type="button"
-          onClick={() => { setOpen(false); setText("") }}
+          onClick={() => { setOpen(false); setText(""); setError(null) }}
           className={btn.className}
           style={btn.style}
         >
@@ -465,7 +465,16 @@ const TimelineItem = memo(function TimelineItem({
               >
                 <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">
                   {submission.answers
-                    .filter((a) => a.question_key !== "trust_battery_detail")
+                    .filter((a) => {
+                      if (a.question_key !== "trust_battery_detail") return true
+                      // Only drop the detail here if it will be rendered nested under
+                      // a numeric trust_battery answer. If there's no such sibling,
+                      // keep it so it renders standalone below instead of vanishing.
+                      const hasNumericTrustBattery = submission.answers.some(
+                        (sib) => sib.question_key === "trust_battery" && parseNumericAnswer(sib.answer_value) !== null
+                      )
+                      return !hasNumericTrustBattery
+                    })
                     .map((answer) => (
                     <AnswerDisplay
                       key={answer.id}

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Navbar from "@/components/Navbar"
-import { SectionHeading, EmptyState } from "@/components/ui/brand"
+import { SectionHeading, EmptyState, buttonClasses } from "@/components/ui/brand"
 import { useEmployeeInsights } from "@/hooks/useEmployeeInsights"
 import { useOrgInsights } from "@/hooks/useOrgInsights"
 import { DATE_RANGE_LABELS, SCREEN_ACCENTS } from "@/lib/brand"
@@ -124,8 +124,8 @@ function InsightsContent() {
     []
   )
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true)
+  const loadDashboard = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     setLoadError(null)
 
     try {
@@ -180,13 +180,14 @@ function InsightsContent() {
   }, [buildResponsesByAnswer])
 
   const handleResponseSaved = useCallback(() => {
-    void loadDashboard()
+    void loadDashboard({ silent: true })
   }, [loadDashboard])
 
   useEffect(() => {
     void loadDashboard()
   }, [loadDashboard])
 
+  const [meChecked, setMeChecked] = useState(false)
   useEffect(() => {
     fetch("/api/me")
       .then((r) => r.json())
@@ -196,6 +197,7 @@ function InsightsContent() {
         }
       })
       .catch(() => {})
+      .finally(() => setMeChecked(true))
   }, [])
 
   // Auto-select employee from URL param, or fall back to current user.
@@ -203,6 +205,10 @@ function InsightsContent() {
   // (new `employees` array identity) or late /api/me response would snap
   // the view back to the initial person while the user is browsing someone
   // else's profile.
+  // `viewResolved` tracks whether that decision has been made yet, so the
+  // initial render can hold off on the org overview and avoid a
+  // flash-then-jump into the auto-selected profile.
+  const [viewResolved, setViewResolved] = useState(false)
   const autoSelectedRef = useRef(false)
   useEffect(() => {
     if (autoSelectedRef.current) return
@@ -215,9 +221,12 @@ function InsightsContent() {
         setSelectedEmployeeId(employeeParam)
         setShowOrgOverview(false)
       }
+      setViewResolved(true)
       return
     }
-    // No URL param — auto-select the logged-in user
+    // No URL param — wait for /api/me to settle before deciding, so we
+    // don't flash "no selection" before falling back to the logged-in user.
+    if (!meChecked) return
     if (currentUser) {
       const exists = employees.some((e) => e.id === currentUser.id)
       if (exists) {
@@ -226,7 +235,8 @@ function InsightsContent() {
         setShowOrgOverview(false)
       }
     }
-  }, [searchParams, employees, currentUser])
+    setViewResolved(true)
+  }, [searchParams, employees, currentUser, meChecked])
 
   const filteredSubmissions = useMemo(
     () => filterSubmissionsByRange(allSubmissions, dateRange),
@@ -257,7 +267,11 @@ function InsightsContent() {
     [build3Submissions, selectedEmployeeId]
   )
 
-  if (loading) {
+  // Hold off on rendering until the initial self/employee auto-selection has
+  // resolved (or there's nothing to auto-select) so we don't flash the org
+  // overview and then immediately jump into a profile.
+  const viewReady = viewResolved || employees.length === 0
+  if (loading || !viewReady) {
     return (
       <div className="min-h-screen bg-[#fffaf5] flex items-center justify-center">
         <div className="animate-pulse text-muted text-sm">
@@ -275,6 +289,15 @@ function InsightsContent() {
             accent={insightsAccent}
             title="we hit a snag loading insights"
             description={loadError}
+            action={
+              <button
+                type="button"
+                onClick={() => void loadDashboard()}
+                {...buttonClasses({ accent: insightsAccent, variant: "solid", size: "sm" })}
+              >
+                try again
+              </button>
+            }
           />
         </div>
       </div>
@@ -297,7 +320,7 @@ function InsightsContent() {
           accent="sky"
           eyebrow="insights"
           title="clear signal"
-          description={`${employees.length} teammates, ${filteredSubmissions.length} submissions in ${DATE_RANGE_LABELS[dateRange]}.`}
+          description={`${employees.length} teammates, ${orgMetrics.totalSubmissions} submissions in ${DATE_RANGE_LABELS[dateRange]}.`}
         />
 
         {/* Controls bar — stacks cleanly on mobile */}
@@ -462,7 +485,7 @@ function InsightsContent() {
       {!showOrgOverview && insights.employee?.role === "intern" && (
         <div className="mx-auto max-w-5xl px-3 pb-20 sm:px-6 sm:pb-5">
           <div className="border-t border-line pt-8 mt-4">
-            <ProbationSection employeeId={insights.employee.id} userEmail={currentUser?.email} />
+            <ProbationSection key={insights.employee.id} employeeId={insights.employee.id} userEmail={currentUser?.email} />
           </div>
         </div>
       )}

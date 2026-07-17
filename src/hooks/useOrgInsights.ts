@@ -10,7 +10,7 @@ export interface NpsBreakdown {
   promoters: number
   passives: number
   detractors: number
-  npsScore: number
+  npsScore: number | null
   promoterNames: string[]
   passiveNames: string[]
   detractorNames: string[]
@@ -216,7 +216,7 @@ export function useOrgInsights(
       else detractors++
     }
     const total = npsScores.length
-    const npsScore = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0
+    const npsScore = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : null
     const npsBreakdown: NpsBreakdown = {
       promoters,
       passives,
@@ -252,9 +252,15 @@ export function useOrgInsights(
     // Org-level participation: how many people completed the build3 feedback
     const build3ParticipationCount = build3Submitters.size
 
+    // Ghost submissions (no answers — form opened and abandoned) shouldn't count
+    // as real activity anywhere. Reuse the same ghost-detection predicate as the
+    // metric loop above (sub.answers.length === 0) for both the total count and
+    // the activity feed.
+    const nonGhostSubmissions = filtered.filter((sub) => sub.answers.length > 0)
+
     return {
       totalEmployees: employees.length,
-      totalSubmissions: filtered.length,
+      totalSubmissions: nonGhostSubmissions.length,
       totalInterns: employeeCounts.totalInterns,
       totalFullTimers: employeeCounts.totalFullTimers,
       // Top-level org metrics use build3 feedback (the org health check)
@@ -268,7 +274,7 @@ export function useOrgInsights(
       // Participation = unique build3 submitters (not all feedback types mixed)
       employeesWithFeedback: build3ParticipationCount,
       employeesWithoutFeedback: employees.length - build3ParticipationCount,
-      recentActivity: [...filtered]
+      recentActivity: [...nonGhostSubmissions]
         .sort((a, b) => b.submission.created_at.localeCompare(a.submission.created_at))
         .slice(0, 10),
       tealAvg: {

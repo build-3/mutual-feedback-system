@@ -207,7 +207,7 @@ function NavbarInner() {
                   <div className={`absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full ${activeColor}`} />
                 )}
                 <NavIcon icon={link.icon} className={`h-5 w-5 ${active ? "stroke-[2.5]" : ""}`} />
-                <span className={`text-[10px] tracking-wide ${active ? "font-bold" : "font-medium"}`}>
+                <span className={`whitespace-nowrap text-[10px] tracking-wide ${active ? "font-bold" : "font-medium"}`}>
                   {link.label}
                 </span>
               </Link>

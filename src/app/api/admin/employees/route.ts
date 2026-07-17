@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
-import { requireAdmin, requireAuth } from "@/lib/server/require-admin"
+import { requireAdmin, requireAdminOrFullTimer, requireAuth } from "@/lib/server/require-admin"
 
 function normalizeName(name: string) {
   const trimmed = name.trim()
@@ -54,7 +54,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const postAuth = await requireAdmin()
+  const postAuth = await requireAdminOrFullTimer()
   if (postAuth.error) return postAuth.error
 
   try {
