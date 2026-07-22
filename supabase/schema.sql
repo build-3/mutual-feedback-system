@@ -200,6 +200,49 @@ ALTER TABLE birthday_notifications ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_birthday_notifications_type ON birthday_notifications(notification_type);
 CREATE INDEX idx_birthday_notifications_sent_at ON birthday_notifications(sent_at DESC);
 
+-- ────────────────────────────────────────────────────────────────────
+-- Mod dashboard: org-health review mastersheet (2026).
+-- Imported from the "Build3 review mastersheet" spreadsheet and surfaced at
+-- /mod for leadership only (see MOD_EMAILS in src/lib/server/require-admin.ts).
+-- Point-in-time snapshot; scripts/import-mastersheet.mjs snapshot-replaces
+-- both tables on each run. RLS on — server reads via the service role.
+-- ────────────────────────────────────────────────────────────────────
+
+-- Categorized department reviews (one row per topic/review; severity 1-5)
+CREATE TABLE mod_reviews (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  department TEXT NOT NULL,
+  employee_name TEXT,
+  employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  period TEXT,
+  topic TEXT,
+  review TEXT,
+  severity NUMERIC,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE mod_reviews ENABLE ROW LEVEL SECURITY;
+CREATE INDEX idx_mod_reviews_department ON mod_reviews(department);
+CREATE INDEX idx_mod_reviews_severity ON mod_reviews(severity);
+
+-- Raw per-person survey responses (Trust Battery %, NPS, free text)
+CREATE TABLE mod_responses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_name TEXT,
+  employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  policy_clarity TEXT,
+  tools_resources TEXT,
+  trust_battery NUMERIC,
+  trust_battery_details TEXT,
+  nps_score NUMERIC,
+  comments TEXT,
+  source_row INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE mod_responses ENABLE ROW LEVEL SECURITY;
+CREATE INDEX idx_mod_responses_name ON mod_responses(employee_name);
+
 -- Seed data: Full timers
 INSERT INTO employees (name, role, email) VALUES
   ('Varun Chawla', 'full_timer', 'varun@build3.org'),

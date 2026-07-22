@@ -5,6 +5,10 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "./supabase-admin"
 
+// Leadership allowlist for the hidden /mod org-review dashboard. Extends the
+// LEVEL1_EMAILS pattern used by the probation routes (adds br@).
+export const MOD_EMAILS = ["at@build3.org", "vc@build3.org", "br@build3.org"]
+
 // In-memory employee-by-email cache — avoids a DB round-trip on every request
 const employeeByEmailCache = new Map<string, {
   data: { id: string; name: string; role: string; email: string | null; birthday: string | null;  }
@@ -200,4 +204,35 @@ export async function requireAuth(): Promise<
 
   const employee = await lookupEmployee(email)
   return { user: { email }, employee: employee ?? null }
+}
+
+/**
+ * Verify the current request is from one of the leadership emails allowed to
+ * see the hidden /mod org-review dashboard. Does not require an employee record
+ * (the allowlist is the sole authority), mirroring the LEVEL1_EMAILS gate.
+ */
+export async function requireMod(): Promise<
+  | { email: string; error?: never }
+  | { email?: never; error: NextResponse }
+> {
+  const email = await resolveUserEmail()
+  if (!email) {
+    return {
+      error: NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      ),
+    }
+  }
+
+  if (!MOD_EMAILS.includes(email)) {
+    return {
+      error: NextResponse.json(
+        { error: "Not found." },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return { email }
 }
