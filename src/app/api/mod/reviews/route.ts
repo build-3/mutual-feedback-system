@@ -29,6 +29,10 @@ export async function GET() {
   ])
 
   if (reviewsResult.error || responsesResult.error) {
+    console.error("[/api/mod/reviews] query failed", {
+      reviews: reviewsResult.error,
+      responses: responsesResult.error,
+    })
     return NextResponse.json(
       { error: "Failed to load review data." },
       { status: 500 }
