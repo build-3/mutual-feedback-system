@@ -50,9 +50,9 @@ function LoginContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-sm space-y-8 text-center">
+      <div className="w-full max-w-sm space-y-8 text-center animate-fade-in">
         <div className="flex flex-col items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-line bg-white shadow-[var(--shadow-soft)]">
             <PillarMark accent="peach" />
           </div>
           <div>
@@ -66,7 +66,7 @@ function LoginContent() {
         </div>
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="animate-slide-up rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 shadow-sm">
             {error}
           </div>
         )}
@@ -74,9 +74,9 @@ function LoginContent() {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-line bg-white px-6 py-4 text-base font-medium text-ink shadow-brand transition-all hover:shadow-lg disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-line bg-white px-6 py-4 text-base font-medium text-ink shadow-[var(--shadow-soft)] transition-all duration-200 hover:shadow-[var(--shadow-elevated)] hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24">
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
               fill="#4285F4"
@@ -97,7 +97,7 @@ function LoginContent() {
           {loading ? 'redirecting...' : 'sign in with google'}
         </button>
 
-        <p className="text-xs text-muted">
+        <p className="text-xs text-muted/70">
           restricted to @build3.org accounts
         </p>
       </div>

@@ -206,6 +206,7 @@ export default function EmployeesPage() {
                       onChange={(event) => setName(event.target.value)}
                       placeholder="a builder's name"
                       className={fieldClasses({ size: "lg" })}
+                      autoComplete="off"
                     />
                   </div>
 
@@ -219,6 +220,7 @@ export default function EmployeesPage() {
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="name@build3.org"
                       className={fieldClasses({ size: "lg" })}
+                      autoComplete="off"
                     />
                   </div>
 

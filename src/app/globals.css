@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --background: #fffaf5;
+  --background: #fbf7f2;
   --foreground: #1d1d1b;
-  --color-canvas: #fffaf5;
+  --color-canvas: #fbf7f2;
   --color-surface: #ffffff;
   --color-ink: #1d1d1b;
   --color-muted: #5f5b58;
@@ -22,8 +22,10 @@
   --brand-danger: #d35b52;
   --radius-card: 30px;
   --radius-soft: 24px;
-  --shadow-soft: 0 18px 60px rgba(29, 29, 27, 0.08);
-  --shadow-line: 0 0 0 1px rgba(29, 29, 27, 0.05), 0 14px 42px rgba(29, 29, 27, 0.06);
+  --shadow-soft: 0 1px 2px rgba(29, 29, 27, 0.04), 0 8px 32px rgba(29, 29, 27, 0.06);
+  --shadow-elevated: 0 1px 2px rgba(29, 29, 27, 0.04), 0 12px 48px rgba(29, 29, 27, 0.09);
+  --shadow-line: 0 0 0 1px rgba(29, 29, 27, 0.05), 0 4px 16px rgba(29, 29, 27, 0.04);
+  --shadow-button: 0 2px 8px rgba(29, 29, 27, 0.08);
 }
 
 html {
@@ -47,14 +49,15 @@ body {
   padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   color: var(--foreground);
   background:
-    radial-gradient(circle at top left, rgba(198, 229, 248, 0.38), transparent 24rem),
-    radial-gradient(circle at 100% 10%, rgba(245, 187, 159, 0.28), transparent 16rem),
-    radial-gradient(circle at 50% 100%, rgba(121, 192, 166, 0.12), transparent 28rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 250, 245, 0.95)),
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(198, 229, 248, 0.28), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 90% 5%, rgba(245, 187, 159, 0.2), transparent 40%),
+    radial-gradient(ellipse 70% 40% at 50% 100%, rgba(121, 192, 166, 0.08), transparent 45%),
     var(--background);
   font-family: var(--font-space-grotesk, system-ui, -apple-system, sans-serif);
   min-height: 100vh;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer utilities {
@@ -69,6 +72,28 @@ body {
 
   .pb-safe-sm {
     padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  @media (hover: none) {
+    .card-hover:hover {
+      transform: none;
+      box-shadow: var(--shadow-soft);
+    }
+  }
+
+  .glass-surface {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 }
 
@@ -103,36 +128,72 @@ textarea {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(135deg, rgba(29, 29, 27, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.5), transparent 35%);
-  background-size: 28px 28px, auto;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.2), transparent 78%);
+    linear-gradient(135deg, rgba(29, 29, 27, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.4), transparent 35%);
+  background-size: 24px 24px, auto;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.15), transparent 72%);
+  border-radius: inherit;
+  overflow: hidden;
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(29, 29, 27, 0.18);
+  background: rgba(29, 29, 27, 0.14);
   border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(29, 29, 27, 0.24);
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
+/* page entry — gentle fade + slight rise */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.3s ease-out both;
+}
+
+/* shimmer for loading skeletons */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(29, 29, 27, 0.04) 25%, rgba(29, 29, 27, 0.07) 37%, rgba(29, 29, 27, 0.04) 63%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: var(--radius-soft);
+}
+
 /* Typeform-style transitions — GPU-accelerated, snappy */
 .slide-enter {
   opacity: 0;
-  transform: translate3d(0, 12px, 0);
+  transform: translate3d(0, 10px, 0) scale(0.995);
   will-change: opacity, transform;
 }
 .slide-enter-active {
   opacity: 1;
-  transform: translate3d(0, 0, 0);
-  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .slide-exit {
   opacity: 1;
@@ -141,14 +202,21 @@ textarea {
 }
 .slide-exit-active {
   opacity: 0;
-  transform: translate3d(0, -8px, 0);
-  transition: opacity 0.12s ease-in, transform 0.12s ease-in;
+  transform: translate3d(0, -6px, 0);
+  transition: opacity 0.1s ease-in, transform 0.1s ease-in;
 }
 
 /* Stage-complete progress fill animation */
 @keyframes progressFill {
   from { width: 0%; }
   to { width: 100%; }
+}
+
+.progress-bar-fill {
+  background: linear-gradient(90deg, var(--brand-peach), #f7cbb2);
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Reduce motion for accessibility */
@@ -159,5 +227,22 @@ textarea {
   .slide-exit-active {
     transition: none;
     transform: none;
+  }
+
+  .page-enter {
+    animation: none;
+  }
+
+  .card-hover:hover {
+    transform: none;
+  }
+
+  .skeleton {
+    animation: none;
+    background: rgba(29, 29, 27, 0.05);
+  }
+
+  .progress-bar-fill {
+    transition: none;
   }
 }

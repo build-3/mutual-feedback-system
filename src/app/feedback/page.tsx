@@ -1667,8 +1667,8 @@ export default function FeedbackPage() {
           <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
               <div
-                className="h-full rounded-full bg-brand-peach transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%`, background: "linear-gradient(90deg, #f5bb9f, #f7cbb2)" }}
               />
             </div>
             <div className="text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
@@ -1795,7 +1795,7 @@ export default function FeedbackPage() {
                     nice one — moving to {nextLabel} now
                   </p>
                   <div className="mt-4 mx-auto h-1 w-16 overflow-hidden rounded-full bg-black/[0.06]">
-                    <div className="h-full rounded-full bg-brand-peach animate-[progressFill_1.5s_ease-out_forwards]" />
+                    <div className="h-full rounded-full animate-[progressFill_1.5s_ease-out_forwards]" style={{ background: "linear-gradient(90deg, #f5bb9f, #f7cbb2)" }} />
                   </div>
                 </BrandPanel>
               )

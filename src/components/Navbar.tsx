@@ -76,10 +76,10 @@ function NavbarShell() {
   // Rendered during SSR / before searchParams resolves — no active states
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b border-line/80 bg-canvas/90 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-line/70 bg-canvas/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 sm:px-6 sm:py-3">
           <Link href="/feedback" className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
+            <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white shadow-[var(--shadow-soft)]">
               <PillarMark accent="peach" />
             </div>
             <div className="hidden sm:block">
@@ -88,7 +88,7 @@ function NavbarShell() {
           </Link>
         </div>
       </nav>
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/80 bg-canvas/95 sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/70 bg-canvas/90 sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
     </>
   )
 }
@@ -136,10 +136,10 @@ function NavbarInner() {
   return (
     <>
       {/* ── Desktop top navbar ── */}
-      <nav className="sticky top-0 z-50 border-b border-line/80 bg-canvas/90 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-line/70 bg-canvas/85 backdrop-blur-xl supports-[backdrop-filter]:bg-canvas/70">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 sm:px-6 sm:py-3">
-          <Link href="/feedback" className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white/80 shadow-brand">
+          <Link href="/feedback" className="flex items-center gap-2 sm:gap-3 transition-opacity hover:opacity-80">
+            <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white shadow-[var(--shadow-soft)]">
               <PillarMark accent="peach" />
             </div>
             <div className="hidden sm:block">
@@ -172,7 +172,7 @@ function NavbarInner() {
 
             <button
               onClick={handleSignOut}
-              className="ml-2 flex min-h-[44px] items-center rounded-full px-3 py-2 text-xs text-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
+              className="ml-1.5 flex min-h-[44px] items-center rounded-full px-3 py-2 text-xs text-muted transition-all hover:bg-black/[0.06] hover:text-ink active:scale-95"
             >
               sign out
             </button>
@@ -181,7 +181,7 @@ function NavbarInner() {
           {/* Mobile: just sign out in top-right */}
           <button
             onClick={handleSignOut}
-            className="sm:hidden flex min-h-[44px] items-center rounded-full px-3 py-2 text-xs text-muted transition-colors hover:bg-black/[0.05]"
+            className="sm:hidden flex min-h-[44px] items-center rounded-full px-3 py-2 text-xs text-muted transition-all hover:bg-black/[0.06] active:scale-95"
           >
             sign out
           </button>
@@ -189,7 +189,7 @@ function NavbarInner() {
       </nav>
 
       {/* ── Mobile bottom tab bar ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/80 bg-canvas/95 backdrop-blur-xl sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/70 bg-canvas/90 backdrop-blur-xl sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-stretch">
           {links.map((link) => {
             const active = isLinkActive(link)
@@ -199,7 +199,7 @@ function NavbarInner() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-colors ${
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-all active:scale-95 ${
                   active ? "text-ink" : "text-muted"
                 }`}
               >

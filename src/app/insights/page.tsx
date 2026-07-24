@@ -19,7 +19,7 @@ import { filterSubmissionsByRange } from "@/lib/insights-helpers"
 import { SubmissionWithDetails } from "./types"
 
 const LoadingSkeleton = () => (
-  <div className="animate-pulse rounded-2xl bg-line/30 h-64" />
+  <div className="skeleton h-64" />
 )
 
 const EmployeePicker = dynamic(

@@ -71,7 +71,8 @@ export function buttonClasses({
   const base = clsx(
     "inline-flex items-center justify-center gap-2 rounded-full border font-semibold tracking-[-0.02em] transition-all duration-200",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-canvas)]",
-    "disabled:cursor-not-allowed disabled:opacity-45",
+    "active:scale-[0.97]",
+    "disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100",
     fullWidth && "w-full"
   )
 
@@ -84,10 +85,10 @@ export function buttonClasses({
 
   const variantClasses =
     variant === "solid"
-      ? "shadow-[var(--shadow-soft)] hover:-translate-y-0.5"
+      ? "shadow-[var(--shadow-button)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-elevated)]"
       : variant === "ink"
-      ? "hover:-translate-y-0.5"
-      : "hover:-translate-y-0.5"
+      ? "shadow-[var(--shadow-button)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-elevated)]"
+      : "hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]"
 
   const style: CSSProperties =
     variant === "solid"
@@ -125,10 +126,11 @@ export function fieldClasses({
   hasError?: boolean
 } = {}) {
   return clsx(
-    "w-full rounded-[22px] border bg-white/88 text-[15px] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-sm transition-all duration-200",
-    "placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-canvas)]",
+    "w-full rounded-[22px] border bg-white/88 text-[15px] text-ink shadow-[inset_0_1px_4px_rgba(0,0,0,0.04)] backdrop-blur-sm transition-all duration-200",
+    "placeholder:text-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/8 focus-visible:border-line focus-visible:shadow-[inset_0_1px_4px_rgba(0,0,0,0.04),0_0_0_4px_rgba(0,0,0,0.04)]",
+    "hover:border-muted/40",
     size === "sm" ? "px-3.5 py-2.5" : size === "lg" ? "px-5 py-4" : "px-4 py-3",
-    hasError ? "border-[#d35b52]" : "border-line"
+    hasError ? "border-[#d35b52] focus-visible:ring-[#d35b52]/20 focus-visible:shadow-[inset_0_1px_4px_rgba(0,0,0,0.04),0_0_0_4px_rgba(211,91,82,0.12)]" : "border-line"
   )
 }
 
@@ -200,17 +202,26 @@ export function BrandPanel({
   return (
     <div
       className={clsx(
-        "relative rounded-[22px] sm:rounded-[30px] border shadow-[var(--shadow-soft)]",
-        tone === "ink" ? "shadow-none" : "",
+        "relative rounded-[22px] sm:rounded-[30px] border shadow-[var(--shadow-soft)] transition-shadow duration-300",
+        tone === "ink" ? "shadow-none" : "hover:shadow-[var(--shadow-elevated)]",
         className
       )}
       style={{ ...getPanelStyle(accent, tone), ...style }}
     >
-      {tone !== "ink" && (
+      {tone !== "ink" && tone !== "solid" && (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-6 top-0 h-px"
           style={{ backgroundColor: getAccentTheme(accent).border }}
+        />
+      )}
+      {tone === "plain" && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[80px] rounded-t-[22px] sm:rounded-t-[30px]"
+          style={{
+            background: `linear-gradient(180deg, ${getAccentTheme(accent).washed}, transparent)`,
+          }}
         />
       )}
       {children}
@@ -312,7 +323,7 @@ export function StatPill({
 
   return (
     <div
-      className="rounded-[18px] sm:rounded-[22px] border px-3.5 py-2.5 sm:px-4 sm:py-3"
+      className="rounded-[18px] sm:rounded-[22px] border px-3.5 py-2.5 sm:px-4 sm:py-3 transition-shadow duration-200 hover:shadow-[var(--shadow-soft)]"
       style={{ backgroundColor: theme.soft, borderColor: theme.border }}
     >
       <div className="text-[10px] sm:text-[11px] font-semibold tracking-[0.08em] text-muted">
@@ -329,14 +340,16 @@ export function NoticeCard({
   title,
   children,
   action,
+  onDismiss,
 }: {
   accent?: Accent
   title: string
   children: ReactNode
   action?: ReactNode
+  onDismiss?: () => void
 }) {
   return (
-    <BrandPanel accent={accent} tone="soft" className="p-5">
+    <BrandPanel accent={accent} tone="soft" className="p-5 animate-slide-up">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
         <div className="flex items-center gap-2">
@@ -345,7 +358,22 @@ export function NoticeCard({
           </div>
           <div className="text-sm leading-6 text-muted">{children}</div>
         </div>
-        {action}
+        <div className="flex items-center gap-2 shrink-0">
+          {action}
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="dismiss notice"
+              className="rounded-full p-1.5 text-muted transition-colors hover:bg-black/[0.06] hover:text-ink"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </BrandPanel>
   )
@@ -365,10 +393,10 @@ export function EmptyState({
   const theme = getAccentTheme(accent)
 
   return (
-    <BrandPanel accent={accent} tone="washed" className="p-8 text-center sm:p-10">
+    <BrandPanel accent={accent} tone="washed" className="p-8 text-center sm:p-10 animate-fade-in">
       <div
-        className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border"
-        style={{ backgroundColor: theme.soft, borderColor: theme.border }}
+        className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border shadow-[var(--shadow-soft)]"
+        style={{ backgroundColor: "white", borderColor: theme.border }}
       >
         <PillarMark accent={accent} className="scale-110" />
       </div>
