@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
-import { fetchDashboardData } from "@/lib/server/fetch-dashboard-data"
+import { buildInsightsPayload } from "@/lib/server/fetch-dashboard-data"
 
 export async function GET() {
   const auth = await requireAuth()
   if (auth.error) return auth.error
 
-  // Any authenticated user can view insights — not admin-only
-  const result = await fetchDashboardData()
+  const result = await buildInsightsPayload()
 
-  if (result.error) {
+  if (result.error || !result.data) {
     return NextResponse.json(
       { error: "We could not load insight data right now." },
       { status: 500 }
