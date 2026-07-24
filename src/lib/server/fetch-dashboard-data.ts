@@ -80,6 +80,42 @@ type EnrichedSubmission = {
   }[]
 }
 
+/**
+ * Client-facing shape. Every insights component (FeedbackTimeline, OrgOverview,
+ * SelfReflectionsPanel) and filterSubmissionsByRange read submissions as the
+ * nested `SubmissionWithDetails` — `{ submission, submitterName, answers }`.
+ * We compute internally on the flat EnrichedSubmission for speed, then wrap to
+ * this nested shape at the API boundary so the contract the components rely on
+ * is preserved.
+ */
+type SubmissionDetail = {
+  submission: {
+    id: string
+    submitted_by_id: string
+    feedback_for_id: string | null
+    feedback_type: string
+    created_at: string
+    notified_at: string | null
+  }
+  submitterName: string
+  answers: EnrichedSubmission["answers"]
+}
+
+function toDetails(s: EnrichedSubmission): SubmissionDetail {
+  return {
+    submission: {
+      id: s.id,
+      submitted_by_id: s.submitted_by_id,
+      feedback_for_id: s.feedback_for_id,
+      feedback_type: s.feedback_type,
+      created_at: s.created_at,
+      notified_at: null,
+    },
+    submitterName: s.submitterName,
+    answers: s.answers,
+  }
+}
+
 type NumericMetric = { key: string; values: number[]; avg: number; count: number }
 
 type EmployeeMetrics = {
@@ -112,7 +148,7 @@ type OrgMetrics = {
   feedbackByType: Record<string, number>
   employeesWithFeedback: number
   employeesWithoutFeedback: number
-  recentActivity: EnrichedSubmission[]
+  recentActivity: SubmissionDetail[]
   tealAvg: { selfManagement: number | null; wholeness: number | null; purpose: number | null }
   npsBreakdown: { promoters: number; passives: number; detractors: number; npsScore: number | null; promoterNames: string[]; passiveNames: string[]; detractorNames: string[] }
   scoreDistributions: Record<string, number[]>
@@ -278,7 +314,7 @@ export async function buildInsightsPayload() {
     avgTrustBattery: avg(orgTrustScores), avgPurposeAlignment: avg(orgPurposeScores), avgRecommendRating: avg(recommendScores), avgNps: avg(npsScores),
     contributionDistribution: contributionDist, archetypeDistribution: archetypeDist, feedbackByType,
     employeesWithFeedback: build3Count, employeesWithoutFeedback: employees.length - build3Count,
-    recentActivity: [...nonGhost].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 10),
+    recentActivity: [...nonGhost].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 10).map(toDetails),
     tealAvg: { selfManagement: avg(tealSM), wholeness: avg(tealW), purpose: avg(tealEP) },
     npsBreakdown: { promoters, passives, detractors, npsScore, promoterNames: npsPromoterNames, passiveNames: npsPassiveNames, detractorNames: npsDetractorNames },
     scoreDistributions, avgMetricsMap, participationByEmployee,
@@ -381,13 +417,23 @@ export async function buildInsightsPayload() {
     })
   })
 
-  const employeeMetrics: Record<string, EmployeeMetrics> = {}
-  employeeMetricsMap.forEach((m, id) => { employeeMetrics[id] = m })
+  // Wrap the flat submissions in the nested SubmissionWithDetails shape the
+  // client components consume. Metrics were already computed above on the flat
+  // arrays, so this only reshapes what crosses the API boundary.
+  const employeeMetrics: Record<string, unknown> = {}
+  employeeMetricsMap.forEach((m, id) => {
+    employeeMetrics[id] = {
+      ...m,
+      receivedSubmissions: m.receivedSubmissions.map(toDetails),
+      givenSubmissions: m.givenSubmissions.map(toDetails),
+      selfSubmissions: m.selfSubmissions.map(toDetails),
+    }
+  })
 
   return {
     data: {
       employees,
-      submissions: enriched,
+      submissions: enriched.map(toDetails),
       responsesByAnswer: Object.fromEntries(responseMap),
       orgMetrics,
       employeeMetrics,

@@ -9,6 +9,7 @@ import { SectionHeading, EmptyState, buttonClasses } from "@/components/ui/brand
 import { DATE_RANGE_LABELS, SCREEN_ACCENTS } from "@/lib/brand"
 import type { Employee, FeedbackResponse } from "@/lib/types"
 import { filterSubmissionsByRange } from "@/lib/insights-helpers"
+import type { SubmissionWithDetails } from "./types"
 import ProfileHeader from "@/components/insights/ProfileHeader"
 import ScoreCardRow from "@/components/insights/ScoreCardRow"
 import ITPArchetypeBadge from "@/components/insights/ITPArchetypeBadge"
@@ -30,22 +31,12 @@ const DATE_RANGES = [
   { key: "all" as const, label: "all time" },
 ]
 
-type EnrichedSubmission = {
-  id: string
-  submitted_by_id: string
-  feedback_for_id: string | null
-  feedback_type: string
-  created_at: string
-  submitterName: string
-  answers: { id: string; question_key: string; question_text: string; answer_value: string }[]
-}
-
 type EmployeeMetrics = {
   employeeId: string
   employeeName: string
-  receivedSubmissions: EnrichedSubmission[]
-  givenSubmissions: EnrichedSubmission[]
-  selfSubmissions: EnrichedSubmission[]
+  receivedSubmissions: SubmissionWithDetails[]
+  givenSubmissions: SubmissionWithDetails[]
+  selfSubmissions: SubmissionWithDetails[]
   metrics: Record<string, { key: string; values: number[]; avg: number; count: number }>
   contributionCounts: Record<string, number>
   contributionRaters: Record<string, string[]>
@@ -70,7 +61,7 @@ type OrgMetrics = {
   feedbackByType: Record<string, number>
   employeesWithFeedback: number
   employeesWithoutFeedback: number
-  recentActivity: EnrichedSubmission[]
+  recentActivity: SubmissionWithDetails[]
   tealAvg: { selfManagement: number | null; wholeness: number | null; purpose: number | null }
   npsBreakdown: { promoters: number; passives: number; detractors: number; npsScore: number | null; promoterNames: string[]; passiveNames: string[]; detractorNames: string[] }
   scoreDistributions: Record<string, number[]>
@@ -119,7 +110,7 @@ function SkeletonShell() {
 function InsightsContent() {
   const searchParams = useSearchParams()
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [enrichedSubmissions, setEnrichedSubmissions] = useState<EnrichedSubmission[]>([])
+  const [enrichedSubmissions, setEnrichedSubmissions] = useState<SubmissionWithDetails[]>([])
   const [responsesByAnswer, setResponsesByAnswer] = useState<Record<string, (FeedbackResponse & { responderName: string })[]>>({})
   const [orgMetricsData, setOrgMetrics] = useState<OrgMetrics | null>(null)
   const [employeeMetricsMap, setEmployeeMetricsMap] = useState<Record<string, EmployeeMetrics>>({})
@@ -139,7 +130,7 @@ function InsightsContent() {
       const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload.error || "we could not load the latest insight data.")
       setEmployees((payload.employees || []) as Employee[])
-      setEnrichedSubmissions((payload.submissions || []) as EnrichedSubmission[])
+      setEnrichedSubmissions((payload.submissions || []) as SubmissionWithDetails[])
       setResponsesByAnswer((payload.responsesByAnswer || {}) as Record<string, (FeedbackResponse & { responderName: string })[]>)
       setOrgMetrics((payload.orgMetrics || null) as OrgMetrics | null)
       setEmployeeMetricsMap((payload.employeeMetrics || {}) as Record<string, EmployeeMetrics>)
@@ -187,17 +178,17 @@ function InsightsContent() {
   }, [searchParams, employees, currentUser, meChecked])
 
   const filteredSubmissions = useMemo(
-    () => filterSubmissionsByRange(enrichedSubmissions as any, dateRange),
+    () => filterSubmissionsByRange(enrichedSubmissions, dateRange),
     [enrichedSubmissions, dateRange]
   )
 
   const build3Submissions = useMemo(
-    () => filteredSubmissions.filter((s: any) => s.feedback_type === "build3"),
+    () => filteredSubmissions.filter((s) => s.submission.feedback_type === "build3"),
     [filteredSubmissions]
   )
 
   const selectedEmployeeBuild3Submissions = useMemo(
-    () => build3Submissions.filter((s: any) => s.submitted_by_id === selectedEmployeeId),
+    () => build3Submissions.filter((s) => s.submission.submitted_by_id === selectedEmployeeId),
     [build3Submissions, selectedEmployeeId]
   )
 
@@ -206,9 +197,9 @@ function InsightsContent() {
     if (!selectedEmployeeId || !employeeMetricsMap[selectedEmployeeId]) {
       return {
         employee: employees.find(e => e.id === selectedEmployeeId) || null,
-        receivedSubmissions: [] as EnrichedSubmission[],
-        givenSubmissions: [] as EnrichedSubmission[],
-        selfSubmissions: [] as EnrichedSubmission[],
+        receivedSubmissions: [] as SubmissionWithDetails[],
+        givenSubmissions: [] as SubmissionWithDetails[],
+        selfSubmissions: [] as SubmissionWithDetails[],
         metrics: {} as Record<string, any>,
         contributionCounts: {} as Record<string, number>,
         contributionRaters: {} as Record<string, string[]>,
@@ -220,8 +211,8 @@ function InsightsContent() {
       }
     }
     const precomputed = employeeMetricsMap[selectedEmployeeId]
-    const filterFn = (s: EnrichedSubmission) => dateRange === "all" ? true : (
-      filteredSubmissions.some((fs: any) => fs.id === s.id)
+    const filterFn = (s: SubmissionWithDetails) => dateRange === "all" ? true : (
+      filteredSubmissions.some((fs) => fs.submission.id === s.submission.id)
     )
     return {
       employee: employees.find(e => e.id === selectedEmployeeId) || null,
@@ -352,7 +343,7 @@ function InsightsContent() {
         {showOrgOverview ? (
           <OrgOverview
             orgMetrics={usePrecomputedOrg as any}
-            build3Submissions={build3Submissions as any}
+            build3Submissions={build3Submissions}
             employees={employees}
             responsesByAnswer={responsesByAnswer}
             currentUser={currentUser}
@@ -389,12 +380,12 @@ function InsightsContent() {
               />
             )}
             {insights.receivedSubmissions.length > 0 && (
-              <FeedbackTimeline submissions={insights.receivedSubmissions as any} title="feedback received" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} />
+              <FeedbackTimeline submissions={insights.receivedSubmissions} title="feedback received" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} />
             )}
             <FeedbackGivenPanel givenFeedbackSummary={insights.givenFeedbackSummary} totalTeamSize={employees.length} />
-            <SelfReflectionsPanel submissions={insights.selfSubmissions as any} />
+            <SelfReflectionsPanel submissions={insights.selfSubmissions} />
             {selectedEmployeeBuild3Submissions.length > 0 && (
-              <FeedbackTimeline submissions={selectedEmployeeBuild3Submissions as any} title="their notes about build3" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} />
+              <FeedbackTimeline submissions={selectedEmployeeBuild3Submissions} title="their notes about build3" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} />
             )}
           </div>
         ) : (
