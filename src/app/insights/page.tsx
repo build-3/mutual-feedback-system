@@ -235,7 +235,12 @@ function InsightsContent() {
   // Show skeleton shell on initial load instead of blank page
   if (!initialLoadDone.current && loading) return <SkeletonShell />
 
-  if (loading || !viewReady) {
+  // Only gate on view-resolution (auto-select) before the FIRST load completes.
+  // `loading` alone must never land here again after that — every later
+  // reload (e.g. a reply save re-fetching the dashboard) would otherwise
+  // blank the whole page and unmount scroll/expand/filter state right back
+  // into the bug this was meant to fix.
+  if (!initialLoadDone.current && !viewReady) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="flex items-center gap-3 text-muted text-sm animate-pulse">
