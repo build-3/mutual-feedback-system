@@ -272,7 +272,10 @@ export function SectionHeading({
         {eyebrow && (
           <Eyebrow accent={accent}>{eyebrow}</Eyebrow>
         )}
-        <h1 className="text-[clamp(1.35rem,5vw,3.2rem)] font-bold leading-[0.96] tracking-[-0.05em] text-ink">
+        {/* Tracking loosens at the small end of the clamp() and tightens at the
+            large end — a single fixed value read as over-tightened on phones
+            and under-tightened on desktop across this size range. */}
+        <h1 className="text-[clamp(1.35rem,5vw,3.2rem)] font-bold leading-[0.96] tracking-[-0.01em] sm:tracking-[-0.03em] lg:tracking-[-0.05em] text-ink">
           {title}
         </h1>
         {description && (

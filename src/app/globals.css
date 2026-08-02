@@ -95,6 +95,14 @@ body {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
+
+  /* Persistent chrome (navbars) — one definition so reduced-transparency
+     and increased-contrast only need to be taught once. */
+  .chrome-surface {
+    background: rgba(251, 247, 242, 0.85);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
 }
 
 a {
@@ -184,28 +192,6 @@ textarea {
   border-radius: var(--radius-soft);
 }
 
-/* Typeform-style transitions — GPU-accelerated, snappy */
-.slide-enter {
-  opacity: 0;
-  transform: translate3d(0, 10px, 0) scale(0.995);
-  will-change: opacity, transform;
-}
-.slide-enter-active {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
-  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.slide-exit {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-  will-change: opacity, transform;
-}
-.slide-exit-active {
-  opacity: 0;
-  transform: translate3d(0, -6px, 0);
-  transition: opacity 0.1s ease-in, transform 0.1s ease-in;
-}
-
 /* Stage-complete progress fill animation */
 @keyframes progressFill {
   from { width: 0%; }
@@ -221,14 +207,6 @@ textarea {
 
 /* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
-  .slide-enter,
-  .slide-enter-active,
-  .slide-exit,
-  .slide-exit-active {
-    transition: none;
-    transform: none;
-  }
-
   .page-enter {
     animation: none;
   }
@@ -244,5 +222,44 @@ textarea {
 
   .progress-bar-fill {
     transition: none;
+  }
+
+  /* Tailwind's animate-* entrance utilities (NoticeCard, EmptyState, login,
+     404, insights shell) — previously only the hand-rolled classes above
+     were covered here, leaving these untouched. */
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-slide-up {
+    animation: none !important;
+  }
+}
+
+/* Reduce transparency for accessibility — frost/solidify glass surfaces
+   instead of just turning off blur, so hierarchy doesn't flatten. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-surface {
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .chrome-surface {
+    background: rgba(251, 247, 242, 0.98);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Increase contrast — near-solid backgrounds with a defined border instead
+   of a soft translucent edge. */
+@media (prefers-contrast: more) {
+  :root {
+    --color-line: #9d9b9a;
+  }
+
+  .chrome-surface {
+    background: rgb(251, 247, 242);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }

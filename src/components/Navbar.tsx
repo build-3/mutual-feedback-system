@@ -76,7 +76,7 @@ function NavbarShell() {
   // Rendered during SSR / before searchParams resolves — no active states
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b border-line/70 bg-canvas/85 backdrop-blur-xl">
+      <nav className="chrome-surface sticky top-0 z-50 border-b border-line/70">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 sm:px-6 sm:py-3">
           <Link href="/feedback" className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white shadow-[var(--shadow-soft)]">
@@ -88,7 +88,7 @@ function NavbarShell() {
           </Link>
         </div>
       </nav>
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/70 bg-canvas/90 sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+      <div className="chrome-surface fixed bottom-0 left-0 right-0 z-50 border-t border-line/70 sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
     </>
   )
 }
@@ -136,7 +136,7 @@ function NavbarInner() {
   return (
     <>
       {/* ── Desktop top navbar ── */}
-      <nav className="sticky top-0 z-50 border-b border-line/70 bg-canvas/85 backdrop-blur-xl supports-[backdrop-filter]:bg-canvas/70">
+      <nav className="chrome-surface sticky top-0 z-50 border-b border-line/70">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 sm:px-6 sm:py-3">
           <Link href="/feedback" className="flex items-center gap-2 sm:gap-3 transition-opacity hover:opacity-80">
             <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-line bg-white shadow-[var(--shadow-soft)]">
@@ -189,7 +189,7 @@ function NavbarInner() {
       </nav>
 
       {/* ── Mobile bottom tab bar ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-line/70 bg-canvas/90 backdrop-blur-xl sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <nav className="chrome-surface fixed bottom-0 left-0 right-0 z-50 border-t border-line/70 sm:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-stretch">
           {links.map((link) => {
             const active = isLinkActive(link)

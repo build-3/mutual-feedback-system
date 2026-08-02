@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useRef, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
@@ -418,6 +418,7 @@ const TimelineItem = memo(function TimelineItem({
   onResponseSaved?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const prefersReducedMotion = useReducedMotion()
   const accent = getFeedbackAccent(submission.submission.feedback_type)
   const badge = badgeClasses({ accent, tone: "soft" })
 
@@ -460,7 +461,11 @@ const TimelineItem = memo(function TimelineItem({
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.22 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0.12 }
+                    : { type: "spring", bounce: 0, duration: 0.3 }
+                }
                 className="overflow-hidden border-t border-line"
               >
                 <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">

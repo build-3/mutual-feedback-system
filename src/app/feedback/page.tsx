@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import Navbar from "@/components/Navbar"
 import KudosCard from "@/components/KudosCard"
@@ -147,7 +148,7 @@ export default function FeedbackPage() {
   const [selfFeedbackForTarget, setSelfFeedbackForTarget] = useState<SelfFeedbackData | null>(null)
   const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
   const [showBirthdayDialog, setShowBirthdayDialog] = useState(false)
-  const [animClass, setAnimClass] = useState("slide-enter-active")
+  const [direction, setDirection] = useState<1 | -1>(1)
   const [error, setError] = useState("")
   const [sliderTouched, setSliderTouched] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -155,8 +156,6 @@ export default function FeedbackPage() {
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
   const mountedRef = useRef(true)
   const skipNextPush = useRef(false)
-  const isAnimating = useRef(false)
-  const pendingPopState = useRef<(() => void) | null>(null)
   const matrixAdvanceTimer = useRef<NodeJS.Timeout | null>(null)
 
   // Form generation — bumped whenever the form restarts (reset, deep-link
@@ -427,37 +426,43 @@ export default function FeedbackPage() {
   }, [phase, stages, currentStageIndex, currentQ, questions.length, adhocSkipped, build3Skipped, hasReviewStep])
   const pathOptions = getFeedbackPathOptions()
 
+  // State advances immediately — the transition below is a purely visual
+  // layer (framer-motion, keyed on phase/question) that can never block or
+  // drop input. `direction` only decides which way the step slides.
   const animateTransition = useCallback(
     (forward: boolean, cb: () => void, historyState?: FormHistoryState) => {
-      if (isAnimating.current) {
-        skipNextPush.current = false
-        return
+      setDirection(forward ? 1 : -1)
+      cb()
+      if (historyState && !skipNextPush.current) {
+        window.history.pushState(historyState, "")
       }
-      isAnimating.current = true
-      setAnimClass(forward ? "slide-exit-active" : "slide-enter")
-      safeTimeout(() => {
-        if (!mountedRef.current) return
-        cb()
-        if (historyState && !skipNextPush.current) {
-          window.history.pushState(historyState, "")
-        }
-        skipNextPush.current = false
-        window.scrollTo({ top: 0, behavior: "instant" })
-        setAnimClass("slide-enter")
-        safeTimeout(() => {
-          if (!mountedRef.current) return
-          setAnimClass("slide-enter-active")
-          isAnimating.current = false
-          const queued = pendingPopState.current
-          if (queued) {
-            pendingPopState.current = null
-            queued()
-          }
-        }, 10)
-      }, 130)
+      skipNextPush.current = false
+      window.scrollTo({ top: 0, behavior: "instant" })
     },
-    [safeTimeout]
+    []
   )
+
+  // Identifies the currently visible "screen" — framer-motion cross-fades
+  // whenever this changes, in whichever direction `animateTransition` last set.
+  const stepKey = `${phase}:${feedbackPath ?? "none"}:${currentStageIndex}:${currentQ}`
+
+  const prefersReducedMotion = useReducedMotion()
+  // Critically damped (bounce: 0) per the apple-design spring defaults —
+  // graceful, non-distracting, no overshoot for a step that isn't gesture-driven.
+  const stepTransition = prefersReducedMotion
+    ? { duration: 0.15 }
+    : { type: "spring" as const, bounce: 0, duration: 0.32 }
+  const stepVariants = prefersReducedMotion
+    ? {
+        enter: { opacity: 0 },
+        center: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    : {
+        enter: (dir: 1 | -1) => ({ opacity: 0, y: dir > 0 ? 10 : -10 }),
+        center: { opacity: 1, y: 0 },
+        exit: (dir: 1 | -1) => ({ opacity: 0, y: dir > 0 ? -8 : 8 }),
+      }
 
   // Browser history integration: back/forward navigates between questions
   const historySeededRef = useRef(false)
@@ -474,42 +479,33 @@ export default function FeedbackPage() {
       const state = event.state as Partial<FormHistoryState> | null
       if (!state?.formPhase) return
 
-      const navigate = () => {
-        const live = latestForm.current
-        // Refuse to restore entries from a previous form run (gen mismatch)
-        // or from a pipeline stage that has already been completed — their
-        // answers were wiped or submitted, so restoring would show empty or
-        // wrong-stage questions. Repair the entry to the current screen
-        // instead, so back never resurrects a dead state.
-        const inStagedFlow = state.formPhase === "questions" || state.formPhase === "self_review"
-        const stale =
-          state.gen !== formGen.current ||
-          // Never step out of the stage_complete celebration — its timer is
-          // already committed to advancing; restoring the submitted stage
-          // would let the timer wipe anything retyped there.
-          live.phase === "stage_complete" ||
-          (inStagedFlow && live.stages.length > 0 && state.stageIdx !== live.currentStageIndex) ||
-          // Entries written for a different lane (same run, pre-lane-switch)
-          // would restore a question index against the wrong question list.
-          (inStagedFlow && !!state.stagePath && !!live.feedbackPath && state.stagePath !== live.feedbackPath)
-        if (stale) {
-          window.history.replaceState(historyStateFor(live.phase, live.currentQ), "")
-          return
-        }
-        skipNextPush.current = true
-        animateTransition(false, () => {
-          setPhase(state.formPhase as Phase)
-          setCurrentQ(state.formQ ?? 0)
-          setError("")
-        })
+      const live = latestForm.current
+      // Refuse to restore entries from a previous form run (gen mismatch)
+      // or from a pipeline stage that has already been completed — their
+      // answers were wiped or submitted, so restoring would show empty or
+      // wrong-stage questions. Repair the entry to the current screen
+      // instead, so back never resurrects a dead state.
+      const inStagedFlow = state.formPhase === "questions" || state.formPhase === "self_review"
+      const stale =
+        state.gen !== formGen.current ||
+        // Never step out of the stage_complete celebration — its timer is
+        // already committed to advancing; restoring the submitted stage
+        // would let the timer wipe anything retyped there.
+        live.phase === "stage_complete" ||
+        (inStagedFlow && live.stages.length > 0 && state.stageIdx !== live.currentStageIndex) ||
+        // Entries written for a different lane (same run, pre-lane-switch)
+        // would restore a question index against the wrong question list.
+        (inStagedFlow && !!state.stagePath && !!live.feedbackPath && state.stagePath !== live.feedbackPath)
+      if (stale) {
+        window.history.replaceState(historyStateFor(live.phase, live.currentQ), "")
+        return
       }
-
-      if (isAnimating.current) {
-        // Queue this navigation — it will run when current animation finishes
-        pendingPopState.current = navigate
-      } else {
-        navigate()
-      }
+      skipNextPush.current = true
+      animateTransition(false, () => {
+        setPhase(state.formPhase as Phase)
+        setCurrentQ(state.formQ ?? 0)
+        setError("")
+      })
     }
 
     window.addEventListener("popstate", handlePopState)
@@ -1625,7 +1621,9 @@ export default function FeedbackPage() {
         }} />
       )}
 
-      <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas/95 backdrop-blur-xl">
+      {/* Solid, not translucent — this sits directly under the chrome-surface
+          navbar; stacking two blurred glass layers back-to-back reads as mush. */}
+      <div className="sticky top-[52px] sm:top-[64px] z-40 border-b border-line bg-canvas">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:py-3 sm:px-6">
           {/* Stage stepper pills — only mid-pipeline, not on identify/route */}
           {stages.length > 1 && phase !== "identify" && phase !== "route" && (
@@ -1678,7 +1676,24 @@ export default function FeedbackPage() {
 
       <main className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-12">
         <div className="grid gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
-          <div className={`space-y-6 ${animClass}`}>
+          {/* Default (non-blocking) mode, not "wait" — the new step must always
+              be able to mount immediately, even if the outgoing step's exit
+              animation is slow or (in dev/StrictMode) never resolves. Both
+              steps share one grid cell while they overlap, so there's no
+              layout jump between differently-sized steps. */}
+          <div className="grid">
+          <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={stepKey}
+            custom={direction}
+            variants={stepVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={stepTransition}
+            style={{ gridArea: "1 / 1" }}
+            className="space-y-6"
+          >
             {phase !== "identify" && phase !== "submitting" && phase !== "stage_complete" && (
               <button type="button" className={backButton.className} style={backButton.style} onClick={goBack}>
                 go back
@@ -1894,6 +1909,8 @@ export default function FeedbackPage() {
                 )}
               </div>
             )}
+          </motion.div>
+          </AnimatePresence>
           </div>
 
           <div className="hidden lg:block space-y-4 lg:sticky lg:top-[142px] lg:self-start">
