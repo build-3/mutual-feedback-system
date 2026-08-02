@@ -65,6 +65,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Role is invalid." }, { status: 400 })
     }
 
+    // requireAdminOrFullTimer lets full_timers add teammates, but only an
+    // actual admin may mint another admin — otherwise a full_timer could
+    // POST { role: "admin", email: <account they control> } and grant
+    // themselves full admin access (including admin/clear).
+    if (role === "admin" && postAuth.employee.role !== "admin") {
+      return NextResponse.json(
+        { error: "Only admins can grant admin access." },
+        { status: 403 }
+      )
+    }
+
     const supabaseAdmin = getSupabaseAdmin()
     const { data: newEmployee, error } = await supabaseAdmin
       .from("employees")
