@@ -74,33 +74,45 @@ interface Props {
 function ResponseThread({
   responses,
 }: {
-  responses: (FeedbackResponse & { responderName: string })[]
+  responses: (FeedbackResponse & { responderName: string; asFoundation?: boolean })[]
 }) {
   if (responses.length === 0) return null
 
   return (
     <div className="mt-3 space-y-2 border-l-2 border-brand-sky/30 pl-4">
-      {responses.map((r) => (
-        <div key={r.id} className="flex gap-3">
-          <div
-            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ backgroundColor: getAvatarColor(r.responderName) }}
-          >
-            {getInitials(r.responderName)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs font-semibold text-ink">{r.responderName}</span>
-              <span className="text-[10px] tracking-[0.08em] text-muted">
-                {timeAgo(new Date(r.created_at))}
-              </span>
+      {responses.map((r) => {
+        // Replies to org-level feedback from leadership speak as the
+        // institution, not the individual. The real responder is still stored
+        // and returned — only the presentation changes.
+        const asOrg = r.asFoundation === true
+        const displayName = asOrg ? "build3 foundation" : r.responderName
+        return (
+          <div key={r.id} className="flex gap-3">
+            <div
+              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ backgroundColor: asOrg ? "#1d1d1b" : getAvatarColor(r.responderName) }}
+            >
+              {asOrg ? "b3" : getInitials(r.responderName)}
             </div>
-            <p className="mt-0.5 whitespace-pre-wrap text-sm leading-6 text-ink/80">
-              {r.response_text}
-            </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs font-semibold text-ink">{displayName}</span>
+                {asOrg && (
+                  <span className="rounded-full border border-line bg-white px-2 py-0.5 text-[9px] font-semibold tracking-[0.08em] text-muted">
+                    official
+                  </span>
+                )}
+                <span className="text-[10px] tracking-[0.08em] text-muted">
+                  {timeAgo(new Date(r.created_at))}
+                </span>
+              </div>
+              <p className="mt-0.5 whitespace-pre-wrap text-sm leading-6 text-ink/80">
+                {r.response_text}
+              </p>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

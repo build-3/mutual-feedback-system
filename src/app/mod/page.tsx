@@ -1,193 +1,207 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
-import { SectionHeading, StatPill, BrandPanel, EmptyState } from "@/components/ui/brand"
-import SummaryBoard, { DeptSummary } from "@/components/mod/SummaryBoard"
-import ReviewExplorer from "@/components/mod/ReviewExplorer"
-import ResponsesList from "@/components/mod/ResponsesList"
-import type { ChartsData } from "@/components/mod/ModCharts"
-import { ModData, ModReview, ModResponse } from "@/components/mod/types"
+import { BrandPanel, EmptyState, SectionHeading, StatPill, buttonClasses } from "@/components/ui/brand"
+import type { SubmissionWithDetails } from "@/app/insights/types"
+import type { FeedbackResponse } from "@/lib/types"
 
-const ModCharts = dynamic(() => import("@/components/mod/ModCharts"), {
-  ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded-2xl bg-line/30" />,
-})
+const FeedbackTimeline = dynamic(() => import("@/components/insights/FeedbackTimeline"))
 
-type Tab = "overview" | "analytics" | "reviews" | "raw"
+type TriageStatus = "unanswered" | "partial" | "done"
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "overview", label: "overview" },
-  { key: "analytics", label: "analytics" },
-  { key: "reviews", label: "reviews" },
-  { key: "raw", label: "raw responses" },
-]
-
-function buildDeptSummary(reviews: ModReview[]): DeptSummary[] {
-  const map = new Map<string, { total: number; count: number; critical: number }>()
-  for (const r of reviews) {
-    const cur = map.get(r.department) ?? { total: 0, count: 0, critical: 0 }
-    cur.count += 1
-    cur.total += r.severity ?? 0
-    if ((r.severity ?? 0) >= 4.5) cur.critical += 1
-    map.set(r.department, cur)
-  }
-  return Array.from(map.entries())
-    .map(([department, v]) => ({
-      department,
-      count: v.count,
-      avgSeverity: v.count ? v.total / v.count : 0,
-      criticalCount: v.critical,
-    }))
-    .sort((a, b) => b.count - a.count)
+type QueueItem = SubmissionWithDetails & {
+  period: string
+  status: TriageStatus
+  needsReply: number
+  replied: number
 }
 
-function buildCharts(reviews: ModReview[], responses: ModResponse[]): ChartsData {
-  const deptRows = buildDeptSummary(reviews).map((d) => ({
-    department: d.department,
-    count: d.count,
-    avgSeverity: d.avgSeverity,
-  }))
+type QueuePayload = {
+  items: QueueItem[]
+  responsesByAnswer: Record<string, (FeedbackResponse & { responderName: string; asFoundation?: boolean })[]>
+  counts: Record<TriageStatus, number>
+  periods: string[]
+}
 
-  const severityDist = [1, 2, 3, 4, 5].map((value) => ({
-    label: String(value),
-    value,
-    count: reviews.filter((r) => Math.round(r.severity ?? 0) === value).length,
-  }))
+const STATUS_FILTERS: { key: TriageStatus | "all"; label: string }[] = [
+  { key: "unanswered", label: "needs a reply" },
+  { key: "partial", label: "part answered" },
+  { key: "done", label: "answered" },
+  { key: "all", label: "everything" },
+]
 
-  const bucketDefs = [
-    { label: "<50%", floor: 40, test: (p: number) => p < 50 },
-    { label: "50–69%", floor: 55, test: (p: number) => p >= 50 && p < 70 },
-    { label: "70–84%", floor: 75, test: (p: number) => p >= 70 && p < 85 },
-    { label: "85%+", floor: 90, test: (p: number) => p >= 85 },
-  ]
-  const pcts = responses
-    .map((r) => (r.trust_battery == null ? null : r.trust_battery * 100))
-    .filter((p): p is number => p != null)
-  const trustBuckets = bucketDefs.map((b) => ({
-    label: b.label,
-    floor: b.floor,
-    count: pcts.filter(b.test).length,
-  }))
-
-  return { deptRows, severityDist, trustBuckets }
+function monthLabel(period: string) {
+  const [y, m] = period.split("-")
+  const d = new Date(Number(y), Number(m) - 1, 1)
+  return d.toLocaleString("en-GB", { month: "short", year: "numeric" }).toLowerCase()
 }
 
 export default function ModPage() {
-  const [data, setData] = useState<ModData | null>(null)
+  const [data, setData] = useState<QueuePayload | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>("overview")
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [status, setStatus] = useState<TriageStatus | "all">("unanswered")
+  const [period, setPeriod] = useState<string>("all")
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
+  const [firstLoadDone, setFirstLoadDone] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
-    setError(null)
+    setLoadError(null)
     try {
-      const res = await fetch("/api/mod/reviews", { cache: "no-store" })
+      const res = await fetch("/api/mod/queue")
+      if (res.status === 404) throw new Error("the response console is switched off.")
       const payload = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(payload.error || "Failed to load data")
-      setData({ reviews: payload.reviews || [], responses: payload.responses || [] })
+      if (!res.ok) throw new Error(payload.error || "we could not load the response queue.")
+      setData(payload as QueuePayload)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data")
+      setLoadError(err instanceof Error ? err.message : "we could not load the response queue.")
     } finally {
       setLoading(false)
+      setFirstLoadDone(true)
     }
   }, [])
 
+  useEffect(() => { void load() }, [load])
+
   useEffect(() => {
-    load()
-  }, [load])
+    fetch("/api/me")
+      .then(r => r.json())
+      .then(d => {
+        if (d?.employee?.id && d?.employee?.name) setCurrentUser({ id: d.employee.id, name: d.employee.name })
+      })
+      .catch(() => {})
+  }, [])
 
-  const reviews = useMemo(() => data?.reviews ?? [], [data])
-  const responses = useMemo(() => data?.responses ?? [], [data])
+  const visible = useMemo(() => {
+    if (!data) return []
+    return data.items.filter(
+      it => (status === "all" || it.status === status) && (period === "all" || it.period === period)
+    )
+  }, [data, status, period])
 
-  const deptSummary = useMemo(() => buildDeptSummary(reviews), [reviews])
-  const charts = useMemo(() => buildCharts(reviews, responses), [reviews, responses])
+  // Only the very first load blanks the page. The refresh after saving a reply
+  // must keep the tree mounted, or the reply you just wrote disappears along
+  // with your scroll position — the same bug that hit /insights.
+  if (!firstLoadDone && loading) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <Navbar />
+        <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+          <div className="skeleton h-8 w-56 rounded-full" />
+          <div className="skeleton mt-6 h-40 rounded-[28px]" />
+        </div>
+      </div>
+    )
+  }
 
-  const stats = useMemo(() => {
-    const trustVals = responses
-      .map((r) => r.trust_battery)
-      .filter((v): v is number => v != null)
-    const npsVals = responses.map((r) => r.nps_score).filter((v): v is number => v != null)
-    const avgTrust = trustVals.length
-      ? Math.round((trustVals.reduce((a, b) => a + b, 0) / trustVals.length) * 100)
-      : null
-    const avgNps = npsVals.length
-      ? (npsVals.reduce((a, b) => a + b, 0) / npsVals.length).toFixed(1)
-      : null
-    const critical = reviews.filter((r) => (r.severity ?? 0) >= 4.5).length
-    return { avgTrust, avgNps, critical }
-  }, [reviews, responses])
+  const counts = data?.counts ?? { unanswered: 0, partial: 0, done: 0 }
+  const backlog = counts.unanswered + counts.partial
+  const retryBtn = buttonClasses({ accent: "ink", variant: "ghost", size: "sm" })
 
   return (
-    <div className="min-h-screen bg-[#fffaf5]">
+    <div className="min-h-screen bg-canvas page-enter">
       <Navbar />
-      <div className="mx-auto max-w-5xl px-3 pb-20 pt-4 sm:px-6 sm:pt-8">
+      <div className="mx-auto max-w-5xl px-4 pt-4 sm:pt-8 sm:px-6">
         <SectionHeading
           accent="peach"
           eyebrow="restricted · leadership only"
-          title="org review 2026"
-          description="Employee feedback mastersheet — categorized reviews by department plus raw survey responses. Visible only to the leadership allowlist."
+          title="org feedback"
+          description="everything the team has told build3 about itself. replies reach them as the build3 foundation account."
         />
 
-        {/* Tabs */}
-        <div className="mt-6 flex flex-wrap gap-1 rounded-full border border-line bg-white/70 p-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                tab === t.key ? "bg-ink text-white" : "text-muted hover:text-ink"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {loadError ? (
+          <div className="mt-6">
+            <EmptyState
+              accent="peach"
+              title="we could not load the queue"
+              description={loadError}
+              action={
+                <button type="button" onClick={() => void load()} className={retryBtn.className} style={retryBtn.style}>
+                  retry
+                </button>
+              }
+            />
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <StatPill accent="peach" label="needs a reply" value={String(counts.unanswered)} detail="nobody has responded yet" />
+              <StatPill accent="yellow" label="part answered" value={String(counts.partial)} detail="some concerns still open" />
+              <StatPill accent="sage" label="answered" value={String(counts.done)} detail="every concern has a reply" />
+            </div>
 
-        <div className="mt-6">
-          {loading ? (
-            <div className="h-64 animate-pulse rounded-2xl bg-line/30" />
-          ) : error ? (
-            <EmptyState
-              accent="peach"
-              title="couldn't load"
-              description={error}
-            />
-          ) : reviews.length === 0 && responses.length === 0 ? (
-            <EmptyState
-              accent="peach"
-              title="no data yet"
-              description="Run scripts/import-mastersheet.mjs to populate the review tables."
-            />
-          ) : (
-            <>
-              {tab === "overview" && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                    <StatPill accent="sky" label="responses" value={responses.length} />
-                    <StatPill accent="sage" label="avg trust battery" value={stats.avgTrust != null ? `${stats.avgTrust}%` : "—"} />
-                    <StatPill accent="peach" label="reviews" value={reviews.length} />
-                    <StatPill accent="pink" label="critical" value={stats.critical} detail={stats.avgNps != null ? `avg NPS ${stats.avgNps}` : undefined} />
-                  </div>
-                  <SummaryBoard rows={deptSummary} />
+            <div className="mt-5 flex flex-wrap items-center gap-2 border-b border-line pb-4">
+              <div className="flex flex-wrap gap-0.5 rounded-full border border-line bg-white p-1">
+                {STATUS_FILTERS.map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setStatus(f.key)}
+                    className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
+                      status === f.key ? "bg-ink text-white" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              {(data?.periods.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-0.5 rounded-full border border-line bg-white p-1 sm:ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPeriod("all")}
+                    className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
+                      period === "all" ? "bg-ink text-white" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    all rounds
+                  </button>
+                  {data?.periods.map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPeriod(p)}
+                      className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
+                        period === p ? "bg-ink text-white" : "text-muted hover:text-ink"
+                      }`}
+                    >
+                      {monthLabel(p)}
+                    </button>
+                  ))}
                 </div>
               )}
+            </div>
 
-              {tab === "analytics" && <ModCharts data={charts} />}
+            {backlog > 0 && status === "unanswered" && (
+              <p className="mt-4 text-sm leading-6 text-muted">
+                {backlog} {backlog === 1 ? "entry is" : "entries are"} still waiting on a reply.
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
-              {tab === "reviews" && <ReviewExplorer reviews={reviews} />}
-
-              {tab === "raw" && (
-                <BrandPanel accent="sky" tone="plain" className="p-4 sm:p-5">
-                  <ResponsesList responses={responses} />
-                </BrandPanel>
-              )}
-            </>
-          )}
-        </div>
+      <div className="mx-auto max-w-5xl px-4 py-4 pb-20 sm:px-6 sm:py-6">
+        {!loadError &&
+          (visible.length === 0 ? (
+            <BrandPanel accent="sage" tone="washed" className="p-8 text-center">
+              <p className="text-sm leading-6 text-muted">
+                nothing here with those filters.
+                {status === "unanswered" && " every entry in this view has had a reply."}
+              </p>
+            </BrandPanel>
+          ) : (
+            <FeedbackTimeline
+              submissions={visible}
+              title={`${visible.length} ${visible.length === 1 ? "entry" : "entries"}`}
+              responsesByAnswer={data?.responsesByAnswer}
+              currentUser={currentUser}
+              onResponseSaved={() => void load()}
+            />
+          ))}
       </div>
     </div>
   )

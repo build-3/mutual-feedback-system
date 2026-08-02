@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { parseNumericAnswer, contributionKeyToLabel, selectedValueTitles, NUMERIC_KEYS, VALUES_WITH_TEXT_KEYS, formatValuesWithText } from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
 import type { DateRange } from "@/lib/brand"
+import { MOD_EMAILS } from "@/lib/server/require-admin"
 
 const PAGE_SIZE = 1000
 
@@ -202,10 +203,26 @@ export async function buildInsightsPayload(range: DateRange = "3months") {
     answerMap.set(a.submission_id, list)
   }
 
-  const responseMap = new Map<string, (ResponseRow & { responderName: string })[]>()
+  // A leadership reply on org-level (build3) feedback speaks as the
+  // institution, not the individual — see the /mod response console. The real
+  // responder_id is kept; only the rendered name changes. Computed here
+  // because MOD_EMAILS lives in a server-only module the client can't import.
+  const submissionTypeById = new Map(submissions.map(s => [s.id, s.feedback_type]))
+  const submissionTypeByAnswerId = new Map(
+    answers.map(a => [a.id, submissionTypeById.get(a.submission_id) ?? ""])
+  )
+  const emailById = new Map(employees.map(e => [e.id, (e.email ?? "").toLowerCase()]))
+
+  const responseMap = new Map<string, (ResponseRow & { responderName: string; asFoundation: boolean })[]>()
   for (const r of responses) {
     const list = responseMap.get(r.answer_id) || []
-    list.push({ ...r, responderName: empNameById.get(r.responder_id) || "Unknown" })
+    list.push({
+      ...r,
+      responderName: empNameById.get(r.responder_id) || "Unknown",
+      asFoundation:
+        submissionTypeByAnswerId.get(r.answer_id) === "build3" &&
+        MOD_EMAILS.includes(emailById.get(r.responder_id) ?? ""),
+    })
     responseMap.set(r.answer_id, list)
   }
 

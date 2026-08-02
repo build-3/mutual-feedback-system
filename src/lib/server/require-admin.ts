@@ -10,15 +10,13 @@ import { getSupabaseAdmin, hasServerSupabaseConfig } from "./supabase-admin"
 export const MOD_EMAILS = ["at@build3.org", "vc@build3.org", "br@build3.org"]
 
 /**
- * Kill switch for /mod. The dashboard was built against a hand-made
- * spreadsheet import that is now stale (covers May+June only, while the app
- * holds four rounds) and its charts don't render. It stays off until it is
- * rebuilt as the HR response console.
+ * Kill switch for /mod, kept as the single place to take the console offline.
+ * It was introduced to retire the old spreadsheet-backed dashboard; /mod is
+ * now the HR response console for org-level feedback, so it's on.
  *
- * Flipping this to true restores the previous behaviour — the MOD_EMAILS
- * allowlist is still enforced underneath.
+ * The MOD_EMAILS allowlist is enforced underneath regardless.
  */
-export const MOD_DASHBOARD_ENABLED = false
+export const MOD_DASHBOARD_ENABLED = true
 
 // In-memory employee-by-email cache — avoids a DB round-trip on every request
 const employeeByEmailCache = new Map<string, {
