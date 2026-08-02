@@ -118,7 +118,12 @@ function InsightsContent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [showOrgOverview, setShowOrgOverview] = useState(true)
-  const [dateRange, setDateRange] = useState<"month" | "3months" | "all">("all")
+  // Defaults to the last 3 months, not all-time. An all-time landing view
+  // averaged every round ever recorded into a single number and presented it
+  // as the current picture, which is what made the dashboard untrustworthy.
+  // "month" is deliberately not the default: rounds land mid-month, so early
+  // in a new month it would legitimately be empty.
+  const [dateRange, setDateRange] = useState<"month" | "3months" | "all">("3months")
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email?: string | null } | null>(null)
   const initialLoadDone = useRef(false)
 
@@ -126,7 +131,7 @@ function InsightsContent() {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await fetch("/api/insights/data")
+      const res = await fetch(`/api/insights/data?range=${dateRange}`)
       const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload.error || "we could not load the latest insight data.")
       setEmployees((payload.employees || []) as Employee[])
@@ -141,7 +146,7 @@ function InsightsContent() {
       setLoading(false)
       initialLoadDone.current = true
     }
-  }, [])
+  }, [dateRange])
 
   const handleResponseSaved = useCallback(() => {
     void loadDashboard()
@@ -343,6 +348,15 @@ function InsightsContent() {
             />
           </div>
         </div>
+
+        {/* An empty window is a real state — rounds land mid-month, so early in
+            a month "this month" is legitimately empty. Say so, rather than
+            rendering a page full of zeros that reads like a collapse. */}
+        {usePrecomputedOrg.totalSubmissions === 0 && (
+          <div className="mt-4 rounded-[20px] border border-line bg-white/70 px-4 py-3 text-sm leading-6 text-muted">
+            no feedback landed in {DATE_RANGE_LABELS[dateRange]}. the scores below are empty for that reason — try a wider range.
+          </div>
+        )}
       </div>
       <div className="mx-auto max-w-5xl px-3 py-3 sm:px-6 sm:py-5 pb-20">
         {showOrgOverview ? (
