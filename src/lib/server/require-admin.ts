@@ -9,6 +9,17 @@ import { getSupabaseAdmin, hasServerSupabaseConfig } from "./supabase-admin"
 // LEVEL1_EMAILS pattern used by the probation routes (adds br@).
 export const MOD_EMAILS = ["at@build3.org", "vc@build3.org", "br@build3.org"]
 
+/**
+ * Kill switch for /mod. The dashboard was built against a hand-made
+ * spreadsheet import that is now stale (covers May+June only, while the app
+ * holds four rounds) and its charts don't render. It stays off until it is
+ * rebuilt as the HR response console.
+ *
+ * Flipping this to true restores the previous behaviour — the MOD_EMAILS
+ * allowlist is still enforced underneath.
+ */
+export const MOD_DASHBOARD_ENABLED = false
+
 // In-memory employee-by-email cache — avoids a DB round-trip on every request
 const employeeByEmailCache = new Map<string, {
   data: { id: string; name: string; role: string; email: string | null; birthday: string | null;  }
@@ -215,6 +226,13 @@ export async function requireMod(): Promise<
   | { email: string; error?: never }
   | { email?: never; error: NextResponse }
 > {
+  // Gated here rather than in the route body so every current and future
+  // /api/mod/* route is covered. 404 (not 403) so a disabled dashboard is
+  // indistinguishable from one that was never built.
+  if (!MOD_DASHBOARD_ENABLED) {
+    return { error: new NextResponse(null, { status: 404 }) }
+  }
+
   const email = await resolveUserEmail()
   if (!email) {
     return {

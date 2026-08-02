@@ -5,7 +5,7 @@ import clsx from "clsx"
 import { badgeClasses } from "@/components/ui/brand"
 
 type MatrixRatingProps = {
-  items: { key: string; label: string }[]
+  items: { key: string; label: string; description?: string }[]
   values: Record<string, number>
   onChange: (key: string, val: number) => void
 }
@@ -24,9 +24,14 @@ const MatrixRating = memo(function MatrixRating({
           key={item.key}
           className="rounded-[24px] border border-line bg-white px-4 py-4 shadow-brand"
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <span className="text-sm font-medium text-ink sm:max-w-[18rem]">
-            {item.label}
+              {item.label}
+              {item.description && (
+                <span className="mt-1 block text-xs font-normal leading-5 text-muted">
+                  {item.description}
+                </span>
+              )}
             </span>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((score) => (

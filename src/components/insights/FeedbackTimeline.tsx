@@ -23,7 +23,7 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder"
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 
-/** Text question keys that support responses (intern + full_timer paths) */
+/** Text question keys that support responses (intern + full_timer + build3 paths) */
 const RESPONDABLE_KEYS = new Set([
   "excellence_area",
   "upskill_ability",
@@ -36,6 +36,11 @@ const RESPONDABLE_KEYS = new Set([
   "adhoc_positive",
   "adhoc_improve",
   "review_overall_comment",
+  // build3 (org-level) feedback. Without these two, the questions carrying
+  // almost all org feedback had no reply affordance at all — the "feedback
+  // goes into a void" complaint was literally true.
+  "policies_unclear",
+  "tools_resources",
 ])
 
 function parseValuesWithText(raw: string) {

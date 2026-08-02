@@ -107,7 +107,7 @@ export type Question = {
   type: QuestionType
   subtext?: string
   options?: { key: string; label: string; description?: string }[]
-  matrixItems?: { key: string; label: string }[]
+  matrixItems?: { key: string; label: string; description?: string }[]
   min?: number
   max?: number
   employeeRole?: "intern" | "full_timer"
@@ -124,9 +124,24 @@ const TEAL_CONCEPTS_QUESTION: Question = {
   type: "matrix_rating",
   subtext: "quick score, 1 to 5.",
   matrixItems: [
-    { key: "teal_self_management", label: "Self-Management" },
-    { key: "teal_wholeness", label: "Wholeness" },
-    { key: "teal_evolutionary_purpose", label: "Evolutionary Purpose" },
+    {
+      key: "teal_self_management",
+      label: "Self-Management",
+      description:
+        "makes decisions and owns outcomes without waiting for permission or a manager to unblock them.",
+    },
+    {
+      key: "teal_wholeness",
+      label: "Wholeness",
+      description:
+        "brings their whole self to work — feelings, intuition, and personality — instead of hiding behind a professional mask.",
+    },
+    {
+      key: "teal_evolutionary_purpose",
+      label: "Evolutionary Purpose",
+      description:
+        "listens for where build3 is trying to go next and moves with it, rather than forcing a fixed plan.",
+    },
   ],
 }
 
