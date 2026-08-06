@@ -25,7 +25,13 @@ export type Accent =
   | "ink"
 
 export type FeedbackPath = "intern" | "build3" | "full_timer" | "self" | "adhoc"
-export type DateRange = "month" | "3months" | "all"
+/**
+ * Reporting window. A "cycle" runs from the 2nd Tuesday of one month up to the
+ * 2nd Tuesday of the next — see src/lib/cycles.ts. Replaced the old
+ * "month"/"3months" calendar windows, which never matched the session cadence
+ * and made the dashboard read zero early in a month.
+ */
+export type DateRange = "cycle" | "3cycles" | "all"
 
 type AlphaSwatch = {
   solid: string
@@ -127,9 +133,20 @@ export const SCREEN_ACCENTS: Record<"feedback" | "insights" | "employees" | "kud
 }
 
 export const DATE_RANGE_LABELS: Record<DateRange, string> = {
-  month: "this month",
-  "3months": "last 3 months",
+  cycle: "this cycle",
+  "3cycles": "last 3 cycles",
   all: "all time",
+}
+
+/**
+ * Query-string values from before the cycle migration. Kept so bookmarks and
+ * in-flight clients resolve to the nearest equivalent instead of silently
+ * falling through to the default — a bookmark meaning "this month" quietly
+ * serving three cycles is worse than an error, because nothing signals it.
+ */
+export const LEGACY_DATE_RANGE_ALIASES: Record<string, DateRange> = {
+  month: "cycle",
+  "3months": "3cycles",
 }
 
 export const FEEDBACK_TYPE_LABELS: Record<FeedbackPath, string> = {

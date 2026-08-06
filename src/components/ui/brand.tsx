@@ -338,6 +338,101 @@ export function StatPill({
   )
 }
 
+/**
+ * Pill-group segmented control.
+ *
+ * Extracted from three near-identical hand-rolled copies (the insights range
+ * picker and both /mod filter bars). Classes are carried over verbatim so
+ * nothing shifts visually.
+ */
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  className,
+  ariaLabel,
+}: {
+  options: { key: T; label: string; title?: string }[]
+  value: T
+  onChange: (key: T) => void
+  className?: string
+  ariaLabel?: string
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className={clsx(
+        "flex gap-0.5 sm:gap-1 rounded-full border border-line bg-white p-1",
+        className
+      )}
+    >
+      {options.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          title={option.title}
+          aria-pressed={value === option.key}
+          onClick={() => onChange(option.key)}
+          className={clsx(
+            "flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all",
+            value === option.key ? "bg-ink text-white" : "text-muted hover:text-ink"
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Prev/next stepper for walking through cycles. Sits beside the range pills so
+ * a reset-day empty view has an obvious way back to the previous cycle.
+ */
+export function CycleStepper({
+  label,
+  onPrev,
+  onNext,
+  prevDisabled,
+  nextDisabled,
+}: {
+  label: string
+  onPrev: () => void
+  onNext: () => void
+  prevDisabled?: boolean
+  nextDisabled?: boolean
+}) {
+  const arrow =
+    "flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed enabled:hover:bg-black/[0.05]"
+
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-line bg-white px-1 py-1">
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={prevDisabled}
+        aria-label="previous cycle"
+        className={arrow}
+      >
+        ‹
+      </button>
+      <span className="px-1 text-xs font-semibold tracking-[0.04em] text-ink tabular-nums whitespace-nowrap">
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={nextDisabled}
+        aria-label="next cycle"
+        className={arrow}
+      >
+        ›
+      </button>
+    </div>
+  )
+}
+
 export function NoticeCard({
   accent = "peach",
   title,

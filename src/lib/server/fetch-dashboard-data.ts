@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { parseNumericAnswer, contributionKeyToLabel, selectedValueTitles, NUMERIC_KEYS, VALUES_WITH_TEXT_KEYS, formatValuesWithText } from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
 import type { DateRange } from "@/lib/brand"
+import { resolveWindow } from "@/lib/cycles"
 import { MOD_EMAILS } from "@/lib/server/require-admin"
 
 const PAGE_SIZE = 1000
@@ -166,18 +167,10 @@ function avg(arr: number[]): number | null {
   return arr.reduce((a, b) => a + b, 0) / arr.length
 }
 
-/**
- * Cutoff for a date range, or null for "all". Mirrors filterSubmissionsByRange
- * in insights-helpers.ts, which does the same thing on the nested client shape.
- */
-function rangeCutoff(range: DateRange): Date | null {
-  if (range === "all") return null
-  const now = new Date()
-  if (range === "month") return new Date(now.getFullYear(), now.getMonth(), 1)
-  return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-}
-
-export async function buildInsightsPayload(range: DateRange = "3months") {
+export async function buildInsightsPayload(
+  range: DateRange = "cycle",
+  cycleKey?: string | null
+) {
   const result = await fetchDashboardData()
   if (result.error || !result.data) return { error: result.error }
 
@@ -247,9 +240,16 @@ export async function buildInsightsPayload(range: DateRange = "3months") {
   // single point keeps both halves of every comparison on the same window.
   // Previously nothing was filtered server-side, so "team avg" was always
   // all-time while the number rendered beside it was range-filtered client-side.
-  const cutoff = rangeCutoff(range)
-  const enriched: EnrichedSubmission[] = cutoff
-    ? allEnriched.filter(s => new Date(s.created_at) >= cutoff)
+  // Both bounds matter now: on the first day of a new cycle the window is
+  // genuinely empty, and a lower-bound-only filter would leak the previous
+  // cycle's rows into it. resolveWindow is shared with the client filter in
+  // insights-helpers.ts so the two cannot drift.
+  const window = resolveWindow(range, cycleKey)
+  const enriched: EnrichedSubmission[] = window
+    ? allEnriched.filter(s => {
+        const t = Date.parse(s.created_at)
+        return t >= window.startMs && t < window.endMs
+      })
     : allEnriched
 
   // --- ORG METRICS (single pass) ---

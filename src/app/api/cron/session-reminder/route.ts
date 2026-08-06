@@ -7,10 +7,11 @@ import {
 } from "@/lib/server/google-chat"
 import {
   isReminderDay,
-  getNextSecondTuesday,
+  getNextSessionDate,
   getOrCreateSession,
   generateSessionAssignments,
 } from "@/lib/server/session-utils"
+import { formatSessionDateLabel } from "@/lib/cycles"
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
   const supabaseAdmin = getSupabaseAdmin()
 
   // Get or create session for tomorrow's 2nd Tuesday
-  const sessionDate = getNextSecondTuesday()
+  const sessionDate = getNextSessionDate()
   const session = await getOrCreateSession(sessionDate)
 
   // Generate assignments (idempotent)
@@ -109,11 +110,7 @@ export async function GET(request: Request) {
       .map((id) => internNames.get(id) ?? "Unknown")
       .join(", ")
 
-    const dateLabel = sessionDate.toLocaleDateString("en-IN", {
-      weekday: "long",
-      day: "numeric",
-      month: "short",
-    })
+    const dateLabel = formatSessionDateLabel(sessionDate)
 
     const message = [
       `📋 *Feedback Session Reminder*`,
@@ -141,7 +138,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     reminded: results.filter((r) => r.success).length,
     sessionId: session.id,
-    sessionDate: sessionDate.toISOString().split("T")[0],
+    sessionDate,
     assignmentsCreated,
     results,
   })

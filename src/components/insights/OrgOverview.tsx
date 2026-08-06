@@ -6,24 +6,19 @@ import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts"
 import { SubmissionWithDetails } from "@/app/insights/types"
 import { OrgMetrics } from "@/hooks/useOrgInsights"
 import { Employee } from "@/lib/types"
-import { CHART_COLORS } from "@/lib/brand"
+import { CHART_COLORS, getAccentTheme, type Accent } from "@/lib/brand"
 import { getScoreColor } from "@/lib/insights-helpers"
 import {
   BrandPanel,
+  EmptyState,
   Eyebrow,
   SectionHeading,
   StatPill,
-
+  buttonClasses,
 } from "@/components/ui/brand"
 import ChartContainer from "./ChartContainer"
 import FeedbackTimeline from "./FeedbackTimeline"
 import type { FeedbackResponse } from "@/lib/types"
-
-const ACCENT_COLORS: Record<string, { bg: string; border: string }> = {
-  sage: { bg: "rgba(121, 192, 166, 0.18)", border: "rgba(121, 192, 166, 0.35)" },
-  lavender: { bg: "rgba(188, 173, 204, 0.2)", border: "rgba(188, 173, 204, 0.38)" },
-  sky: { bg: "rgba(198, 229, 248, 0.25)", border: "rgba(198, 229, 248, 0.45)" },
-}
 
 const TOOLTIP_STYLE = {
   backgroundColor: "#ffffff",
@@ -39,6 +34,9 @@ interface Props {
   responsesByAnswer?: Record<string, (FeedbackResponse & { responderName: string })[]>
   currentUser?: { id: string; name: string } | null
   onResponseSaved?: () => void
+  /** e.g. "14 jul – 10 aug". null when viewing all time. */
+  cycleLabel?: string | null
+  onViewPreviousCycle?: () => void
 }
 
 function NpsBar({
@@ -150,12 +148,15 @@ export default memo(function OrgOverview({
   responsesByAnswer = {},
   currentUser = null,
   onResponseSaved,
+  cycleLabel = null,
+  onViewPreviousCycle,
 }: Props) {
   const employeeNameMap = new Map(employees.map((e) => [e.id, e.name]))
   const [openNpsSegment, setOpenNpsSegment] = useState<string | null>(null)
   const [openContributionRow, setOpenContributionRow] = useState<string | null>(null)
   const {
     totalEmployees,
+    totalSubmissions,
     avgTrustBattery,
     avgPurposeAlignment,
     contributionDistribution,
@@ -178,7 +179,15 @@ export default memo(function OrgOverview({
       : 0
 
   const { promoters, passives, detractors, npsScore } = npsBreakdown
+
+  // Computed once. This expression used to be duplicated verbatim in the stat
+  // pill and the hero panel, which is how the page ended up rendering NPS twice.
+  const npsLabel =
+    npsScore === null ? "n/a" : npsScore > 0 ? `+${npsScore}` : String(npsScore)
+
   const contributionRows = getContributionRows(contributionDistribution)
+  // Hoisted — this was recomputed inside the row .map on every row.
+  const contributionTotal = contributionRows.reduce((sum, item) => sum + item.value, 0)
   const contributionByLevel = orgMetrics.contributionAttribution?.byLevel ?? {}
 
   const allValueKeys = Array.from(
@@ -196,6 +205,11 @@ export default memo(function OrgOverview({
     }))
     .filter((row) => row.strength > 0 || row.improvement > 0)
 
+  // Lifted out of an inline IIFE in the JSX — the only one in the file.
+  const teamActivityItems = recentActivity.filter(
+    (item) => item.submission.feedback_type !== "build3"
+  )
+
   return (
     <div
       className="space-y-6"
@@ -204,24 +218,51 @@ export default memo(function OrgOverview({
         setOpenContributionRow(null)
       }}
     >
+      {/* §A — the window first, because with cycles the honest answer is
+          sometimes "nothing yet". Absorbs the old participation pill. */}
       <SectionHeading
         accent="sky"
-        eyebrow="org overview"
+        eyebrow={cycleLabel ? `org overview · ${cycleLabel}` : "org overview · all time"}
         title="what the team is telling us"
-        description="a broad read across participation, health, and the notes people are actually leaving behind."
+        description={
+          totalSubmissions === 0
+            ? "a broad read across participation, health, and the notes people are actually leaving behind."
+            : `${totalSubmissions} submissions · ${employeesWithFeedback} of ${totalEmployees} people gave build3 feedback (${participationPct}%).`
+        }
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-4">
-        <StatPill
+      {/* An empty cycle is expected, not a collapse: the window opens on the
+          session Tuesday and fills up afterwards. Say that once, with a way
+          back, instead of rendering a heading over a row of n/a and five
+          sections that each silently vanish. */}
+      {totalSubmissions === 0 ? (
+        <EmptyState
           accent="sky"
-          label="nps"
-          value={npsScore !== null ? (npsScore > 0 ? `+${npsScore}` : npsScore) : "n/a"}
-          detail={
-            npsScore !== null
-              ? `${promoters} promoters, ${passives} passives, ${detractors} detractors`
-              : "not enough data yet"
+          title={cycleLabel ? "this cycle is still empty" : "no feedback recorded yet"}
+          description={
+            cycleLabel
+              ? `nothing has landed in ${cycleLabel} yet. that's expected — a cycle opens on the second tuesday and fills up as people submit.`
+              : "once people start submitting feedback, the org picture will build up here."
+          }
+          action={
+            onViewPreviousCycle && cycleLabel ? (
+              <button
+                type="button"
+                onClick={onViewPreviousCycle}
+                {...buttonClasses({ accent: "sky", variant: "solid", size: "sm" })}
+              >
+                look at the previous cycle
+              </button>
+            ) : undefined
           }
         />
+      ) : (
+        <>
+      {/* §B — signal row. NPS moved out (it has a hero panel below, and this
+          pill rendered the identical number); purpose alignment moved into
+          "how the team is doing" beside evolutionary purpose, where the two
+          can be told apart. */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-3">
         <StatPill
           accent="sage"
           label="trust battery"
@@ -229,16 +270,10 @@ export default memo(function OrgOverview({
           detail={avgTrustBattery !== null ? "average out of 100" : "not enough data yet"}
         />
         <StatPill
-          accent="peach"
-          label="purpose alignment"
-          value={avgPurposeAlignment !== null ? avgPurposeAlignment.toFixed(1) : "n/a"}
-          detail={avgPurposeAlignment !== null ? "average out of 5" : "not enough data yet"}
-        />
-        <StatPill
           accent="lavender"
           label="participation"
           value={`${participationPct}%`}
-          detail={`${employeesWithFeedback} of ${totalEmployees} people gave build3 feedback`}
+          detail={`${employeesWithFeedback} of ${totalEmployees} gave build3 feedback`}
         />
         {adhocCount > 0 && (
           <StatPill
@@ -268,7 +303,7 @@ export default memo(function OrgOverview({
                       : CHART_COLORS.danger,
                 }}
               >
-                {npsScore !== null ? (npsScore > 0 ? `+${npsScore}` : npsScore) : "n/a"}
+                {npsLabel}
               </div>
               <div className="mt-1 text-sm text-muted">
                 {npsScore !== null ? "team recommendation score." : "not enough data yet"}
@@ -313,36 +348,58 @@ export default memo(function OrgOverview({
           </div>
         </BrandPanel>
 
+        {/* §D — "purpose fit" (people → build3) used to be a stat pill two rows
+            above "evolutionary purpose" (build3's own direction). Both are out
+            of 5 and the labels read almost identically, so they were routinely
+            mistaken for each other. Side by side with a stated direction, the
+            difference is legible. */}
         {(tealAvg.selfManagement !== null ||
           tealAvg.wholeness !== null ||
-          tealAvg.purpose !== null) && (
+          tealAvg.purpose !== null ||
+          avgPurposeAlignment !== null) && (
           <BrandPanel accent="sage" tone="soft" className="brand-lines p-5 sm:p-6">
             <Eyebrow accent="sage">team health</Eyebrow>
-            <div className="mt-5 grid grid-cols-1 gap-2 min-[360px]:grid-cols-3 sm:gap-3">
+            <h3 className="mt-3 text-2xl font-bold tracking-[-0.05em] text-ink">
+              how the team is doing
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              averages out of 5, from peer reviews and org feedback.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3">
               {[
                 {
                   label: "self-management",
+                  hint: "owns outcomes without waiting for permission",
                   value: tealAvg.selfManagement,
-                  accent: "sage" as const,
+                  accent: "sage" as Accent,
                 },
                 {
                   label: "wholeness",
+                  hint: "brings their whole self to work",
                   value: tealAvg.wholeness,
-                  accent: "lavender" as const,
+                  accent: "lavender" as Accent,
+                },
+                {
+                  label: "purpose fit",
+                  hint: "how well build3 matches people's own sense of purpose",
+                  value: avgPurposeAlignment,
+                  accent: "peach" as Accent,
                 },
                 {
                   label: "evolutionary purpose",
+                  hint: "how well people move with where build3 is heading",
                   value: tealAvg.purpose,
-                  accent: "sky" as const,
+                  accent: "sky" as Accent,
                 },
               ].map((item) => {
-                const palette = ACCENT_COLORS[item.accent]
+                const theme = getAccentTheme(item.accent)
 
                 return (
                   <div
                     key={item.label}
+                    title={item.hint}
                     className="rounded-[16px] sm:rounded-[22px] border p-3 sm:p-4 text-center"
-                    style={{ backgroundColor: palette.bg, borderColor: palette.border }}
+                    style={{ backgroundColor: theme.soft, borderColor: theme.border }}
                   >
                     <div
                       className="text-2xl sm:text-3xl font-bold tracking-[-0.08em]"
@@ -355,7 +412,7 @@ export default memo(function OrgOverview({
                     >
                       {item.value !== null ? item.value.toFixed(1) : "n/a"}
                     </div>
-                    <div className="mt-1 text-xs tracking-[0.08em] text-muted">
+                    <div className="mt-1 text-xs tracking-[0.08em] text-muted leading-snug">
                       {item.label}
                     </div>
                   </div>
@@ -375,8 +432,11 @@ export default memo(function OrgOverview({
           <p className="mt-2 text-sm leading-6 text-muted">
             strength mentions vs. improvement mentions across the build3 values.
           </p>
+          {/* The wrapper owns height; ChartContainer defaults to 100% of it.
+              Previously both declared it, and the explicit height="100%" was
+              just restating the default. */}
           <div className="mt-5 h-[200px] sm:h-[240px]">
-            <ChartContainer height="100%">
+            <ChartContainer>
               <BarChart
                 data={valueAlignmentData}
                 margin={{ top: 0, right: 8, left: -20, bottom: 0 }}
@@ -395,13 +455,34 @@ export default memo(function OrgOverview({
         </BrandPanel>
       )}
 
+      {/* §F — the verbatim behind the chart above. Aggregate, then raw: the
+          value-mentions chart says *which* values get called out, and this is
+          what people actually wrote. A peer-review metric used to sit between
+          the two. */}
+      {build3Submissions.length > 0 && (
+        <FeedbackTimeline
+          submissions={build3Submissions}
+          title="feedback to build3"
+          responsesByAnswer={responsesByAnswer}
+          currentUser={currentUser}
+          onResponseSaved={onResponseSaved}
+        />
+      )}
+
+      {/* §G — supporting context, not headline: this is a peer-review metric on
+          a page about what the team is telling build3. */}
       {contributionRows.length > 0 && (
         <BrandPanel accent="lavender" tone="soft" className="brand-lines p-5 sm:p-6">
           <Eyebrow accent="lavender">contribution spread</Eyebrow>
+          <h3 className="mt-3 text-2xl font-bold tracking-[-0.05em] text-ink">
+            where people are in their growth
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            how peers rated each other&apos;s level of contribution. tap a row to see who rated whom.
+          </p>
           <div className="mt-5 space-y-4">
             {contributionRows.map((row) => {
-              const total = contributionRows.reduce((sum, item) => sum + item.value, 0)
-              const pct = total > 0 ? Math.round((row.value / total) * 100) : 0
+              const pct = contributionTotal > 0 ? Math.round((row.value / contributionTotal) * 100) : 0
               const attribution = contributionByLevel[row.label] ?? []
               const tooltip = attribution
                 .map((a) => `${a.raterName} → ${a.targetName}`)
@@ -449,29 +530,16 @@ export default memo(function OrgOverview({
         </BrandPanel>
       )}
 
-      {/* ── feedback to build3 (full content, expandable) ── */}
-      {build3Submissions.length > 0 && (
-        <FeedbackTimeline
-          submissions={build3Submissions}
-          title="feedback to build3"
-          responsesByAnswer={responsesByAnswer}
-          currentUser={currentUser}
-          onResponseSaved={onResponseSaved}
-        />
-      )}
-
-      {/* ── team activity (peer, self, adhoc) ── */}
-      {(() => {
-        const teamItems = recentActivity.filter(
-          (item) => item.submission.feedback_type !== "build3"
-        )
-        if (teamItems.length === 0) return null
-
-        return (
-          <div className="mt-2">
+      {/* §H — team activity. Wrapped in a panel so it stops being the only bare
+          div on the page. */}
+      {teamActivityItems.length > 0 && (
+          <BrandPanel accent="sky" tone="washed" className="p-5 sm:p-6">
             <Eyebrow accent="sky">team activity</Eyebrow>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              the most recent peer notes, self reflections, and quick notes.
+            </p>
             <div className="mt-4 divide-y divide-line/60">
-              {teamItems.map((item) => {
+              {teamActivityItems.map((item) => {
                 const type = item.submission.feedback_type
                 const forId = item.submission.feedback_for_id
                 const forName = forId ? employeeNameMap.get(forId) : null
@@ -503,9 +571,10 @@ export default memo(function OrgOverview({
                 )
               })}
             </div>
-          </div>
-        )
-      })()}
+          </BrandPanel>
+      )}
+        </>
+      )}
     </div>
   )
 })

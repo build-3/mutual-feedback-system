@@ -2,6 +2,7 @@ import "server-only"
 
 import type { PostgrestError } from "@supabase/supabase-js"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
+import { MIN_ANSWER_LENGTHS } from "@/lib/questions"
 import {
   sendDirectMessage,
   isNotificationsEnabled,
@@ -186,11 +187,32 @@ export async function submitFeedback({
     throw new Error("answers exceeds maximum allowed count")
   }
 
-  const normalizedAnswers = answers.map((answer) => ({
-    question_key: normalizeText(answer.question_key, "question_key", 100),
-    question_text: normalizeText(answer.question_text, "question_text", 300),
-    answer_value: normalizeText(answer.answer_value, "answer_value", 4000),
-  }))
+  const normalizedAnswers = answers.map((answer) => {
+    const row = {
+      question_key: normalizeText(answer.question_key, "question_key", 100),
+      question_text: normalizeText(answer.question_text, "question_text", 300),
+      answer_value: normalizeText(answer.answer_value, "answer_value", 4000),
+    }
+
+    // Mirror the client's minimum-length rule so it can't be skipped by posting
+    // straight at the API. MIN_ANSWER_LENGTHS is derived from the question
+    // definitions, so this stays in step with the form automatically.
+    //
+    // The message must start with "your answer" — that is the friendly name for
+    // answer_value, and feedback-submit's SAFE_PREFIXES allowlist only echoes
+    // recognised prefixes back to the user. Anything else becomes a generic
+    // "Failed to submit feedback".
+    //
+    // Note this catches a *short* answer, not a *missing* one: the client omits
+    // the row entirely when the textarea is blank, and the server has no map of
+    // which question keys a given feedback type requires.
+    const min = MIN_ANSWER_LENGTHS[row.question_key] ?? 0
+    if (min > 0 && row.answer_value.length < min) {
+      throw new Error(`your answer must be at least ${min} characters`)
+    }
+
+    return row
+  })
 
   const supabaseAdmin = getSupabaseAdmin()
 

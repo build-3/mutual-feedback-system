@@ -27,6 +27,7 @@ import { VALUES_SEP, VALUES_VERSION_PREFIX, VALUES_WITH_TEXT_KEYS } from "@/lib/
 import {
   Question,
   getQuestionsForPath,
+  validateFollowupDetail,
   SELF_REVIEW_KEYS,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
@@ -151,6 +152,9 @@ export default function FeedbackPage() {
   const [direction, setDirection] = useState<1 | -1>(1)
   const [error, setError] = useState("")
   const [sliderTouched, setSliderTouched] = useState(false)
+  // Set when a follow-up minimum blocks progression, so the collapsed field is
+  // forced open and the error refers to something visible.
+  const [showFollowupMin, setShowFollowupMin] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
@@ -251,6 +255,7 @@ export default function FeedbackPage() {
   useEffect(() => {
     setVoiceState("idle")
     setSliderTouched(false)
+    setShowFollowupMin(false)
   }, [currentQ])
 
   // Voice recorder — track which question key the recorder targets
@@ -904,8 +909,17 @@ export default function FeedbackPage() {
     }
 
     if (question.type === "slider_with_followup") {
-      // Slider value is always valid (defaults to 50)
-      // Follow-up text is optional — don't block progression
+      // Slider value is always valid (defaults to 50). The follow-up is only
+      // required when the question declares a minDetailLength.
+      const detailKey = question.followup?.detailKey || `${question.key}_detail`
+      const problem = validateFollowupDetail(question, answers[detailKey])
+      if (problem) {
+        setError(problem)
+        // Force the follow-up open — it is collapsed until the slider is
+        // touched, so otherwise this blocks on a field the user cannot see.
+        setShowFollowupMin(true)
+        return false
+      }
       return true
     }
 
@@ -1231,6 +1245,15 @@ export default function FeedbackPage() {
       return true
     }
     if (question.type === "slider_with_followup") {
+      const detailKey = question.followup?.detailKey || `${question.key}_detail`
+      const problem = validateFollowupDetail(question, pendingAnswers.current[detailKey])
+      if (problem) {
+        // This validator otherwise returns bare booleans and sets no message,
+        // which would leave the user with a dead button and no explanation.
+        setError(problem)
+        setShowFollowupMin(true)
+        return false
+      }
       return true
     }
     if (question.type === "values_with_text") {
@@ -1453,6 +1476,14 @@ export default function FeedbackPage() {
         const followupPlaceholder = fu ? (isHigh ? (fu.highPlaceholder || "") : (fu.lowPlaceholder || "")) : ""
         const detailKey = fu?.detailKey || `${question.key}_detail`
         voiceQuestionKeyRef.current = detailKey
+        const detailValue = answers[detailKey] || ""
+        const detailLength = detailValue.trim().length
+        const minDetail = fu?.minDetailLength ?? 0
+        const detailShort = minDetail > 0 && detailLength < minDetail
+        // Reveal when the slider has been touched, but also whenever there is
+        // already text (so a Back-then-Next round trip doesn't re-hide a filled
+        // field) or when a minimum is actively blocking.
+        const followupOpen = sliderTouched || detailValue.length > 0 || showFollowupMin
         return (
           <div className="space-y-6">
             <TrustSlider
@@ -1464,25 +1495,44 @@ export default function FeedbackPage() {
                 setAnswer(question.key, String(value))
               }}
             />
-            {/* Follow-up appears only after user drags the slider */}
+            {/* Follow-up appears once the user engages with the slider */}
             <div
               className={[
                 "space-y-2 transition-all duration-300 overflow-hidden",
-                sliderTouched
-                  ? "opacity-100 max-h-[400px]"
+                followupOpen
+                  ? "opacity-100 max-h-[480px]"
                   : "opacity-0 max-h-0",
               ].join(" ")}
             >
               <p className="text-sm font-semibold text-ink">
                 {followupPrompt}
+                {minDetail > 0 && (
+                  <span className="ml-1 font-normal text-muted">(required)</span>
+                )}
               </p>
               <textarea
-                value={answers[detailKey] || ""}
+                value={detailValue}
                 onChange={(e) => setAnswer(detailKey, e.target.value)}
                 rows={3}
-                className={fieldClasses({ size: "lg" })}
+                maxLength={4000}
+                className={fieldClasses({
+                  size: "lg",
+                  hasError: showFollowupMin && detailShort,
+                })}
                 placeholder={followupPlaceholder}
               />
+              {minDetail > 0 && (
+                <div className="flex items-center justify-between gap-3 text-[11px]">
+                  <span className="font-medium text-[#d35b52]">
+                    {showFollowupMin && detailShort ? "a little more, please" : ""}
+                  </span>
+                  <span className={detailShort ? "text-muted" : "text-muted/60"}>
+                    {detailShort
+                      ? `${detailLength}/${minDetail} minimum`
+                      : `${detailLength} characters`}
+                  </span>
+                </div>
+              )}
               {VOICE_ENABLED && (
                 <div className="mt-1">
                   <VoiceRecorderBar

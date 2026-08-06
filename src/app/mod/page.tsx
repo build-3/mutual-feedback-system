@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
-import { BrandPanel, EmptyState, SectionHeading, StatPill, buttonClasses } from "@/components/ui/brand"
+import { BrandPanel, EmptyState, SectionHeading, SegmentedControl, StatPill, buttonClasses } from "@/components/ui/brand"
+import { cycleFromKey } from "@/lib/cycles"
 import type { SubmissionWithDetails } from "@/app/insights/types"
 import type { FeedbackResponse } from "@/lib/types"
 
@@ -32,10 +33,16 @@ const STATUS_FILTERS: { key: TriageStatus | "all"; label: string }[] = [
   { key: "all", label: "everything" },
 ]
 
-function monthLabel(period: string) {
-  const [y, m] = period.split("-")
-  const d = new Date(Number(y), Number(m) - 1, 1)
-  return d.toLocaleString("en-GB", { month: "short", year: "numeric" }).toLowerCase()
+/**
+ * Label a round bucket. Buckets are CycleKeys now, so this renders the cycle's
+ * date span.
+ *
+ * The previous monthLabel() built `new Date(y, m - 1, 1)` and read it back with
+ * toLocaleString — host-local, so it would print the wrong day on the UTC host.
+ * cycleFromKey formats from integers and never touches a Date.
+ */
+function periodLabel(period: string) {
+  return cycleFromKey(period)?.label ?? period
 }
 
 export default function ModPage() {
@@ -134,44 +141,24 @@ export default function ModPage() {
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 border-b border-line pb-4">
-              <div className="flex flex-wrap gap-0.5 rounded-full border border-line bg-white p-1">
-                {STATUS_FILTERS.map(f => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => setStatus(f.key)}
-                    className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
-                      status === f.key ? "bg-ink text-white" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                ariaLabel="triage status"
+                className="flex-wrap"
+                options={STATUS_FILTERS.map(f => ({ key: f.key, label: f.label }))}
+                value={status}
+                onChange={setStatus}
+              />
               {(data?.periods.length ?? 0) > 0 && (
-                <div className="flex flex-wrap gap-0.5 rounded-full border border-line bg-white p-1 sm:ml-auto">
-                  <button
-                    type="button"
-                    onClick={() => setPeriod("all")}
-                    className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
-                      period === "all" ? "bg-ink text-white" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    all rounds
-                  </button>
-                  {data?.periods.map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPeriod(p)}
-                      className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
-                        period === p ? "bg-ink text-white" : "text-muted hover:text-ink"
-                      }`}
-                    >
-                      {monthLabel(p)}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  ariaLabel="round"
+                  className="flex-wrap sm:ml-auto"
+                  options={[
+                    { key: "all", label: "all rounds" },
+                    ...(data?.periods ?? []).map(p => ({ key: p, label: periodLabel(p) })),
+                  ]}
+                  value={period}
+                  onChange={setPeriod}
+                />
               )}
             </div>
 

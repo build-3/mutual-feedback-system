@@ -73,7 +73,10 @@ export default function AdminOverview({
           accent="yellow"
           label="submissions"
           value={submissions.length}
-          detail={`${stats.thisWeek} this week · ${stats.thisMonth} this month`}
+          // "last 30 days", not "this month": the stat is a rolling 30-day
+          // window (see the monthAgo cutoff above), and beside the cycle-scoped
+          // labels elsewhere "this month" now reads as a third, wrong period.
+          detail={`${stats.thisWeek} this week · ${stats.thisMonth} last 30 days`}
         />
         <StatPill
           accent="yellow"

@@ -2,6 +2,7 @@ import "server-only"
 
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { MOD_EMAILS } from "@/lib/server/require-admin"
+import { cycleKeyOf } from "@/lib/cycles"
 
 /**
  * Data for the /mod response console: every org-level (build3) feedback
@@ -48,7 +49,12 @@ export type ModQueueItem = {
     question_text: string
     answer_value: string
   }[]
-  /** Round bucket, YYYY-MM of created_at. */
+  /**
+   * Round bucket: the CycleKey (YYYY-MM-DD of the cycle's opening 2nd Tuesday)
+   * that created_at falls in. Was the YYYY-MM prefix of the raw timestamp, which
+   * bucketed by UTC month — so an IST submission before 05:30 on the 1st landed
+   * in the previous bucket, and a round spanning a month boundary was split.
+   */
   period: string
   status: TriageStatus
   /** Substantive respondable answers, and how many already have a reply. */
@@ -150,7 +156,7 @@ export async function buildModQueue() {
     const status: TriageStatus =
       target.length === 0 ? "done" : replied === 0 ? "unanswered" : replied < target.length ? "partial" : "done"
     counts[status]++
-    const period = s.created_at.slice(0, 7)
+    const period = cycleKeyOf(s.created_at)
     periods.add(period)
 
     return {

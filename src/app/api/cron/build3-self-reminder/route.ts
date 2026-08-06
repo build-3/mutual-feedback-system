@@ -6,6 +6,8 @@ import {
   isNotificationsEnabled,
 } from "@/lib/server/google-chat"
 import { isReminderDay } from "@/lib/server/session-utils"
+import { submittersInCycle } from "@/lib/server/period-gate"
+import { cycleFor } from "@/lib/cycles"
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
@@ -34,7 +36,11 @@ export async function GET(request: Request) {
   // Pass ?force=true to bypass the date check (for on-demand sends).
   const url = new URL(request.url)
   const force = url.searchParams.get("force") === "true"
-  if (!force && !isReminderDay()) {
+  // ?force=true is NOT a preview — it really sends. ?dry=true reports exactly who
+  // would be messaged without contacting anyone, so a change to the suppression
+  // rule can be checked before it reaches the org.
+  const dry = url.searchParams.get("dry") === "true"
+  if (!force && !dry && !isReminderDay()) {
     return NextResponse.json({ skipped: true, reason: "Tomorrow is not a 2nd Tuesday." })
   }
 
@@ -56,27 +62,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ skipped: true, reason: "No employees found." })
   }
 
-  // Who's already submitted self + build3 feedback this calendar month? Skip them.
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
-
-  const { data: submissions } = await supabaseAdmin
-    .from("feedback_submissions")
-    .select("submitted_by_id, feedback_type")
-    .in("feedback_type", ["self", "build3"])
-    .gte("created_at", monthStart)
-    .lt("created_at", monthEnd)
-
+  // Who has already submitted self + build3 in the current CYCLE? Skip them.
+  //
+  // This used to be a calendar-month query while the fire decision above used
+  // isReminderDay() — cycle logic. The two halves of one request disagreed, so
+  // someone who had reflected mid-cycle but before the 1st was not suppressed:
+  // they got a DM, clicked through, and were told they had already submitted.
+  // A dead-end nudge, org-wide, and unrecallable once sent.
+  const tally = await submittersInCycle(["self", "build3"])
   const doneBoth = new Set<string>()
-  const tally = new Map<string, Set<string>>()
-  for (const s of submissions ?? []) {
-    if (!s.submitted_by_id) continue
-    const set = tally.get(s.submitted_by_id) ?? new Set<string>()
-    set.add(s.feedback_type)
-    tally.set(s.submitted_by_id, set)
-    if (set.has("self") && set.has("build3")) doneBoth.add(s.submitted_by_id)
-  }
+  tally.forEach((types, employeeId) => {
+    if (types.has("self") && types.has("build3")) doneBoth.add(employeeId)
+  })
 
   const results: { name: string; sent: boolean; reason?: string; error?: string }[] = []
 
@@ -95,6 +92,11 @@ export async function GET(request: Request) {
       `thank you 🙏`,
     ].join("\n")
 
+    if (dry) {
+      results.push({ name: emp.name, sent: false, reason: "dry run — would have sent" })
+      continue
+    }
+
     try {
       await sendDirectMessage(emp.email, message)
       results.push({ name: emp.name, sent: true })
@@ -105,6 +107,8 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
+    dry,
+    cycle: cycleFor().label,
     sent: results.filter((r) => r.sent).length,
     skipped: results.filter((r) => !r.sent && r.reason).length,
     failed: results.filter((r) => r.error).length,

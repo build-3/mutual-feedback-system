@@ -99,6 +99,12 @@ export type SliderFollowup = {
   highPrompt: string
   lowPlaceholder?: string
   highPlaceholder?: string
+  /**
+   * Minimum trimmed length for the follow-up text. Omit or 0 to leave it
+   * optional — opt-in on purpose, so a future slider question doesn't silently
+   * inherit a blocking rule nobody asked for.
+   */
+  minDetailLength?: number
 }
 
 export type Question = {
@@ -116,6 +122,15 @@ export type Question = {
   /** When true, user can skip without answering */
   optional?: boolean
 }
+
+/**
+ * A trust score on its own tells you nothing actionable — the sentence beside it
+ * is the whole value. Applied to all three trust-battery appearances (intern,
+ * full-timer, build3) because they are one logical field: gating only build3
+ * would leave the trust_battery_detail column half-substantive and half-blank,
+ * which is harder to read than either uniform choice.
+ */
+export const TRUST_DETAIL_MIN_LENGTH = 20
 
 // Shared questions used in both intern and full-timer paths
 const TEAL_CONCEPTS_QUESTION: Question = {
@@ -168,6 +183,7 @@ const TRUST_BATTERY_QUESTION: Question = {
     highPrompt: "what makes you trust them?",
     lowPlaceholder: "share what's been off — specific moments help.",
     highPlaceholder: "what have they done that built this trust?",
+    minDetailLength: TRUST_DETAIL_MIN_LENGTH,
   },
 }
 
@@ -246,6 +262,7 @@ export const BUILD3_QUESTIONS: Question[] = [
       highPrompt: "what has felt especially good about build3 so far?",
       lowPlaceholder: "help us understand what's off — specific moments help.",
       highPlaceholder: "tell us what's working — we want to do more of it.",
+      minDetailLength: TRUST_DETAIL_MIN_LENGTH,
     },
   },
   {
@@ -291,12 +308,12 @@ export const FULL_TIMER_QUESTIONS: Question[] = [
 export const SELF_QUESTIONS: Question[] = [
   {
     key: "proud_contribution",
-    text: "what work or progress are you most proud of this month?",
+    text: "what work or progress are you most proud of since the last session?",
     type: "long_text",
   },
   {
     key: "proactive_efforts",
-    text: "which 2 or 3 proactive things did you pick up on your own this month?",
+    text: "which 2 or 3 proactive things did you pick up on your own since the last session?",
     type: "long_text",
   },
   {
@@ -369,4 +386,51 @@ export function getQuestionsForPath(
     case "adhoc":
       return ADHOC_QUESTIONS
   }
+}
+
+/**
+ * Minimum trimmed length per answer key, derived from the question definitions
+ * rather than restated as a second hardcoded list — a duplicate would be free to
+ * drift from the questions it describes.
+ *
+ * Lets the server enforce the same rule as the client: it validates answer rows
+ * generically and otherwise has no idea which question a row came from.
+ */
+export const MIN_ANSWER_LENGTHS: Record<string, number> = (() => {
+  const out: Record<string, number> = {}
+  const allQuestions = [
+    ...INTERN_QUESTIONS,
+    ...BUILD3_QUESTIONS,
+    ...FULL_TIMER_QUESTIONS,
+    ...SELF_QUESTIONS,
+    ...ADHOC_QUESTIONS,
+  ]
+  for (const question of allQuestions) {
+    const min = question.followup?.minDetailLength
+    if (question.followup && min && min > 0) {
+      // Same key can appear in several paths; keep the strictest.
+      const key = question.followup.detailKey
+      out[key] = Math.max(out[key] ?? 0, min)
+    }
+  }
+  return out
+})()
+
+/**
+ * Validate a slider follow-up. Returns null when acceptable, otherwise the
+ * user-facing message.
+ *
+ * Shared by both client validators — they previously each returned an
+ * unconditional `true` for this question type, and any rule added to only one of
+ * them would be bypassable through the other.
+ */
+export function validateFollowupDetail(
+  question: Question,
+  value: string | undefined
+): string | null {
+  const min = question.followup?.minDetailLength ?? 0
+  if (min <= 0) return null
+  const length = (value ?? "").trim().length
+  if (length >= min) return null
+  return `add a bit more detail — at least ${min} characters, so the score means something.`
 }

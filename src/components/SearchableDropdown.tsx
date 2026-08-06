@@ -3,6 +3,7 @@
 import { KeyboardEvent, memo, useState, useEffect, useRef, useMemo } from "react"
 import type { Employee } from "@/lib/types"
 import { getRoleAccent, getRoleLabel } from "@/lib/brand"
+import { filterAndRankEmployees, matchedOnEmail } from "@/lib/employee-match"
 import {
   badgeClasses,
   buttonClasses,
@@ -91,8 +92,9 @@ const SearchableDropdown = memo(function SearchableDropdown({
       return list
     }
 
-    const q = query.trim().toLowerCase()
-    return list.filter((e) => e.name.toLowerCase().includes(q))
+    // Matches name OR the local part of the email, ranked — so "at" finds
+    // at@build3.org instead of just everyone with "at" in their name.
+    return filterAndRankEmployees(list, query)
   }, [allEmployees, query, filterRole, excludeEmployeeId, excludeEmployeeIds])
 
   const duplicateNameCounts = useMemo(() => {
@@ -104,6 +106,11 @@ const SearchableDropdown = memo(function SearchableDropdown({
   }, [visibleResults])
 
   function getEmployeeMeta(employee: Employee) {
+    // When the row matched on email, show the address: it explains why the row
+    // is in the results, and doubles as a better duplicate-name disambiguator
+    // than the opaque id fragment.
+    if (employee.email && matchedOnEmail(employee, query)) return employee.email
+
     const normalized = employee.name.trim().toLowerCase()
     const hasDuplicateName = duplicateNameCounts[normalized] > 1
     return hasDuplicateName ? `ref ${employee.id.slice(0, 4)}` : getRoleLabel(employee.role)

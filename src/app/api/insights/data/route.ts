@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
 import { buildInsightsPayload } from "@/lib/server/fetch-dashboard-data"
-import type { DateRange } from "@/lib/brand"
+import { LEGACY_DATE_RANGE_ALIASES, type DateRange } from "@/lib/brand"
+import { cycleFor, cycleFromKey } from "@/lib/cycles"
 
-const VALID_RANGES: DateRange[] = ["month", "3months", "all"]
+const VALID_RANGES: DateRange[] = ["cycle", "3cycles", "all"]
 
 export async function GET(request: Request) {
   const auth = await requireAuth()
@@ -13,12 +14,21 @@ export async function GET(request: Request) {
   // always all-time while the per-employee numbers rendered beside them were
   // range-filtered on the client, so the two halves of every comparison
   // silently disagreed.
-  const requested = new URL(request.url).searchParams.get("range")
+  const params = new URL(request.url).searchParams
+  const requested = params.get("range")
   const range: DateRange = VALID_RANGES.includes(requested as DateRange)
     ? (requested as DateRange)
-    : "3months"
+    : // Pre-cycle bookmarks and in-flight clients resolve to the nearest
+      // equivalent rather than silently falling through to the default.
+      LEGACY_DATE_RANGE_ALIASES[requested ?? ""] ?? "cycle"
 
-  const result = await buildInsightsPayload(range)
+  // An unparseable key must never become a NaN window: every comparison against
+  // NaN is false, so the response would be empty while still returning 200.
+  // cycleFromKey returns null for anything that is not a real cycle boundary.
+  const requestedCycle = params.get("cycle")
+  const cycleKey = (requestedCycle && cycleFromKey(requestedCycle)?.key) || cycleFor().key
+
+  const result = await buildInsightsPayload(range, cycleKey)
 
   if (result.error || !result.data) {
     return NextResponse.json(
@@ -27,7 +37,10 @@ export async function GET(request: Request) {
     )
   }
 
-  const response = NextResponse.json({ ...result.data, range })
+  // Echo both back so the client adopts the resolved values rather than trusting
+  // its own state — an old client asking for range=month then renders the right
+  // label instead of mislabelling cycle data.
+  const response = NextResponse.json({ ...result.data, range, cycleKey })
   response.headers.set(
     "Cache-Control",
     "private, max-age=30, stale-while-revalidate=60"

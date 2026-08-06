@@ -2,96 +2,60 @@ import "server-only"
 
 import { getSupabaseAdmin } from "./supabase-admin"
 import type { FeedbackSession } from "@/lib/types"
+import {
+  isSecondTuesdayIst,
+  istDateKey,
+  istMidnightMs,
+  istParts,
+  secondTuesdayIstMs,
+  secondTuesdayKey,
+  upcomingSecondTuesdayMs,
+} from "@/lib/cycles"
 
 /**
- * Get the 2nd Tuesday of a given month.
- * The 2nd Tuesday falls between the 8th and 14th.
+ * Session helpers. All date arithmetic lives in src/lib/cycles.ts, which is
+ * client-safe and host-timezone-proof; this file is only the server-side adapter
+ * that talks to feedback_sessions.
+ *
+ * Removed in the cycle migration — every one of them read host-local date parts
+ * and so was wrong on the UTC Coolify host:
+ *   - getSecondTuesday, getISTDate  → superseded by cycles.ts
+ *   - isSecondTuesday, calculateSessionNumber → dead code, no importers
+ *   - toDateString → the dangerous one. It read host-local Y/M/D off whatever
+ *     Date it was handed, so on a UTC host it would write session_date
+ *     "2026-08-10" for the 2026-08-11 session. With UNIQUE INDEX idx_session_date
+ *     that silently forks session identity: a duplicate row, assignments split
+ *     across two session_ids, and getActiveSession unable to find the row the
+ *     cron created. Session dates are now formatted from integers via istDateKey
+ *     and never round-trip through a Date.
  */
-export function getSecondTuesday(year: number, month: number): Date {
-  // month is 0-indexed (0 = Jan)
-  const date = new Date(year, month, 8) // start from 8th
-  const dayOfWeek = date.getDay()
-  // Tuesday = 2. Calculate offset to next Tuesday from day 8.
-  const offset = (2 - dayOfWeek + 7) % 7
-  return new Date(year, month, 8 + offset)
+
+/** Tomorrow (IST) is a 2nd Tuesday — used by the reminder cron, which runs Monday. */
+export function isReminderDay(at: number = Date.now()): boolean {
+  const p = istParts(at + 24 * 60 * 60 * 1000)
+  return isSecondTuesdayIst(p.year, p.month, p.day)
 }
 
 /**
- * Get today's date in IST using Intl (works on any server timezone).
+ * The next upcoming 2nd Tuesday (IST) as a YYYY-MM-DD session key.
+ *
+ * Returns *today* when today is the 2nd Tuesday — session-reminder feeds this
+ * straight to getOrCreateSession, so it decides what session_date gets written.
  */
-export function getISTDate(): Date {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date())
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
-  return new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00+05:30`)
+export function getNextSessionDate(at: number = Date.now()): string {
+  const p = istParts(upcomingSecondTuesdayMs(at))
+  return istDateKey(p.year, p.month, p.day)
 }
 
 /**
- * Check if a date is a 2nd Tuesday.
+ * Idempotent: get or create a feedback_sessions row for the given session date.
+ *
+ * Takes the date as a YYYY-MM-DD string, not a Date — the old signature accepted
+ * a Date and derived the string with host-local getters, which is how the UTC-host
+ * off-by-one could reach the unique index.
  */
-export function isSecondTuesday(date: Date): boolean {
-  if (date.getDay() !== 2) return false
-  const day = date.getDate()
-  return day >= 8 && day <= 14
-}
-
-/**
- * Check if tomorrow (IST) is a 2nd Tuesday — used by reminder cron (runs on Monday).
- */
-export function isReminderDay(): boolean {
-  // Add 24h in UTC millis (TZ-independent), then re-derive day/weekday in IST.
-  // Previous impl used setDate(getDate()+1) which silently used the process's
-  // local timezone — correct in IST, off-by-one in UTC (Coolify host).
-  const istTodayMidnight = getISTDate()
-  const istTomorrow = new Date(istTodayMidnight.getTime() + 24 * 60 * 60 * 1000)
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    weekday: "short",
-  }).formatToParts(istTomorrow)
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ""
-  const day = parseInt(get("day"), 10)
-  return get("weekday") === "Tue" && day >= 8 && day <= 14
-}
-
-/**
- * Get the next upcoming 2nd Tuesday from today (IST).
- */
-export function getNextSecondTuesday(): Date {
-  const now = getISTDate()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-
-  // Check this month's 2nd Tuesday
-  const thisMonth = getSecondTuesday(year, month)
-  if (thisMonth >= now) return thisMonth
-
-  // Otherwise next month
-  const nextMonth = month === 11 ? 0 : month + 1
-  const nextYear = month === 11 ? year + 1 : year
-  return getSecondTuesday(nextYear, nextMonth)
-}
-
-/**
- * Format a Date as YYYY-MM-DD for session_date column.
- */
-function toDateString(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
-}
-
-/**
- * Idempotent: get or create a feedback_sessions row for the given date.
- */
-export async function getOrCreateSession(sessionDate: Date): Promise<FeedbackSession> {
+export async function getOrCreateSession(dateStr: string): Promise<FeedbackSession> {
   const supabaseAdmin = getSupabaseAdmin()
-  const dateStr = toDateString(sessionDate)
 
   const { data: existing } = await supabaseAdmin
     .from("feedback_sessions")
@@ -125,21 +89,23 @@ export async function getOrCreateSession(sessionDate: Date): Promise<FeedbackSes
  * Get the currently active session (within ±2 days of a 2nd Tuesday).
  * Returns null if no session is active.
  */
-export async function getActiveSession(): Promise<FeedbackSession | null> {
-  const now = getISTDate()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const secondTuesday = getSecondTuesday(year, month)
+export async function getActiveSession(at: number = Date.now()): Promise<FeedbackSession | null> {
+  // Compare IST *midnight* against the 2nd Tuesday's IST midnight, not the raw
+  // instant. Comparing an instant against a midnight yields fractional days and
+  // would shift the ±2-day window by up to a day at both edges.
+  const p = istParts(at)
+  const istMidnightToday = istMidnightMs(p.year, p.month, p.day)
+  const secondTuesdayMs = secondTuesdayIstMs(p.year, p.month)
 
   const diffDays = Math.abs(
-    (now.getTime() - secondTuesday.getTime()) / (1000 * 60 * 60 * 24)
+    (istMidnightToday - secondTuesdayMs) / (1000 * 60 * 60 * 24)
   )
 
   // Active window: 2nd Tuesday ± 2 days (Mon before through Thu after)
   if (diffDays > 2) return null
 
   const supabaseAdmin = getSupabaseAdmin()
-  const dateStr = toDateString(secondTuesday)
+  const dateStr = secondTuesdayKey(p.year, p.month)
 
   const { data } = await supabaseAdmin
     .from("feedback_sessions")
@@ -148,31 +114,6 @@ export async function getActiveSession(): Promise<FeedbackSession | null> {
     .single()
 
   return (data as FeedbackSession) ?? null
-}
-
-/**
- * Calculate which session number this is for an intern (1, 2, 3, ...).
- * Based on how many 2nd Tuesdays have passed since their join date.
- */
-export function calculateSessionNumber(
-  internJoinDate: string | Date,
-  sessionDate: string | Date
-): number {
-  const join = new Date(internJoinDate)
-  const session = new Date(sessionDate)
-
-  let count = 0
-  const current = new Date(join.getFullYear(), join.getMonth(), 1)
-
-  while (current <= session) {
-    const secondTues = getSecondTuesday(current.getFullYear(), current.getMonth())
-    if (secondTues >= join && secondTues <= session) {
-      count++
-    }
-    current.setMonth(current.getMonth() + 1)
-  }
-
-  return count
 }
 
 /**

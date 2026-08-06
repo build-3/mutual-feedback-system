@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useEffect } from "react"
 import { Employee } from "@/lib/types"
 import { getAvatarColor, getInitials } from "@/lib/insights-helpers"
+import { filterAndRankEmployees } from "@/lib/employee-match"
 import { getRoleLabel } from "@/lib/brand"
 
 interface Props {
@@ -35,11 +36,10 @@ export default function EmployeePicker({
 
   const selected = employees.find((e) => e.id === selectedId)
 
+  // Matches name OR the local part of the email, ranked — "at" finds
+  // at@build3.org, "vc" finds vc@build3.org.
   const filtered = useMemo(
-    () =>
-      employees.filter((e) =>
-        e.name.toLowerCase().includes(search.toLowerCase())
-      ),
+    () => filterAndRankEmployees(employees, search),
     [employees, search]
   )
 

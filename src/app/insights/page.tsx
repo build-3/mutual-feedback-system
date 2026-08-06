@@ -5,8 +5,15 @@ import dynamic from "next/dynamic"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Navbar from "@/components/Navbar"
-import { SectionHeading, EmptyState, buttonClasses } from "@/components/ui/brand"
-import { DATE_RANGE_LABELS, SCREEN_ACCENTS } from "@/lib/brand"
+import {
+  SectionHeading,
+  EmptyState,
+  SegmentedControl,
+  CycleStepper,
+  buttonClasses,
+} from "@/components/ui/brand"
+import { DATE_RANGE_LABELS, SCREEN_ACCENTS, type DateRange } from "@/lib/brand"
+import { cycleFor, cycleFromKey, shiftCycle } from "@/lib/cycles"
 import type { Employee, FeedbackResponse } from "@/lib/types"
 import { filterSubmissionsByRange } from "@/lib/insights-helpers"
 import type { SubmissionWithDetails } from "./types"
@@ -25,10 +32,10 @@ const ProbationSection = dynamic(() => import("@/components/admin/ProbationSecti
 
 const insightsAccent = SCREEN_ACCENTS.insights
 
-const DATE_RANGES = [
-  { key: "month" as const, label: "month" },
-  { key: "3months" as const, label: "3 months" },
-  { key: "all" as const, label: "all time" },
+const DATE_RANGES: { key: DateRange; label: string; title?: string }[] = [
+  { key: "cycle", label: "this cycle", title: "the current session cycle — 2nd tuesday to 2nd tuesday" },
+  { key: "3cycles", label: "3 cycles", title: "the current cycle plus the two before it" },
+  { key: "all", label: "all time" },
 ]
 
 type EmployeeMetrics = {
@@ -118,12 +125,22 @@ function InsightsContent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [showOrgOverview, setShowOrgOverview] = useState(true)
-  // Defaults to the last 3 months, not all-time. An all-time landing view
-  // averaged every round ever recorded into a single number and presented it
-  // as the current picture, which is what made the dashboard untrustworthy.
-  // "month" is deliberately not the default: rounds land mid-month, so early
-  // in a new month it would legitimately be empty.
-  const [dateRange, setDateRange] = useState<"month" | "3months" | "all">("3months")
+  // Lands on the current cycle. An all-time landing view averaged every round
+  // ever recorded into one number and presented it as the current picture, which
+  // is what made the dashboard untrustworthy. Calendar months were no better —
+  // sessions land mid-month, so early in a month the window was empty while the
+  // last session's feedback sat just outside it, unreachable.
+  //
+  // A cycle runs 2nd Tuesday → 2nd Tuesday, so "this cycle" always contains the
+  // most recent session. It does go empty for the first days after a reset; that
+  // is intended, and OrgOverview renders that as a designed state with a way
+  // back to the previous cycle rather than a page full of zeros.
+  const [dateRange, setDateRange] = useState<DateRange>("cycle")
+  // null = "whatever cycle contains today", re-resolved on each load so a tab
+  // left open overnight rolls over instead of silently showing a stale window.
+  const [cycleKey, setCycleKey] = useState<string | null>(null)
+  // What the server actually scoped to — the source of truth for every label.
+  const [resolvedCycleKey, setResolvedCycleKey] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email?: string | null } | null>(null)
   const initialLoadDone = useRef(false)
 
@@ -131,7 +148,13 @@ function InsightsContent() {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await fetch(`/api/insights/data?range=${dateRange}`)
+      // Send a concrete cycle key rather than letting the server resolve "now".
+      // The route is cached for 30s with a 60s stale-while-revalidate tail, so a
+      // bare ?range=cycle could serve the *previous* cycle's numbers under a
+      // "this cycle" label for up to 90s after a reset. Keying the URL on the
+      // cycle makes the cache entry change the instant the cycle rolls.
+      const resolvedCycle = cycleKey ?? cycleFor().key
+      const res = await fetch(`/api/insights/data?range=${dateRange}&cycle=${resolvedCycle}`)
       const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload.error || "we could not load the latest insight data.")
       setEmployees((payload.employees || []) as Employee[])
@@ -139,6 +162,11 @@ function InsightsContent() {
       setResponsesByAnswer((payload.responsesByAnswer || {}) as Record<string, (FeedbackResponse & { responderName: string })[]>)
       setOrgMetrics((payload.orgMetrics || null) as OrgMetrics | null)
       setEmployeeMetricsMap((payload.employeeMetrics || {}) as Record<string, EmployeeMetrics>)
+      // Adopt the server's resolved values rather than trusting local state, so
+      // a legacy ?range=month request renders as "this cycle" instead of
+      // mislabelling cycle data as a month.
+      if (payload.range) setDateRange(payload.range as DateRange)
+      if (payload.cycleKey) setResolvedCycleKey(payload.cycleKey as string)
     } catch (error) {
       console.error(error)
       setLoadError(error instanceof Error ? error.message : "we could not load the latest insight data.")
@@ -146,7 +174,7 @@ function InsightsContent() {
       setLoading(false)
       initialLoadDone.current = true
     }
-  }, [dateRange])
+  }, [dateRange, cycleKey])
 
   const handleResponseSaved = useCallback(() => {
     void loadDashboard()
@@ -183,9 +211,38 @@ function InsightsContent() {
   }, [searchParams, employees, currentUser, meChecked])
 
   const filteredSubmissions = useMemo(
-    () => filterSubmissionsByRange(enrichedSubmissions, dateRange),
-    [enrichedSubmissions, dateRange]
+    () => filterSubmissionsByRange(enrichedSubmissions, dateRange, resolvedCycleKey),
+    [enrichedSubmissions, dateRange, resolvedCycleKey]
   )
+
+  // The window every label describes. Prefers the pending selection over the
+  // server-confirmed one so stepping feels immediate; data catches up on the
+  // next fetch. Falls back to today's cycle before anything is chosen.
+  const activeCycle = useMemo(
+    () =>
+      (cycleKey ? cycleFromKey(cycleKey) : null) ??
+      (resolvedCycleKey ? cycleFromKey(resolvedCycleKey) : null) ??
+      cycleFor(),
+    [cycleKey, resolvedCycleKey]
+  )
+
+  const isCurrentCycle = activeCycle.key === cycleFor().key
+
+  // Functional updates, deliberately: reading activeCycle here would capture a
+  // value that only changes after the fetch resolves, so three quick clicks on ‹
+  // would all compute the same target and move a single cycle.
+  const stepCycle = useCallback((delta: number) => {
+    setDateRange("cycle")
+    setCycleKey((prev) => {
+      const from = (prev ? cycleFromKey(prev) : null) ?? cycleFor()
+      const next = shiftCycle(from, delta)
+      // Never step past the live cycle.
+      return next.startMs > cycleFor().startMs ? from.key : next.key
+    })
+  }, [])
+
+  const goToPrevCycle = useCallback(() => stepCycle(-1), [stepCycle])
+  const goToNextCycle = useCallback(() => stepCycle(1), [stepCycle])
 
   const build3Submissions = useMemo(
     () => filteredSubmissions.filter((s) => s.submission.feedback_type === "build3"),
@@ -310,7 +367,11 @@ function InsightsContent() {
           accent="sky"
           eyebrow="insights"
           title="clear signal"
-          description={`${employees.length} teammates, ${usePrecomputedOrg.totalSubmissions} submissions in ${DATE_RANGE_LABELS[dateRange]}.`}
+          description={
+            dateRange === "all"
+              ? `${employees.length} teammates, ${usePrecomputedOrg.totalSubmissions} submissions all time.`
+              : `${employees.length} teammates, ${usePrecomputedOrg.totalSubmissions} submissions in ${DATE_RANGE_LABELS[dateRange]} (${activeCycle.label}).`
+          }
         />
         <div className="mt-5 sm:mt-6 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3 border-b border-line pb-4">
           <div className="flex items-center justify-between gap-2 sm:contents">
@@ -324,21 +385,28 @@ function InsightsContent() {
               org overview
             </button>
             <div className="hidden sm:block h-5 w-px bg-line" />
-            <div className="sm:ml-auto flex gap-0.5 sm:gap-1 rounded-full border border-line bg-white p-1">
-              {DATE_RANGES.map(range => (
-                <button
-                  key={range.key}
-                  type="button"
-                  onClick={() => setDateRange(range.key)}
-                  className={`flex min-h-[36px] items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.06em] transition-all ${
-                    dateRange === range.key ? "bg-ink text-white" : "text-muted hover:text-ink"
-                  }`}
-                >
-                  {range.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              ariaLabel="date range"
+              className="sm:ml-auto"
+              options={DATE_RANGES}
+              value={dateRange}
+              onChange={key => {
+                setDateRange(key)
+                // Picking a range pill always snaps back to the live cycle;
+                // stepping is an explicit action.
+                setCycleKey(null)
+              }}
+            />
           </div>
+          {/* Stepping only makes sense for a single-cycle window. */}
+          {dateRange === "cycle" && (
+            <CycleStepper
+              label={activeCycle.label}
+              onPrev={goToPrevCycle}
+              onNext={goToNextCycle}
+              nextDisabled={isCurrentCycle}
+            />
+          )}
           <div className="sm:contents">
             <EmployeePicker
               employees={employees}
@@ -349,14 +417,10 @@ function InsightsContent() {
           </div>
         </div>
 
-        {/* An empty window is a real state — rounds land mid-month, so early in
-            a month "this month" is legitimately empty. Say so, rather than
-            rendering a page full of zeros that reads like a collapse. */}
-        {usePrecomputedOrg.totalSubmissions === 0 && (
-          <div className="mt-4 rounded-[20px] border border-line bg-white/70 px-4 py-3 text-sm leading-6 text-muted">
-            no feedback landed in {DATE_RANGE_LABELS[dateRange]}. the scores below are empty for that reason — try a wider range.
-          </div>
-        )}
+        {/* The empty-window banner that used to live here is gone. An empty
+            cycle is a first-class state now, owned by OrgOverview, so one
+            component tells the whole story instead of a banner plus five
+            sections independently vanishing. */}
       </div>
       <div className="mx-auto max-w-5xl px-3 py-3 sm:px-6 sm:py-5 pb-20">
         {showOrgOverview ? (
@@ -367,6 +431,8 @@ function InsightsContent() {
             responsesByAnswer={responsesByAnswer}
             currentUser={currentUser}
             onResponseSaved={handleResponseSaved}
+            cycleLabel={dateRange === "all" ? null : activeCycle.label}
+            onViewPreviousCycle={goToPrevCycle}
           />
         ) : insights.employee ? (
           <div className="space-y-3 sm:space-y-4">
@@ -390,11 +456,23 @@ function InsightsContent() {
             {insights.receivedSubmissions.length === 0 && insights.selfSubmissions.length === 0 && (
               <EmptyState
                 accent={insightsAccent}
-                title="no feedback has landed here yet"
+                title="nothing in this cycle yet"
                 description={
-                  <>{insights.employee.name} has not received peer notes or logged a self reflection in this range yet. You can change that from{" "}
+                  <>{insights.employee.name} has not received peer notes or logged a self reflection
+                    {dateRange === "all" ? "" : ` in ${activeCycle.label}`}. You can change that from{" "}
                     <Link href="/feedback" className="font-semibold text-ink underline decoration-brand-sky decoration-2 underline-offset-4">the feedback form</Link>.
                   </>
+                }
+                action={
+                  dateRange === "cycle" ? (
+                    <button
+                      type="button"
+                      onClick={goToPrevCycle}
+                      {...buttonClasses({ accent: insightsAccent, variant: "outline", size: "sm" })}
+                    >
+                      look at the previous cycle
+                    </button>
+                  ) : undefined
                 }
               />
             )}

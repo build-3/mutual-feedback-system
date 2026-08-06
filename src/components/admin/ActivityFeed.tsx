@@ -57,7 +57,10 @@ export default function ActivityFeed({
                     : "border-line bg-white text-muted hover:border-ink/20"
                 }`}
               >
-                {f === "all" ? "all time" : `this ${f}`}
+                {/* "last 30 days" rather than "this month" — the filter is a
+                    rolling 30-day cutoff, not a calendar month, and the old
+                    label also collided with the new cycle-scoped periods. */}
+                {f === "all" ? "all time" : f === "week" ? "last 7 days" : "last 30 days"}
               </button>
             ))}
           </div>

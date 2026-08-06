@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
-import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
+import { hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
+import { hasSubstantiveSubmission } from "@/lib/server/period-gate"
 
 export async function GET() {
   if (!hasServerSupabaseConfig()) {
@@ -17,39 +18,13 @@ export async function GET() {
     return NextResponse.json({ hasSelfFeedback: false })
   }
 
-  const supabaseAdmin = getSupabaseAdmin()
+  // Scoped to the current cycle (2nd Tuesday → 2nd Tuesday), not the calendar
+  // month. A reflection logged just after a session belongs to the cycle that
+  // session opened, and the gate has to agree with what /insights shows.
+  const hasSelfFeedback = await hasSubstantiveSubmission({
+    employeeId: auth.employee.id,
+    feedbackType: "self",
+  })
 
-  // Check current calendar month only
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
-
-  // Find self-feedback submissions this month
-  const { data: submissions } = await supabaseAdmin
-    .from("feedback_submissions")
-    .select("id")
-    .eq("submitted_by_id", auth.employee.id)
-    .eq("feedback_type", "self")
-    .gte("created_at", monthStart)
-    .lt("created_at", monthEnd)
-    .order("created_at", { ascending: false })
-    .limit(10)
-
-  if (!submissions || submissions.length === 0) {
-    return NextResponse.json({ hasSelfFeedback: false })
-  }
-
-  // Check if any has actual answers (not ghost)
-  for (const sub of submissions) {
-    const { count } = await supabaseAdmin
-      .from("feedback_answers")
-      .select("id", { count: "exact", head: true })
-      .eq("submission_id", sub.id)
-
-    if (count && count > 0) {
-      return NextResponse.json({ hasSelfFeedback: true })
-    }
-  }
-
-  return NextResponse.json({ hasSelfFeedback: false })
+  return NextResponse.json({ hasSelfFeedback })
 }

@@ -3,28 +3,27 @@
 
 import type { SubmissionWithDetails } from '@/app/insights/types'
 import type { DateRange } from '@/lib/brand'
+import { resolveWindow } from '@/lib/cycles'
 
-/** Filter submissions by date range — single source of truth.
- *  'month' = current calendar month (resets on the 1st).
- *  '3months' = rolling 3-month window.
+/**
+ * Filter submissions by date range.
+ *
+ * The window itself comes from resolveWindow (src/lib/cycles.ts) so this and the
+ * server-side filter in fetch-dashboard-data.ts cannot drift — they previously
+ * were two hand-rolled implementations of "the same" rule and had already
+ * diverged (the client bounded both ends, the server only the lower one).
  */
 export function filterSubmissionsByRange(
   submissions: SubmissionWithDetails[],
-  dateRange: DateRange
+  dateRange: DateRange,
+  cycleKey?: string | null
 ): SubmissionWithDetails[] {
-  if (dateRange === 'all') return submissions
-  const now = new Date()
-  if (dateRange === 'month') {
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-    return submissions.filter(s => {
-      const date = new Date(s.submission.created_at)
-      return date >= monthStart && date < monthEnd
-    })
-  }
-  // 3months — rolling window
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-  return submissions.filter(s => new Date(s.submission.created_at) >= cutoff)
+  const window = resolveWindow(dateRange, cycleKey)
+  if (!window) return submissions
+  return submissions.filter(s => {
+    const t = Date.parse(s.submission.created_at)
+    return t >= window.startMs && t < window.endMs
+  })
 }
 
 export function getScoreColor(value: number, scale: '1-5' | '0-100' | '0-10'): string {

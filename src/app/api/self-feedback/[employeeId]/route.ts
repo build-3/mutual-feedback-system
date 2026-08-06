@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { SELF_QUESTIONS } from "@/lib/questions"
+import { latestSubstantiveSubmission } from "@/lib/server/period-gate"
 
 const SELF_QUESTION_TEXT: Record<string, string> = Object.fromEntries(
   SELF_QUESTIONS.map((q) => [q.key, q.text])
@@ -30,49 +31,35 @@ export async function GET(
 
   const supabaseAdmin = getSupabaseAdmin()
 
-  // Scope to current calendar month
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+  // Scoped to the current cycle, and it MUST match the gate in
+  // /api/self-feedback-check. The caller (fetchSelfFeedbackAndAdvance in
+  // feedback/page.tsx) treats a null submission as "no reflection exists" and
+  // silently skips the whole self_review step — no error, no message. So if this
+  // window were narrower than the gate's, an intern could be told they had
+  // already reflected while every reviewer saw nothing and the reflection was
+  // never read by anyone. Both now come from the same cycle helper.
+  const sub = await latestSubstantiveSubmission({
+    employeeId,
+    feedbackType: "self",
+    limit: 5,
+  })
 
-  // Get the latest self-feedback submission from this month
-  const { data: submissions } = await supabaseAdmin
-    .from("feedback_submissions")
-    .select("id, created_at")
-    .eq("submitted_by_id", employeeId)
-    .eq("feedback_type", "self")
-    .gte("created_at", monthStart)
-    .lt("created_at", monthEnd)
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  if (!submissions || submissions.length === 0) {
+  if (!sub) {
     return NextResponse.json({ submission: null })
   }
 
-  // Check each submission for answers (skip ghosts)
-  for (const sub of submissions) {
-    const { data: answerRows } = await supabaseAdmin
-      .from("feedback_answers")
-      .select("question_key, answer_value")
-      .eq("submission_id", sub.id)
+  const { data: answerRows } = await supabaseAdmin
+    .from("feedback_answers")
+    .select("question_key, answer_value")
+    .eq("submission_id", sub.id)
 
-    if (answerRows && answerRows.length > 0) {
-      const answers = answerRows.map((a) => ({
-        question_key: a.question_key,
-        question_text: SELF_QUESTION_TEXT[a.question_key] || a.question_key,
-        answer_value: a.answer_value,
-      }))
+  const answers = (answerRows ?? []).map((a) => ({
+    question_key: a.question_key,
+    question_text: SELF_QUESTION_TEXT[a.question_key] || a.question_key,
+    answer_value: a.answer_value,
+  }))
 
-      return NextResponse.json({
-        submission: {
-          id: sub.id,
-          created_at: sub.created_at,
-          answers,
-        },
-      })
-    }
-  }
-
-  return NextResponse.json({ submission: null })
+  return NextResponse.json({
+    submission: { id: sub.id, created_at: sub.created_at, answers },
+  })
 }
