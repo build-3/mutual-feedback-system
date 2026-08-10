@@ -133,17 +133,28 @@ export function secondTuesdayKey(year: number, month: number): CycleKey {
 }
 
 function buildCycle(year: number, month: number): Cycle {
-  const startMs = secondTuesdayIstMs(year, month)
+  // Boundary is the REMINDER day (the day before the session), not the session
+  // itself. The reminder cron fires when tomorrow is a 2nd Tuesday and asks
+  // people to reflect "before we meet" — with the boundary on the session day,
+  // that reminder was evaluated against the window opened by the *previous*
+  // session, so anyone who reflected at that session was suppressed (18 people,
+  // 16 of them for exactly this reason). Rolling over on reminder day also puts
+  // a reflection written in response to the message and the feedback given at
+  // the session into the SAME window, instead of expiring it at midnight in
+  // between.
+  const startMs = secondTuesdayIstMs(year, month) - DAY_MS
   const next = normMonth(year, month + 1)
-  const endMs = secondTuesdayIstMs(next.year, next.month)
+  const endMs = secondTuesdayIstMs(next.year, next.month) - DAY_MS
 
-  // Label the last *included* day, not the exclusive bound — "14 jul – 10 aug"
-  // reads correctly where "14 jul – 11 aug" would imply the 11th is in scope.
+  // Label the last *included* day, not the exclusive bound — "13 jul – 9 aug"
+  // reads correctly where "13 jul – 10 aug" would imply the 10th is in scope.
   const lastDay = istParts(endMs - DAY_MS)
   const first = istParts(startMs)
 
   return {
-    key: istDateKey(first.year, first.month, first.day),
+    // Still the 2nd Tuesday — the key shares a space with
+    // feedback_sessions.session_date, so only the window moved, not the key.
+    key: secondTuesdayKey(year, month),
     startMs,
     endMs,
     startIso: new Date(startMs).toISOString(),
@@ -162,8 +173,8 @@ function buildCycle(year: number, month: number): Cycle {
  */
 export function cycleFor(at: number = Date.now()): Cycle {
   const { year, month } = istParts(at)
-  const thisMonthsTuesday = secondTuesdayIstMs(year, month)
-  const base = at >= thisMonthsTuesday ? { year, month } : normMonth(year, month - 1)
+  const thisMonthsBoundary = secondTuesdayIstMs(year, month) - DAY_MS
+  const base = at >= thisMonthsBoundary ? { year, month } : normMonth(year, month - 1)
   return buildCycle(base.year, base.month)
 }
 
@@ -264,9 +275,14 @@ export function listCyclesSince(fromMs: number, at: number = Date.now()): Cycle[
  * to getOrCreateSession, so it decides what session_date gets written.
  */
 export function upcomingSecondTuesdayMs(at: number = Date.now()): number {
-  const cycle = cycleFor(at)
+  // Computed straight from the calendar rather than off cycle.startMs/endMs:
+  // the cycle window now opens the day BEFORE the session, so deriving the
+  // session date from the window would report the wrong Tuesday.
   const p = istParts(at)
-  return istDateKey(p.year, p.month, p.day) === cycle.key ? cycle.startMs : cycle.endMs
+  const secondTuesday = secondTuesdayDayOfMonth(p.year, p.month)
+  if (p.day <= secondTuesday) return istMidnightMs(p.year, p.month, secondTuesday)
+  const next = normMonth(p.year, p.month + 1)
+  return secondTuesdayIstMs(next.year, next.month)
 }
 
 /** Whether the given IST calendar date is a 2nd Tuesday. */

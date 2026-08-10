@@ -65,32 +65,32 @@ describe("cycleFor", () => {
   it("puts 6 aug 2026 in the 14 jul cycle", () => {
     const c = cycleFor(ist("2026-08-06T10:00:00"))
     expect(c.key).toBe("2026-07-14")
-    expect(c.label).toBe("14 jul – 10 aug")
+    expect(c.label).toBe("13 jul – 9 aug")
   })
 
   it("rolls to the new cycle on the 2nd tuesday itself", () => {
-    const c = cycleFor(ist("2026-08-11T00:00:00"))
+    const c = cycleFor(ist("2026-08-10T00:00:00"))
     expect(c.key).toBe("2026-08-11")
-    expect(c.label).toBe("11 aug – 7 sep")
+    expect(c.label).toBe("10 aug – 6 sep")
   })
 
   it("keeps early january in december's cycle", () => {
     // The case naive YYYY-MM bucketing always gets wrong.
     expect(cycleFor(ist("2027-01-05T12:00:00")).key).toBe("2026-12-08")
-    expect(cycleFor(ist("2027-01-11T23:59:59")).key).toBe("2026-12-08")
-    expect(cycleFor(ist("2027-01-12T00:00:00")).key).toBe("2027-01-12")
+    expect(cycleFor(ist("2027-01-10T23:59:59")).key).toBe("2026-12-08")
+    expect(cycleFor(ist("2027-01-11T00:00:00")).key).toBe("2027-01-12")
   })
 
   it("spans the december cycle across the year boundary", () => {
     const c = cycleFor(ist("2026-12-25T00:00:00"))
     expect(c.key).toBe("2026-12-08")
-    expect(c.endMs).toBe(ist("2027-01-12T00:00:00"))
+    expect(c.endMs).toBe(ist("2027-01-11T00:00:00"))
   })
 
   it("handles february", () => {
-    expect(cycleFor(ist("2026-02-09T12:00:00")).key).toBe("2026-01-13")
-    expect(cycleFor(ist("2026-02-10T00:00:00")).key).toBe("2026-02-10")
-    expect(cycleFor(ist("2026-03-09T12:00:00")).key).toBe("2026-02-10")
+    expect(cycleFor(ist("2026-02-08T12:00:00")).key).toBe("2026-01-13")
+    expect(cycleFor(ist("2026-02-09T00:00:00")).key).toBe("2026-02-10")
+    expect(cycleFor(ist("2026-03-08T12:00:00")).key).toBe("2026-02-10")
   })
 })
 
@@ -100,12 +100,12 @@ describe("the boundary instant", () => {
   })
 
   it("flips at exactly IST midnight, not a millisecond before", () => {
-    expect(cycleFor(Date.parse("2026-08-10T18:29:59.999Z")).key).toBe("2026-07-14")
-    expect(cycleFor(Date.parse("2026-08-10T18:30:00.000Z")).key).toBe("2026-08-11")
+    expect(cycleFor(Date.parse("2026-08-09T18:29:59.999Z")).key).toBe("2026-07-14")
+    expect(cycleFor(Date.parse("2026-08-09T18:30:00.000Z")).key).toBe("2026-08-11")
   })
 
   it("is half-open — the boundary belongs to the later cycle only", () => {
-    const boundary = "2026-08-10T18:30:00.000Z"
+    const boundary = "2026-08-09T18:30:00.000Z"
     const julyCycle = cycleFromKey("2026-07-14")!
     const augustCycle = cycleFromKey("2026-08-11")!
 
@@ -156,8 +156,8 @@ describe("istParts agrees with Intl", () => {
 describe("cycleFromKey", () => {
   it("round-trips a real cycle key", () => {
     const c = cycleFromKey("2026-07-14")
-    expect(c?.startMs).toBe(ist("2026-07-14T00:00:00"))
-    expect(c?.endMs).toBe(ist("2026-08-11T00:00:00"))
+    expect(c?.startMs).toBe(ist("2026-07-13T00:00:00"))
+    expect(c?.endMs).toBe(ist("2026-08-10T00:00:00"))
   })
 
   it("rejects malformed and non-cycle keys instead of returning NaN", () => {
@@ -186,26 +186,26 @@ describe("resolveWindow", () => {
 
   it("scopes cycle to the containing cycle", () => {
     const w = resolveWindow("cycle", null, at)!
-    expect(w.startMs).toBe(ist("2026-07-14T00:00:00"))
-    expect(w.endMs).toBe(ist("2026-08-11T00:00:00"))
+    expect(w.startMs).toBe(ist("2026-07-13T00:00:00"))
+    expect(w.endMs).toBe(ist("2026-08-10T00:00:00"))
   })
 
   it("scopes 3cycles to the anchor plus the two before it", () => {
     const w = resolveWindow("3cycles", null, at)!
-    expect(w.startMs).toBe(ist("2026-05-12T00:00:00"))
-    expect(w.endMs).toBe(ist("2026-08-11T00:00:00"))
+    expect(w.startMs).toBe(ist("2026-05-11T00:00:00"))
+    expect(w.endMs).toBe(ist("2026-08-10T00:00:00"))
   })
 
   it("honours an explicit historical cycle key", () => {
     const w = resolveWindow("cycle", "2026-06-09", at)!
-    expect(w.startMs).toBe(ist("2026-06-09T00:00:00"))
-    expect(w.endMs).toBe(ist("2026-07-14T00:00:00"))
+    expect(w.startMs).toBe(ist("2026-06-08T00:00:00"))
+    expect(w.endMs).toBe(ist("2026-07-13T00:00:00"))
   })
 
   it("falls back to the current cycle on a bad key rather than NaN", () => {
     const w = resolveWindow("cycle", "not-a-date", at)!
     expect(Number.isNaN(w.startMs)).toBe(false)
-    expect(w.startMs).toBe(ist("2026-07-14T00:00:00"))
+    expect(w.startMs).toBe(ist("2026-07-13T00:00:00"))
   })
 
   it("is cycle-aligned, so the window does not drift day to day", () => {
@@ -234,8 +234,8 @@ describe("cycleKeyOf", () => {
   it("buckets stored UTC timestamps into cycles", () => {
     // A submission just after IST midnight is still the *previous* UTC day —
     // the exact case a created_at.slice(0,7) bucket gets wrong.
-    expect(cycleKeyOf("2026-08-10T19:00:00.000Z")).toBe("2026-08-11")
-    expect(cycleKeyOf("2026-08-10T18:00:00.000Z")).toBe("2026-07-14")
+    expect(cycleKeyOf("2026-08-09T19:00:00.000Z")).toBe("2026-08-11")
+    expect(cycleKeyOf("2026-08-09T18:00:00.000Z")).toBe("2026-07-14")
     expect(cycleKeyOf("2026-07-20T06:00:00.000Z")).toBe("2026-07-14")
   })
 })
