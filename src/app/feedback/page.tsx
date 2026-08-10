@@ -793,11 +793,16 @@ export default function FeedbackPage() {
     }
 
     if (phase === "route") {
-      if (!feedbackPath) {
+      // Same precedence as the picker's highlight. Backing out of a gated run
+      // leaves feedbackPath on the current *stage* (self), so starting from
+      // feedbackPath here silently downgraded an intern review to a standalone
+      // self-reflection — the chosen lane was dropped without a word.
+      const lane = intendedPath ?? feedbackPath
+      if (!lane) {
         setError("pick the kind of feedback you want to share.")
         return
       }
-      startPipeline(feedbackPath)
+      startPipeline(lane)
       return
     }
 

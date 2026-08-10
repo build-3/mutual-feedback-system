@@ -26,6 +26,14 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "build3",
   },
+  // appleWebApp.capable emits only <meta name="apple-mobile-web-app-capable">,
+  // which Chrome now warns is deprecated in favour of the standardised name.
+  // Both are needed: iOS Safari still reads the apple- prefixed tag, so this
+  // adds the standard one rather than replacing it. Next has no first-class
+  // field for it, hence `other`.
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   openGraph: {
     title: "build3 — internal feedback",
     description: "build3's internal feedback system. peer reviews, self-reflections, and team insight in one place.",
