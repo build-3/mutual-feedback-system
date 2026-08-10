@@ -2,7 +2,11 @@ import "server-only"
 
 import type { PostgrestError } from "@supabase/supabase-js"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
-import { MIN_ANSWER_LENGTHS } from "@/lib/questions"
+import {
+  CONDITIONAL_DETAIL_PARENTS,
+  MIN_ANSWER_LENGTHS,
+  requiredDetailLength,
+} from "@/lib/questions"
 import {
   canRespondToFeedback,
   isNonParticipantReply,
@@ -213,7 +217,19 @@ export async function submitFeedback({
     // Note this catches a *short* answer, not a *missing* one: the client omits
     // the row entirely when the textarea is blank, and the server has no map of
     // which question keys a given feedback type requires.
-    const min = MIN_ANSWER_LENGTHS[row.question_key] ?? 0
+    // A follow-up whose minimum depends on the slider beside it is resolved
+    // against that sibling answer in this same submission, so the server applies
+    // the identical rule to the client instead of a flat 20 at every score.
+    const conditionalParent = CONDITIONAL_DETAIL_PARENTS[row.question_key]
+    const min = conditionalParent
+      ? requiredDetailLength(
+          conditionalParent,
+          Number(
+            answers.find((a) => a.question_key === conditionalParent.key)
+              ?.answer_value
+          )
+        )
+      : MIN_ANSWER_LENGTHS[row.question_key] ?? 0
     if (min > 0 && row.answer_value.length < min) {
       throw new Error(`your answer must be at least ${min} characters`)
     }

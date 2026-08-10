@@ -4,8 +4,11 @@ import {
   BUILD3_QUESTIONS,
   FULL_TIMER_QUESTIONS,
   INTERN_QUESTIONS,
+  CONDITIONAL_DETAIL_PARENTS,
   MIN_ANSWER_LENGTHS,
   TRUST_DETAIL_MIN_LENGTH,
+  TRUST_DETAIL_REQUIRED_BELOW,
+  requiredDetailLength,
   validateFollowupDetail,
   type Question,
 } from "./questions"
@@ -85,5 +88,77 @@ describe("validateFollowupDetail", () => {
     }
     expect(validateFollowupDetail(noMin, "")).toBeNull()
     expect(validateFollowupDetail(noMin, undefined)).toBeNull()
+  })
+})
+
+describe("the trust battery minimum only bites below the cutoff", () => {
+  const question = trustBatteryIn(BUILD3_QUESTIONS)
+
+  it("requires the sentence for every score below the cutoff", () => {
+    for (const score of [0, 1, 30, 50, 70, 84]) {
+      expect(requiredDetailLength(question, score), String(score)).toBe(
+        TRUST_DETAIL_MIN_LENGTH
+      )
+      expect(validateFollowupDetail(question, "too short", score)).not.toBeNull()
+    }
+  })
+
+  it("is optional at and above the cutoff", () => {
+    for (const score of [TRUST_DETAIL_REQUIRED_BELOW, 90, 100]) {
+      expect(requiredDetailLength(question, score), String(score)).toBe(0)
+      expect(validateFollowupDetail(question, "", score)).toBeNull()
+    }
+  })
+
+  it("puts the boundary exactly at the cutoff", () => {
+    expect(requiredDetailLength(question, TRUST_DETAIL_REQUIRED_BELOW - 1)).toBe(
+      TRUST_DETAIL_MIN_LENGTH
+    )
+    expect(requiredDetailLength(question, TRUST_DETAIL_REQUIRED_BELOW)).toBe(0)
+  })
+
+  it("stays required when the score is missing or unparseable", () => {
+    // Failing open would let a bad number switch the rule off silently.
+    for (const bad of [undefined, null, NaN]) {
+      expect(requiredDetailLength(question, bad as number)).toBe(
+        TRUST_DETAIL_MIN_LENGTH
+      )
+    }
+  })
+
+  it("hands the server the same rule instead of a flat minimum", () => {
+    // Without this the server enforced 20 characters at every score and would
+    // reject a terse reply the client had just accepted at 95.
+    const parent = CONDITIONAL_DETAIL_PARENTS.trust_battery_detail
+    expect(parent).toBeDefined()
+    expect(parent.key).toBe("trust_battery")
+    expect(requiredDetailLength(parent, 95)).toBe(0)
+    expect(requiredDetailLength(parent, 40)).toBe(TRUST_DETAIL_MIN_LENGTH)
+  })
+})
+
+describe("teal principles carry a definition for the info button", () => {
+  const EXPECTED: Record<string, string> = {
+    teal_self_management:
+      "Enabling autonomous decision-making with accountability.",
+    teal_wholeness:
+      "Bringing your authentic self to work instead of wearing a professional mask.",
+    teal_evolutionary_purpose:
+      "Continuously adapting to fulfill the organization's evolving purpose.",
+  }
+
+  it.each([
+    ["intern", INTERN_QUESTIONS],
+    ["full_timer", FULL_TIMER_QUESTIONS],
+  ] as const)("is wired on the %s path", (_path, questions) => {
+    const teal = questions.find((q) => q.key === "teal_concepts")!
+    expect(teal.matrixItems).toHaveLength(3)
+    for (const item of teal.matrixItems!) {
+      expect(EXPECTED[item.key], item.key).toBeDefined()
+      expect(item.definition, item.key).toBe(EXPECTED[item.key])
+      // The behavioural description stays: it says what to look for in this
+      // person, where the definition explains the principle itself.
+      expect(item.description, item.key).toBeTruthy()
+    }
   })
 })

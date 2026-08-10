@@ -105,6 +105,14 @@ export type SliderFollowup = {
    * inherit a blocking rule nobody asked for.
    */
   minDetailLength?: number
+  /**
+   * Apply minDetailLength only while the slider is BELOW this value. At or above
+   * it the follow-up is optional.
+   *
+   * A high score needs no justification to be useful; a low or middling one is
+   * the whole point of asking. Omit to require the minimum at every value.
+   */
+  minDetailBelow?: number
 }
 
 export type Question = {
@@ -113,7 +121,13 @@ export type Question = {
   type: QuestionType
   subtext?: string
   options?: { key: string; label: string; description?: string }[]
-  matrixItems?: { key: string; label: string; description?: string }[]
+  matrixItems?: {
+    key: string
+    label: string
+    description?: string
+    /** Short definition of the principle, shown behind an info button. */
+    definition?: string
+  }[]
   min?: number
   max?: number
   employeeRole?: "intern" | "full_timer"
@@ -132,6 +146,13 @@ export type Question = {
  */
 export const TRUST_DETAIL_MIN_LENGTH = 20
 
+/**
+ * The minimum only bites below this score. At or above it the sentence is
+ * optional: a near-full battery explains itself, while anything lower is exactly
+ * the case where a bare number tells you nothing actionable.
+ */
+export const TRUST_DETAIL_REQUIRED_BELOW = 85
+
 // Shared questions used in both intern and full-timer paths
 const TEAL_CONCEPTS_QUESTION: Question = {
   key: "teal_concepts",
@@ -144,18 +165,26 @@ const TEAL_CONCEPTS_QUESTION: Question = {
       label: "Self-Management",
       description:
         "makes decisions and owns outcomes without waiting for permission or a manager to unblock them.",
+      // The `description` says what to look for in this person; the `definition`
+      // says what the principle itself means, for anyone rating it who has not
+      // met teal before.
+      definition: "Enabling autonomous decision-making with accountability.",
     },
     {
       key: "teal_wholeness",
       label: "Wholeness",
       description:
         "brings their whole self to work — feelings, intuition, and personality — instead of hiding behind a professional mask.",
+      definition:
+        "Bringing your authentic self to work instead of wearing a professional mask.",
     },
     {
       key: "teal_evolutionary_purpose",
       label: "Evolutionary Purpose",
       description:
         "listens for where build3 is trying to go next and moves with it, rather than forcing a fixed plan.",
+      definition:
+        "Continuously adapting to fulfill the organization's evolving purpose.",
     },
   ],
 }
@@ -184,6 +213,7 @@ const TRUST_BATTERY_QUESTION: Question = {
     lowPlaceholder: "share what's been off — specific moments help.",
     highPlaceholder: "what have they done that built this trust?",
     minDetailLength: TRUST_DETAIL_MIN_LENGTH,
+    minDetailBelow: TRUST_DETAIL_REQUIRED_BELOW,
   },
 }
 
@@ -263,6 +293,7 @@ export const BUILD3_QUESTIONS: Question[] = [
       lowPlaceholder: "help us understand what's off — specific moments help.",
       highPlaceholder: "tell us what's working — we want to do more of it.",
       minDetailLength: TRUST_DETAIL_MIN_LENGTH,
+      minDetailBelow: TRUST_DETAIL_REQUIRED_BELOW,
     },
   },
   {
@@ -396,6 +427,30 @@ export function getQuestionsForPath(
  * Lets the server enforce the same rule as the client: it validates answer rows
  * generically and otherwise has no idea which question a row came from.
  */
+/**
+ * Follow-up detail keys whose minimum depends on the slider beside them, mapped
+ * to the parent question. The server validates answer rows generically, so
+ * without this it enforced 20 characters at every score and would reject a
+ * legitimately terse reply on a near-full battery — a rule the client no longer
+ * applies. Both sides now read the same config.
+ */
+export const CONDITIONAL_DETAIL_PARENTS: Record<string, Question> = (() => {
+  const out: Record<string, Question> = {}
+  for (const question of [
+    ...INTERN_QUESTIONS,
+    ...BUILD3_QUESTIONS,
+    ...FULL_TIMER_QUESTIONS,
+    ...SELF_QUESTIONS,
+    ...ADHOC_QUESTIONS,
+  ]) {
+    const followup = question.followup
+    if (followup?.detailKey && followup.minDetailBelow != null) {
+      out[followup.detailKey] = question
+    }
+  }
+  return out
+})()
+
 export const MIN_ANSWER_LENGTHS: Record<string, number> = (() => {
   const out: Record<string, number> = {}
   const allQuestions = [
@@ -424,11 +479,33 @@ export const MIN_ANSWER_LENGTHS: Record<string, number> = (() => {
  * unconditional `true` for this question type, and any rule added to only one of
  * them would be bypassable through the other.
  */
+export function requiredDetailLength(
+  question: Question,
+  sliderValue: number | null | undefined
+): number {
+  const followup = question.followup
+  const min = followup?.minDetailLength ?? 0
+  if (min <= 0) return 0
+  // Above the cutoff the sentence is optional. A missing/unparsed value is
+  // treated as "still required" — failing open here would let a bad number
+  // silently switch the rule off.
+  if (
+    followup?.minDetailBelow != null &&
+    typeof sliderValue === "number" &&
+    Number.isFinite(sliderValue) &&
+    sliderValue >= followup.minDetailBelow
+  ) {
+    return 0
+  }
+  return min
+}
+
 export function validateFollowupDetail(
   question: Question,
-  value: string | undefined
+  value: string | undefined,
+  sliderValue?: number | null
 ): string | null {
-  const min = question.followup?.minDetailLength ?? 0
+  const min = requiredDetailLength(question, sliderValue)
   if (min <= 0) return null
   const length = (value ?? "").trim().length
   if (length >= min) return null

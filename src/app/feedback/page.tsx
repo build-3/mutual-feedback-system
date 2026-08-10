@@ -28,6 +28,7 @@ import {
   Question,
   getQuestionsForPath,
   validateFollowupDetail,
+  requiredDetailLength,
   SELF_REVIEW_KEYS,
 } from "@/lib/questions"
 import { Employee, FeedbackType } from "@/lib/types"
@@ -372,6 +373,31 @@ export default function FeedbackPage() {
   // Progress: for multi-stage pipelines, compute total questions across all stages.
   // For single-stage, it's just the current path's questions + setup.
   const hasReviewStep = pathCollectsSelfReview(feedbackPath) && selfFeedbackForTarget != null
+
+  /**
+   * A trust-battery follow-up that is open and still under its minimum.
+   *
+   * Drives the red state and disables the advance button. Previously the block
+   * was invisible: the button stayed enabled at full opacity, the counter stayed
+   * grey, and clicking did nothing with no explanation — a dead button, which is
+   * exactly what the follow-up's own comment warned about. The red only appeared
+   * after a rejected click, so the first click looked broken.
+   *
+   * Gated on the follow-up being *visible*: while the slider is untouched the
+   * field is collapsed, and disabling the button then would trap the user behind
+   * a field they cannot see. That first click is what reveals it.
+   */
+  const followupBlocking = (() => {
+    if (phase !== "questions") return false
+    const q = questions[currentQ]
+    if (!q || q.type !== "slider_with_followup") return false
+    const min = requiredDetailLength(q, Number(answers[q.key]))
+    if (min <= 0) return false
+    const detailKey = q.followup?.detailKey || `${q.key}_detail`
+    const detail = answers[detailKey] ?? ""
+    const open = sliderTouched || detail.length > 0 || showFollowupMin
+    return open && detail.trim().length < min
+  })()
   const adhocSkipped = feedbackPath === "adhoc" ? 1 : 0
   const build3Skipped = 0
 
@@ -912,7 +938,11 @@ export default function FeedbackPage() {
       // Slider value is always valid (defaults to 50). The follow-up is only
       // required when the question declares a minDetailLength.
       const detailKey = question.followup?.detailKey || `${question.key}_detail`
-      const problem = validateFollowupDetail(question, answers[detailKey])
+      const problem = validateFollowupDetail(
+        question,
+        answers[detailKey],
+        Number(answers[question.key])
+      )
       if (problem) {
         setError(problem)
         // Force the follow-up open — it is collapsed until the slider is
@@ -1246,7 +1276,11 @@ export default function FeedbackPage() {
     }
     if (question.type === "slider_with_followup") {
       const detailKey = question.followup?.detailKey || `${question.key}_detail`
-      const problem = validateFollowupDetail(question, pendingAnswers.current[detailKey])
+      const problem = validateFollowupDetail(
+        question,
+        pendingAnswers.current[detailKey],
+        Number(pendingAnswers.current[question.key])
+      )
       if (problem) {
         // This validator otherwise returns bare booleans and sets no message,
         // which would leave the user with a dead button and no explanation.
@@ -1478,7 +1512,7 @@ export default function FeedbackPage() {
         voiceQuestionKeyRef.current = detailKey
         const detailValue = answers[detailKey] || ""
         const detailLength = detailValue.trim().length
-        const minDetail = fu?.minDetailLength ?? 0
+        const minDetail = requiredDetailLength(question, sliderNum)
         const detailShort = minDetail > 0 && detailLength < minDetail
         // Reveal when the slider has been touched, but also whenever there is
         // already text (so a Back-then-Next round trip doesn't re-hide a filled
@@ -1517,16 +1551,27 @@ export default function FeedbackPage() {
                 maxLength={4000}
                 className={fieldClasses({
                   size: "lg",
-                  hasError: showFollowupMin && detailShort,
+                  // Red as soon as there is text that is too short, not only
+                  // after a rejected click. Stays neutral while still empty so
+                  // the field does not open already shouting.
+                  hasError: detailShort && (detailValue.length > 0 || showFollowupMin),
                 })}
                 placeholder={followupPlaceholder}
               />
               {minDetail > 0 && (
                 <div className="flex items-center justify-between gap-3 text-[11px]">
                   <span className="font-medium text-[#d35b52]">
-                    {showFollowupMin && detailShort ? "a little more, please" : ""}
+                    {detailShort && (detailValue.length > 0 || showFollowupMin)
+                      ? `a little more, please — ${minDetail} characters minimum`
+                      : ""}
                   </span>
-                  <span className={detailShort ? "text-muted" : "text-muted/60"}>
+                  <span
+                    className={
+                      detailShort
+                        ? "font-semibold text-[#d35b52]"
+                        : "text-muted/60"
+                    }
+                  >
                     {detailShort
                       ? `${detailLength}/${minDetail} minimum`
                       : `${detailLength} characters`}
@@ -1933,7 +1978,7 @@ export default function FeedbackPage() {
                   className={nextButton.className}
                   style={nextButton.style}
                   onClick={goNext}
-                  disabled={voiceState === "transcribing"}
+                  disabled={voiceState === "transcribing" || followupBlocking}
                 >
                   {voiceState === "recording"
                     ? "finish recording"
@@ -2041,7 +2086,7 @@ export default function FeedbackPage() {
             className={`${nextButton.className} !px-10 !py-2.5 !text-sm`}
             style={nextButton.style}
             onClick={goNext}
-            disabled={voiceState === "transcribing"}
+            disabled={voiceState === "transcribing" || followupBlocking}
           >
             {voiceState === "recording"
               ? "finish recording"
