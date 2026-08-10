@@ -18,6 +18,24 @@ export const MOD_EMAILS = ["at@build3.org", "vc@build3.org", "br@build3.org"]
  */
 export const MOD_DASHBOARD_ENABLED = true
 
+/**
+ * Whether a reply speaks as the institution rather than the individual.
+ *
+ * One rule, three consumers: the /insights timeline, the /mod queue, and the
+ * Chat notification. It used to be inlined in the first two and absent from the
+ * third, which is how the UI came to render an anonymous "build3 foundation"
+ * while the DM announced the responder by name — the leak this centralises away.
+ */
+export function isOrgVoiceReply(
+  feedbackType: string | null | undefined,
+  responderEmail: string | null | undefined
+): boolean {
+  return (
+    feedbackType === "build3" &&
+    MOD_EMAILS.includes((responderEmail ?? "").toLowerCase())
+  )
+}
+
 // In-memory employee-by-email cache — avoids a DB round-trip on every request
 const employeeByEmailCache = new Map<string, {
   data: { id: string; name: string; role: string; email: string | null; birthday: string | null;  }

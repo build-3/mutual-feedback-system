@@ -5,7 +5,7 @@ import {
   getRequestIp,
 } from "@/lib/server/rate-limit"
 import { hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
-import { requireAuth } from "@/lib/server/require-admin"
+import { requireAuth, requireMod } from "@/lib/server/require-admin"
 
 export async function POST(request: Request) {
   // Auth first (fast — uses cached header from middleware)
@@ -52,12 +52,21 @@ export async function POST(request: Request) {
       )
     }
 
+    // Org-feedback moderators are not necessarily admins — br@ is an intern —
+    // so /mod replies would otherwise be rejected as "not a participant". This
+    // grants build3 replies only; saveFeedbackResponse enforces that scope.
+    // requireMod() carries the MOD_DASHBOARD_ENABLED kill switch, so turning the
+    // console off also revokes the permission.
+    const mod = await requireMod()
+    const isOrgModerator = !mod.error
+
     // Always use the session user's employee ID — ignore any body.responderId
     const { response, notificationContext } = await saveFeedbackResponse({
       answerId,
       responderId: auth.employee.id,
       responseText,
       isAdmin: auth.employee.role === "admin",
+      isOrgModerator,
     })
 
     // Fire notification in background — long-running Node server keeps the

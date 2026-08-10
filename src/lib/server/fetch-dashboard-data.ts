@@ -5,7 +5,7 @@ import { parseNumericAnswer, contributionKeyToLabel, selectedValueTitles, NUMERI
 import { BUILD3_VALUES } from "@/lib/questions"
 import type { DateRange } from "@/lib/brand"
 import { resolveWindow } from "@/lib/cycles"
-import { MOD_EMAILS } from "@/lib/server/require-admin"
+import { isOrgVoiceReply } from "@/lib/server/require-admin"
 
 const PAGE_SIZE = 1000
 
@@ -212,9 +212,10 @@ export async function buildInsightsPayload(
     list.push({
       ...r,
       responderName: empNameById.get(r.responder_id) || "Unknown",
-      asFoundation:
-        submissionTypeByAnswerId.get(r.answer_id) === "build3" &&
-        MOD_EMAILS.includes(emailById.get(r.responder_id) ?? ""),
+      asFoundation: isOrgVoiceReply(
+        submissionTypeByAnswerId.get(r.answer_id),
+        emailById.get(r.responder_id)
+      ),
     })
     responseMap.set(r.answer_id, list)
   }

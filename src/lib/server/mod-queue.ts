@@ -1,7 +1,7 @@
 import "server-only"
 
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
-import { MOD_EMAILS } from "@/lib/server/require-admin"
+import { isOrgVoiceReply } from "@/lib/server/require-admin"
 import { cycleKeyOf } from "@/lib/cycles"
 
 /**
@@ -131,7 +131,7 @@ export async function buildModQueue() {
     list.push({
       ...r,
       responderName: nameById.get(r.responder_id) || "Unknown",
-      asFoundation: MOD_EMAILS.includes(email),
+      asFoundation: isOrgVoiceReply("build3", email),
     })
     responsesByAnswer[r.answer_id] = list
   }

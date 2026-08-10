@@ -4,6 +4,11 @@ import type { PostgrestError } from "@supabase/supabase-js"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { MIN_ANSWER_LENGTHS } from "@/lib/questions"
 import {
+  canRespondToFeedback,
+  isNonParticipantReply,
+} from "@/lib/feedback-permissions"
+import { isOrgVoiceReply } from "@/lib/server/require-admin"
+import {
   sendDirectMessage,
   isNotificationsEnabled,
 } from "@/lib/server/google-chat"
@@ -315,11 +320,14 @@ export async function saveFeedbackResponse({
   responderId,
   responseText,
   isAdmin = false,
+  isOrgModerator = false,
 }: {
   answerId: string
   responderId: string
   responseText: string
   isAdmin?: boolean
+  /** In MOD_EMAILS — grants replies on `build3` submissions only. */
+  isOrgModerator?: boolean
 }) {
   assertUuid(answerId, "answerId")
   assertUuid(responderId, "responderId")
@@ -359,13 +367,24 @@ export async function saveFeedbackResponse({
 
   const typedSubmission = submission as FeedbackSubmission
 
-  const isParticipant =
-    responderId === typedSubmission.submitted_by_id ||
-    responderId === typedSubmission.feedback_for_id
+  const participantArgs = {
+    responderId,
+    submittedById: typedSubmission.submitted_by_id,
+    feedbackForId: typedSubmission.feedback_for_id,
+  }
 
-  if (!isParticipant && !isAdmin) {
+  if (
+    !canRespondToFeedback({
+      ...participantArgs,
+      feedbackType: typedSubmission.feedback_type,
+      isAdmin,
+      isOrgModerator,
+    })
+  ) {
     throw new Error("responder must be one of the feedback participants")
   }
+
+  const nonParticipant = isNonParticipantReply(participantArgs)
 
   const { data: response, error: insertError } = await supabaseAdmin
     .from("feedback_responses")
@@ -391,7 +410,9 @@ export async function saveFeedbackResponse({
       submittedById: typedSubmission.submitted_by_id,
       feedbackForId: typedSubmission.feedback_for_id,
       responseText: normalizedResponseText,
-      isAdmin: isAdmin && !isParticipant,
+      isAdmin: nonParticipant,
+      // Needed to decide whether the DM speaks as the org or names the person.
+      feedbackType: typedSubmission.feedback_type,
     },
   }
 }
@@ -405,12 +426,14 @@ export async function sendResponseNotification({
   feedbackForId,
   responseText,
   isAdmin = false,
+  feedbackType,
 }: {
   responderId: string
   submittedById: string
   feedbackForId: string | null
   responseText: string
   isAdmin?: boolean
+  feedbackType?: string | null
 }) {
   // Check DB toggle
   const enabled = await isNotificationsEnabled()
@@ -432,15 +455,31 @@ export async function sendResponseNotification({
         (id): id is string => !!id
       )
 
+  // A moderator replying to org-level feedback speaks for the studio, not as
+  // themselves — same rule the timeline uses to render "build3 foundation", so
+  // the DM can no longer name someone the screen deliberately anonymises.
+  const asOrg = isOrgVoiceReply(feedbackType, responderDetail?.email)
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
+
   await Promise.all(
     notifyIds.map(async (notifyId) => {
       const recipientDetail = details.get(notifyId)
       const recipientEmail = recipientDetail?.email
       if (!recipientEmail) return
 
+      // build3 submissions carry feedback_for_id = NULL (the target is the
+      // studio), so the thread lives on the author's own profile. Point there
+      // explicitly rather than leaning on a `?? notifyId` fallback.
+      const threadUrl = `${appUrl}/insights?employee=${asOrg ? submittedById : feedbackForId ?? notifyId}`
+
+      const opening = asOrg
+        ? "the build3 mod has responded to your feedback about build3:"
+        : `${responderName} replied to feedback:`
+
       await sendDirectMessage(
         recipientEmail,
-        `${responderName} replied to feedback:\n\n"${preview}"\n\nSee the full thread: ${process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"}/insights?employee=${feedbackForId ?? notifyId}`
+        `${opening}\n\n"${preview}"\n\nSee the full thread: ${threadUrl}`
       )
     })
   )
