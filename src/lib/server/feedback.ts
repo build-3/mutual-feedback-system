@@ -8,6 +8,7 @@ import {
   isNonParticipantReply,
 } from "@/lib/feedback-permissions"
 import { isOrgVoiceReply } from "@/lib/server/require-admin"
+import { cycleKeyOf } from "@/lib/cycles"
 import {
   sendDirectMessage,
   isNotificationsEnabled,
@@ -357,7 +358,7 @@ export async function saveFeedbackResponse({
 
   const { data: submission, error: submissionError } = await supabaseAdmin
     .from("feedback_submissions")
-    .select("id, submitted_by_id, feedback_for_id, feedback_type")
+    .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
     .eq("id", typedAnswer.submission_id)
     .single()
 
@@ -413,6 +414,9 @@ export async function saveFeedbackResponse({
       isAdmin: nonParticipant,
       // Needed to decide whether the DM speaks as the org or names the person.
       feedbackType: typedSubmission.feedback_type,
+      // The thread lives in the cycle the SUBMISSION was made in, which is
+      // usually earlier than the cycle containing the day the DM is read.
+      submissionCreatedAt: typedSubmission.created_at,
     },
   }
 }
@@ -427,6 +431,7 @@ export async function sendResponseNotification({
   responseText,
   isAdmin = false,
   feedbackType,
+  submissionCreatedAt,
 }: {
   responderId: string
   submittedById: string
@@ -434,6 +439,7 @@ export async function sendResponseNotification({
   responseText: string
   isAdmin?: boolean
   feedbackType?: string | null
+  submissionCreatedAt?: string | null
 }) {
   // Check DB toggle
   const enabled = await isNotificationsEnabled()
@@ -458,7 +464,12 @@ export async function sendResponseNotification({
   // A moderator replying to org-level feedback speaks for the studio, not as
   // themselves — same rule the timeline uses to render "build3 foundation", so
   // the DM can no longer name someone the screen deliberately anonymises.
-  const asOrg = isOrgVoiceReply(feedbackType, responderDetail?.email)
+  const asOrg = isOrgVoiceReply({
+    feedbackType,
+    responderEmail: responderDetail?.email,
+    responderId,
+    submittedById,
+  })
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
 
@@ -471,7 +482,15 @@ export async function sendResponseNotification({
       // build3 submissions carry feedback_for_id = NULL (the target is the
       // studio), so the thread lives on the author's own profile. Point there
       // explicitly rather than leaning on a `?? notifyId` fallback.
-      const threadUrl = `${appUrl}/insights?employee=${asOrg ? submittedById : feedbackForId ?? notifyId}`
+      // Pin the cycle to the one holding the submission. /insights lands on the
+      // cycle containing *today*, and a thread is almost always older than the
+      // day its reply is read — without this the link opened on "nothing in this
+      // cycle yet" for a thread sitting one cycle back.
+      const profileId = asOrg ? submittedById : feedbackForId ?? notifyId
+      const cycleParam = submissionCreatedAt
+        ? `&cycle=${cycleKeyOf(submissionCreatedAt)}`
+        : ""
+      const threadUrl = `${appUrl}/insights?employee=${profileId}${cycleParam}`
 
       const opening = asOrg
         ? "the build3 mod has responded to your feedback about build3:"

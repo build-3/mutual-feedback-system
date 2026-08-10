@@ -40,6 +40,36 @@ export function canRespondToFeedback({
   return false
 }
 
+/**
+ * Whether a reply is published in the org's voice instead of the responder's own.
+ *
+ * Pure and testable on purpose: the previous version lived in a server-only
+ * module, could not be unit-tested, and shipped a bug — a moderator who was also
+ * the author had their own comment on their own thread relabelled as an official
+ * studio statement. `isModerator` is resolved from MOD_EMAILS by the server-side
+ * wrapper, so the allowlist itself never leaves the server.
+ */
+export function isOrgVoice({
+  feedbackType,
+  isModerator,
+  responderId,
+  submittedById,
+}: {
+  feedbackType: string | null | undefined
+  isModerator: boolean
+  /** Omit both ids only when the caller genuinely cannot know them. */
+  responderId?: string | null
+  submittedById?: string | null
+}): boolean {
+  if (feedbackType !== "build3") return false
+  if (!isModerator) return false
+  // The author speaks for themselves in their own thread, moderator or not.
+  if (responderId != null && submittedById != null && responderId === submittedById) {
+    return false
+  }
+  return true
+}
+
 /** Whether this responder is a non-participant acting in an official capacity. */
 export function isNonParticipantReply({
   responderId,

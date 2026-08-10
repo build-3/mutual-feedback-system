@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   canRespondToFeedback,
   isNonParticipantReply,
+  isOrgVoice,
 } from "./feedback-permissions"
 
 const AUTHOR = "11111111-1111-1111-1111-111111111111"
@@ -123,5 +124,42 @@ describe("isNonParticipantReply", () => {
   it("is true for a moderator or admin acting officially", () => {
     expect(isNonParticipantReply({ responderId: MOD, ...org })).toBe(true)
     expect(isNonParticipantReply({ responderId: STRANGER, ...peer })).toBe(true)
+  })
+})
+
+describe("isOrgVoice", () => {
+  const modOnOrg = {
+    feedbackType: "build3",
+    isModerator: true,
+    responderId: MOD,
+    submittedById: AUTHOR,
+  }
+
+  it("speaks as the org when a moderator replies to someone else's org feedback", () => {
+    expect(isOrgVoice(modOnOrg)).toBe(true)
+  })
+
+  it("speaks as the person when the moderator IS the author", () => {
+    // br@ is both a moderator and a submitter. Without this, his own comment on
+    // his own org note rendered as an official studio statement and hid him from
+    // a thread he started.
+    expect(isOrgVoice({ ...modOnOrg, responderId: AUTHOR })).toBe(false)
+  })
+
+  it("never speaks as the org for a non-moderator", () => {
+    expect(isOrgVoice({ ...modOnOrg, isModerator: false })).toBe(false)
+  })
+
+  it("never speaks as the org outside build3 feedback", () => {
+    for (const feedbackType of ["full_timer", "intern", "self", "adhoc", "", null]) {
+      expect(isOrgVoice({ ...modOnOrg, feedbackType }), String(feedbackType)).toBe(false)
+    }
+  })
+
+  it("still applies when the ids are unknown to the caller", () => {
+    // Callers that cannot resolve the submitter must not silently lose org voice.
+    expect(
+      isOrgVoice({ feedbackType: "build3", isModerator: true })
+    ).toBe(true)
   })
 })

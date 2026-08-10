@@ -204,6 +204,12 @@ export async function buildInsightsPayload(
   const submissionTypeByAnswerId = new Map(
     answers.map(a => [a.id, submissionTypeById.get(a.submission_id) ?? ""])
   )
+  // Needed so a submitter's own reply on their own org note is not dressed up as
+  // an official studio statement when they also happen to be a moderator.
+  const submitterById = new Map(submissions.map(s => [s.id, s.submitted_by_id]))
+  const submitterByAnswerId = new Map(
+    answers.map(a => [a.id, submitterById.get(a.submission_id) ?? null])
+  )
   const emailById = new Map(employees.map(e => [e.id, (e.email ?? "").toLowerCase()]))
 
   const responseMap = new Map<string, (ResponseRow & { responderName: string; asFoundation: boolean })[]>()
@@ -212,10 +218,12 @@ export async function buildInsightsPayload(
     list.push({
       ...r,
       responderName: empNameById.get(r.responder_id) || "Unknown",
-      asFoundation: isOrgVoiceReply(
-        submissionTypeByAnswerId.get(r.answer_id),
-        emailById.get(r.responder_id)
-      ),
+      asFoundation: isOrgVoiceReply({
+        feedbackType: submissionTypeByAnswerId.get(r.answer_id),
+        responderEmail: emailById.get(r.responder_id),
+        responderId: r.responder_id,
+        submittedById: submitterByAnswerId.get(r.answer_id),
+      }),
     })
     responseMap.set(r.answer_id, list)
   }

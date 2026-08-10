@@ -124,6 +124,10 @@ export async function buildModQueue() {
   // Every submission here is build3, so any leadership reply on it speaks as
   // the org. MOD_EMAILS lives in a server-only module, so this flag has to be
   // computed here rather than in the client component that renders it.
+  const submitterBySubId = new Map(subs.map(s => [s.id, s.submitted_by_id]))
+  const submitterByAnswerId = new Map(
+    answers.map(a => [a.id, submitterBySubId.get(a.submission_id) ?? null])
+  )
   const responsesByAnswer: Record<string, unknown[]> = {}
   for (const r of responses) {
     const email = emailById.get(r.responder_id) ?? ""
@@ -131,7 +135,12 @@ export async function buildModQueue() {
     list.push({
       ...r,
       responderName: nameById.get(r.responder_id) || "Unknown",
-      asFoundation: isOrgVoiceReply("build3", email),
+      asFoundation: isOrgVoiceReply({
+        feedbackType: "build3",
+        responderEmail: email,
+        responderId: r.responder_id,
+        submittedById: submitterByAnswerId.get(r.answer_id),
+      }),
     })
     responsesByAnswer[r.answer_id] = list
   }

@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "./supabase-admin"
+import { isOrgVoice } from "@/lib/feedback-permissions"
 
 // Leadership allowlist for the hidden /mod org-review dashboard. Extends the
 // LEVEL1_EMAILS pattern used by the probation routes (adds br@).
@@ -26,14 +27,26 @@ export const MOD_DASHBOARD_ENABLED = true
  * third, which is how the UI came to render an anonymous "build3 foundation"
  * while the DM announced the responder by name — the leak this centralises away.
  */
-export function isOrgVoiceReply(
-  feedbackType: string | null | undefined,
+export function isOrgVoiceReply({
+  feedbackType,
+  responderEmail,
+  responderId,
+  submittedById,
+}: {
+  feedbackType: string | null | undefined
   responderEmail: string | null | undefined
-): boolean {
-  return (
-    feedbackType === "build3" &&
-    MOD_EMAILS.includes((responderEmail ?? "").toLowerCase())
-  )
+  /** Omit both ids to skip the self-reply check (callers that cannot know). */
+  responderId?: string | null
+  submittedById?: string | null
+}): boolean {
+  // Thin wrapper: resolve the allowlist here so MOD_EMAILS stays server-only,
+  // and keep the decision itself in the pure, unit-tested isOrgVoice().
+  return isOrgVoice({
+    feedbackType,
+    isModerator: MOD_EMAILS.includes((responderEmail ?? "").toLowerCase()),
+    responderId,
+    submittedById,
+  })
 }
 
 // In-memory employee-by-email cache — avoids a DB round-trip on every request

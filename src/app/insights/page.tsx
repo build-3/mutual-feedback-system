@@ -141,7 +141,16 @@ function InsightsContent() {
   const [dateRange, setDateRange] = useState<DateRange>("cycle")
   // null = "whatever cycle contains today", re-resolved on each load so a tab
   // left open overnight rolls over instead of silently showing a stale window.
-  const [cycleKey, setCycleKey] = useState<string | null>(null)
+  //
+  // Seeded from ?cycle= so a deep link can point at the window its content is
+  // actually in. Reply notifications link here, and the thread they announce is
+  // usually in an earlier cycle than the one containing the day you read the
+  // message — landing on "this cycle" showed "nothing in this cycle yet" for a
+  // thread that plainly exists. Validated through cycleFromKey so a junk param
+  // falls back to today rather than producing an empty window.
+  const [cycleKey, setCycleKey] = useState<string | null>(
+    () => (searchParams.get("cycle") && cycleFromKey(searchParams.get("cycle")!)?.key) || null
+  )
   // What the server actually scoped to — the source of truth for every label.
   const [resolvedCycleKey, setResolvedCycleKey] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email?: string | null } | null>(null)
