@@ -4,7 +4,12 @@ import { memo, useCallback, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { formatDate, timeAgo } from "@/lib/date-utils"
 import { SubmissionWithDetails } from "@/app/insights/types"
-import { FEEDBACK_TYPE_LABELS, getFeedbackAccent } from "@/lib/brand"
+import {
+  FEEDBACK_TYPE_LABELS,
+  ORG_VOICE_INITIALS,
+  ORG_VOICE_LABEL,
+  getFeedbackAccent,
+} from "@/lib/brand"
 import {
   QUESTION_LABELS,
   parseNumericAnswer,
@@ -69,6 +74,12 @@ interface Props {
   /** Logged-in user — locked responder identity */
   currentUser?: { id: string; name: string } | null
   onResponseSaved?: () => void
+  /**
+   * Replies on this timeline are published as the org rather than the signed-in
+   * user. Passed down from the page, because deciding it needs MOD_EMAILS, which
+   * is server-only and unavailable to this client component.
+   */
+  respondAsOrg?: boolean
 }
 
 function ResponseThread({
@@ -85,14 +96,14 @@ function ResponseThread({
         // institution, not the individual. The real responder is still stored
         // and returned — only the presentation changes.
         const asOrg = r.asFoundation === true
-        const displayName = asOrg ? "build3 foundation" : r.responderName
+        const displayName = asOrg ? ORG_VOICE_LABEL : r.responderName
         return (
           <div key={r.id} className="flex gap-3">
             <div
               className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
               style={{ backgroundColor: asOrg ? "#1d1d1b" : getAvatarColor(r.responderName) }}
             >
-              {asOrg ? "b3" : getInitials(r.responderName)}
+              {asOrg ? ORG_VOICE_INITIALS : getInitials(r.responderName)}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
@@ -121,10 +132,13 @@ function ReplyBox({
   answerId,
   currentUser,
   onSaved,
+  respondAsOrg = false,
 }: {
   answerId: string
   currentUser: { id: string; name: string } | null
   onSaved?: () => void
+  /** Reply will be published as the org, so the chip must say so up front. */
+  respondAsOrg?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState("")
@@ -194,7 +208,11 @@ function ReplyBox({
 
   return (
     <div className="mt-3 space-y-2">
-      {/* Respond-as identity row — locked to logged-in user */}
+      {/* Respond-as identity row. Locked to the logged-in user, except on
+          org-level feedback, where the reply is published as the studio — the
+          chip has to name the identity the recipient will actually see, or a
+          moderator writes a personal-sounding note that lands as an official
+          one. The real responder_id is still recorded either way. */}
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-semibold tracking-[0.08em] text-muted">
           responding as
@@ -202,12 +220,21 @@ function ReplyBox({
         <div className="flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink">
           <span
             className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-            style={{ backgroundColor: getAvatarColor(currentUser.name) }}
+            style={{
+              backgroundColor: respondAsOrg
+                ? "#1d1d1b"
+                : getAvatarColor(currentUser.name),
+            }}
           >
-            {getInitials(currentUser.name)}
+            {respondAsOrg ? ORG_VOICE_INITIALS : getInitials(currentUser.name)}
           </span>
-          {currentUser.name}
+          {respondAsOrg ? ORG_VOICE_LABEL : currentUser.name}
         </div>
+        {respondAsOrg && (
+          <span className="text-[10px] text-muted">
+            they will not see your name
+          </span>
+        )}
       </div>
 
       <div className="relative">
@@ -301,6 +328,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
   onResponseSaved,
   siblingAnswers,
   allResponsesByAnswer,
+  respondAsOrg = false,
 }: {
   questionKey: string
   questionText: string
@@ -311,6 +339,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
   onResponseSaved?: () => void
   siblingAnswers?: { question_key: string; answer_value: string; id: string; question_text: string }[]
   allResponsesByAnswer?: Record<string, (FeedbackResponse & { responderName: string })[]>
+  respondAsOrg?: boolean
 }) {
   const label = QUESTION_LABELS[questionKey] || questionText || questionKey
   const numericValue = parseNumericAnswer(value)
@@ -349,6 +378,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
                 answerId={detailAnswerId}
                 currentUser={currentUser}
                 onSaved={onResponseSaved}
+                respondAsOrg={respondAsOrg}
               />
             )}
           </div>
@@ -391,6 +421,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
             answerId={answerId}
             currentUser={currentUser}
             onSaved={onResponseSaved}
+            respondAsOrg={respondAsOrg}
           />
         )}
       </div>
@@ -417,6 +448,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
           answerId={answerId}
           currentUser={currentUser}
           onSaved={onResponseSaved}
+          respondAsOrg={respondAsOrg}
         />
       )}
     </div>
@@ -428,11 +460,13 @@ const TimelineItem = memo(function TimelineItem({
   responsesByAnswer,
   currentUser,
   onResponseSaved,
+  respondAsOrg = false,
 }: {
   submission: SubmissionWithDetails
   responsesByAnswer: Record<string, (FeedbackResponse & { responderName: string })[]>
   currentUser: { id: string; name: string } | null
   onResponseSaved?: () => void
+  respondAsOrg?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const prefersReducedMotion = useReducedMotion()
@@ -509,6 +543,7 @@ const TimelineItem = memo(function TimelineItem({
                       onResponseSaved={onResponseSaved}
                       siblingAnswers={submission.answers}
                       allResponsesByAnswer={responsesByAnswer}
+                      respondAsOrg={respondAsOrg}
                     />
                   ))}
                 </div>
@@ -537,6 +572,7 @@ export default function FeedbackTimeline({
   responsesByAnswer = {},
   currentUser = null,
   onResponseSaved,
+  respondAsOrg = false,
 }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all")
 
@@ -597,6 +633,7 @@ export default function FeedbackTimeline({
             responsesByAnswer={responsesByAnswer}
             currentUser={currentUser}
             onResponseSaved={onResponseSaved}
+            respondAsOrg={respondAsOrg}
           />
         ))}
         {filtered.length === 0 && (

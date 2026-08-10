@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { requireAuth } from "@/lib/server/require-admin"
+import { MOD_EMAILS, requireAuth } from "@/lib/server/require-admin"
 import { buildInsightsPayload } from "@/lib/server/fetch-dashboard-data"
 import { LEGACY_DATE_RANGE_ALIASES, type DateRange } from "@/lib/brand"
 import { cycleFor, cycleFromKey } from "@/lib/cycles"
@@ -40,7 +40,17 @@ export async function GET(request: Request) {
   // Echo both back so the client adopts the resolved values rather than trusting
   // its own state — an old client asking for range=month then renders the right
   // label instead of mislabelling cycle data.
-  const response = NextResponse.json({ ...result.data, range, cycleKey })
+  // Whether this viewer's replies to org feedback publish as the studio. The
+  // client needs it to label the compose box honestly, and MOD_EMAILS is
+  // server-only, so it has to cross the boundary as a plain boolean.
+  const viewerIsOrgMod = MOD_EMAILS.includes(auth.user.email.toLowerCase())
+
+  const response = NextResponse.json({
+    ...result.data,
+    range,
+    cycleKey,
+    viewerIsOrgMod,
+  })
   response.headers.set(
     "Cache-Control",
     "private, max-age=30, stale-while-revalidate=60"

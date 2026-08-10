@@ -149,6 +149,21 @@ export const LEGACY_DATE_RANGE_ALIASES: Record<string, DateRange> = {
   "3months": "3cycles",
 }
 
+/**
+ * How an org-level reply identifies itself, everywhere it appears: the compose
+ * chip on /mod, the saved reply in the timeline, and the Chat DM.
+ *
+ * One constant on purpose. These three surfaces previously disagreed — the DM
+ * named the responder, the saved reply said "build3 foundation", and the compose
+ * box said "responding as <you>", so a moderator could not tell which identity
+ * they were about to speak in.
+ *
+ * Client-safe: MOD_EMAILS decides *who* speaks as the org and stays server-only;
+ * this is only the label.
+ */
+export const ORG_VOICE_LABEL = "build3 mod"
+export const ORG_VOICE_INITIALS = "b3"
+
 export const FEEDBACK_TYPE_LABELS: Record<FeedbackPath, string> = {
   intern: "new recruit / intern",
   build3: "build3",

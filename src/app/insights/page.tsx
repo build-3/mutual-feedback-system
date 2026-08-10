@@ -125,6 +125,9 @@ function InsightsContent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [showOrgOverview, setShowOrgOverview] = useState(true)
+  // Server-computed: replies to org feedback publish as the studio for MOD_EMAILS
+  // viewers, so the compose box must name that identity instead of theirs.
+  const [viewerIsOrgMod, setViewerIsOrgMod] = useState(false)
   // Lands on the current cycle. An all-time landing view averaged every round
   // ever recorded into one number and presented it as the current picture, which
   // is what made the dashboard untrustworthy. Calendar months were no better —
@@ -167,6 +170,7 @@ function InsightsContent() {
       // mislabelling cycle data as a month.
       if (payload.range) setDateRange(payload.range as DateRange)
       if (payload.cycleKey) setResolvedCycleKey(payload.cycleKey as string)
+      setViewerIsOrgMod(payload.viewerIsOrgMod === true)
     } catch (error) {
       console.error(error)
       setLoadError(error instanceof Error ? error.message : "we could not load the latest insight data.")
@@ -482,7 +486,7 @@ function InsightsContent() {
             <FeedbackGivenPanel givenFeedbackSummary={insights.givenFeedbackSummary} totalTeamSize={employees.length} />
             <SelfReflectionsPanel submissions={insights.selfSubmissions} />
             {selectedEmployeeBuild3Submissions.length > 0 && (
-              <FeedbackTimeline submissions={selectedEmployeeBuild3Submissions} title="their notes about build3" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} />
+              <FeedbackTimeline submissions={selectedEmployeeBuild3Submissions} title="their notes about build3" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} respondAsOrg={viewerIsOrgMod} />
             )}
           </div>
         ) : (

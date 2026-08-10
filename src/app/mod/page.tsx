@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import Navbar from "@/components/Navbar"
 import { BrandPanel, EmptyState, SectionHeading, SegmentedControl, StatPill, buttonClasses } from "@/components/ui/brand"
 import { cycleFromKey } from "@/lib/cycles"
+import { ORG_VOICE_LABEL } from "@/lib/brand"
 import type { SubmissionWithDetails } from "@/app/insights/types"
 import type { FeedbackResponse } from "@/lib/types"
 
@@ -116,7 +117,7 @@ export default function ModPage() {
           accent="peach"
           eyebrow="restricted · leadership only"
           title="org feedback"
-          description="everything the team has told build3 about itself. replies reach them as the build3 foundation account."
+          description={`everything the team has told build3 about itself. replies reach them as the ${ORG_VOICE_LABEL}, never under your own name.`}
         />
 
         {loadError ? (
@@ -187,6 +188,10 @@ export default function ModPage() {
               responsesByAnswer={data?.responsesByAnswer}
               currentUser={currentUser}
               onResponseSaved={() => void load()}
+              // Every row in this queue is a build3 submission and the page
+              // itself is behind requireMod, so anyone who can see this replies
+              // in the org's voice — no per-row check needed.
+              respondAsOrg
             />
           ))}
       </div>
