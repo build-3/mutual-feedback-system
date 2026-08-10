@@ -45,6 +45,10 @@ CREATE TABLE feedback_responses (
   answer_id UUID NOT NULL REFERENCES feedback_answers(id) ON DELETE CASCADE,
   responder_id UUID NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
   response_text TEXT NOT NULL,
+  -- Whether this reply speaks as the studio ("build3 mod") or in the
+  -- responder's own name. Stored rather than derived, so a moderator can choose;
+  -- see supabase/response-voice.sql. Server validates the right to set it.
+  as_org BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

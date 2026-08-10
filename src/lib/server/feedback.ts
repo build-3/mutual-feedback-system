@@ -6,6 +6,7 @@ import { MIN_ANSWER_LENGTHS } from "@/lib/questions"
 import {
   canRespondToFeedback,
   isNonParticipantReply,
+  isOrgVoice,
 } from "@/lib/feedback-permissions"
 import { isOrgVoiceReply } from "@/lib/server/require-admin"
 import { cycleKeyOf } from "@/lib/cycles"
@@ -322,6 +323,7 @@ export async function saveFeedbackResponse({
   responseText,
   isAdmin = false,
   isOrgModerator = false,
+  asOrg = false,
 }: {
   answerId: string
   responderId: string
@@ -329,6 +331,12 @@ export async function saveFeedbackResponse({
   isAdmin?: boolean
   /** In MOD_EMAILS — grants replies on `build3` submissions only. */
   isOrgModerator?: boolean
+  /**
+   * The responder asked to publish in the org's voice. A request, not a grant:
+   * it is intersected with isOrgVoice() below, so a caller cannot speak for the
+   * studio by posting asOrg on a thread they have no standing in.
+   */
+  asOrg?: boolean
 }) {
   assertUuid(answerId, "answerId")
   assertUuid(responderId, "responderId")
@@ -387,15 +395,44 @@ export async function saveFeedbackResponse({
 
   const nonParticipant = isNonParticipantReply(participantArgs)
 
-  const { data: response, error: insertError } = await supabaseAdmin
-    .from("feedback_responses")
-    .insert({
-      answer_id: answerId,
-      responder_id: responderId,
-      response_text: normalizedResponseText,
+  // The request to speak as the org only counts if the responder actually may:
+  // a moderator, on build3 feedback, that they did not write themselves.
+  const publishAsOrg =
+    asOrg === true &&
+    isOrgVoice({
+      feedbackType: typedSubmission.feedback_type,
+      isModerator: isOrgModerator,
+      responderId,
+      submittedById: typedSubmission.submitted_by_id,
     })
+
+  const row = {
+    answer_id: answerId,
+    responder_id: responderId,
+    response_text: normalizedResponseText,
+  }
+
+  let { data: response, error: insertError } = await supabaseAdmin
+    .from("feedback_responses")
+    .insert({ ...row, as_org: publishAsOrg })
     .select()
     .single()
+
+  // The as_org column ships in supabase/response-voice.sql, which is applied by
+  // hand. If code reaches production first, a reply must still save rather than
+  // 500 — it just falls back to the derived voice until the column exists.
+  if (insertError && /as_org|column/i.test(insertError.message ?? "")) {
+    console.warn(
+      "[feedback-response] as_org column missing — saving without stored voice. Apply supabase/response-voice.sql."
+    )
+    const retry = await supabaseAdmin
+      .from("feedback_responses")
+      .insert(row)
+      .select()
+      .single()
+    response = retry.data
+    insertError = retry.error
+  }
 
   if (insertError || !response) {
     throw new Error(
@@ -414,6 +451,9 @@ export async function saveFeedbackResponse({
       isAdmin: nonParticipant,
       // Needed to decide whether the DM speaks as the org or names the person.
       feedbackType: typedSubmission.feedback_type,
+      // The voice actually stored, so the DM matches what the screen will show
+      // instead of re-deriving it and possibly disagreeing.
+      publishedAsOrg: publishAsOrg,
       // The thread lives in the cycle the SUBMISSION was made in, which is
       // usually earlier than the cycle containing the day the DM is read.
       submissionCreatedAt: typedSubmission.created_at,
@@ -432,6 +472,7 @@ export async function sendResponseNotification({
   isAdmin = false,
   feedbackType,
   submissionCreatedAt,
+  publishedAsOrg,
 }: {
   responderId: string
   submittedById: string
@@ -440,6 +481,8 @@ export async function sendResponseNotification({
   isAdmin?: boolean
   feedbackType?: string | null
   submissionCreatedAt?: string | null
+  /** The voice actually stored on the reply. Undefined = derive it. */
+  publishedAsOrg?: boolean
 }) {
   // Check DB toggle
   const enabled = await isNotificationsEnabled()
@@ -464,12 +507,16 @@ export async function sendResponseNotification({
   // A moderator replying to org-level feedback speaks for the studio, not as
   // themselves — same rule the timeline uses to render "build3 foundation", so
   // the DM can no longer name someone the screen deliberately anonymises.
-  const asOrg = isOrgVoiceReply({
-    feedbackType,
-    responderEmail: responderDetail?.email,
-    responderId,
-    submittedById,
-  })
+  // Prefer the stored decision so the DM cannot disagree with the screen. Falls
+  // back to deriving it only for callers that predate the stored column.
+  const asOrg =
+    publishedAsOrg ??
+    isOrgVoiceReply({
+      feedbackType,
+      responderEmail: responderDetail?.email,
+      responderId,
+      submittedById,
+    })
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
 

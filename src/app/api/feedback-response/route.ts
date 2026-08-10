@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { answerId, responseText } = body
+    const { answerId, responseText, asOrg } = body
 
     if (!answerId || !responseText?.trim()) {
       return NextResponse.json(
@@ -67,6 +67,10 @@ export async function POST(request: Request) {
       responseText,
       isAdmin: auth.employee.role === "admin",
       isOrgModerator,
+      // A request only. saveFeedbackResponse intersects it with the right to
+      // speak for the studio, so posting asOrg on a thread you have no standing
+      // in stores false rather than impersonating the org.
+      asOrg: asOrg === true,
     })
 
     // Fire notification in background — long-running Node server keeps the

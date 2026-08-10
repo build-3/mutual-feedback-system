@@ -495,7 +495,7 @@ function InsightsContent() {
             <FeedbackGivenPanel givenFeedbackSummary={insights.givenFeedbackSummary} totalTeamSize={employees.length} />
             <SelfReflectionsPanel submissions={insights.selfSubmissions} />
             {selectedEmployeeBuild3Submissions.length > 0 && (
-              <FeedbackTimeline submissions={selectedEmployeeBuild3Submissions} title="their notes about build3" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} respondAsOrg={viewerIsOrgMod} />
+              <FeedbackTimeline submissions={selectedEmployeeBuild3Submissions} title="their notes about build3" responsesByAnswer={responsesByAnswer} currentUser={currentUser} onResponseSaved={handleResponseSaved} viewerIsOrgMod={viewerIsOrgMod} />
             )}
           </div>
         ) : (

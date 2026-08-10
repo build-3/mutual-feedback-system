@@ -114,9 +114,11 @@ export async function buildModQueue() {
   const answers = answersRes.data.filter(a => subIds.has(a.submission_id))
 
   const answerIds = new Set(answers.map(a => a.id))
-  const respRes = await fetchAll<{ id: string; answer_id: string; responder_id: string; response_text: string; created_at: string }>(
+  const respRes = await fetchAll<{ id: string; answer_id: string; responder_id: string; response_text: string; created_at: string; as_org?: boolean }>(
     "feedback_responses",
-    "id, answer_id, responder_id, response_text, created_at"
+    // `*` rather than a fixed list: as_org is applied by hand, so the query must
+    // not 400 on a column that may not exist yet.
+    "*"
   )
   if (respRes.error) return { error: respRes.error }
   const responses = respRes.data.filter(r => answerIds.has(r.answer_id))
@@ -135,12 +137,15 @@ export async function buildModQueue() {
     list.push({
       ...r,
       responderName: nameById.get(r.responder_id) || "Unknown",
-      asFoundation: isOrgVoiceReply({
-        feedbackType: "build3",
-        responderEmail: email,
-        responderId: r.responder_id,
-        submittedById: submitterByAnswerId.get(r.answer_id),
-      }),
+      asFoundation:
+        typeof r.as_org === "boolean"
+          ? r.as_org === true
+          : isOrgVoiceReply({
+              feedbackType: "build3",
+              responderEmail: email,
+              responderId: r.responder_id,
+              submittedById: submitterByAnswerId.get(r.answer_id),
+            }),
     })
     responsesByAnswer[r.answer_id] = list
   }

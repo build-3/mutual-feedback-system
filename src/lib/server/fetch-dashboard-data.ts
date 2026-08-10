@@ -42,7 +42,9 @@ export async function fetchDashboardData() {
       fetchAll("employees", "id, name, role, email, birthday, is_active, created_at", "name"),
       fetchAll("feedback_submissions", "id, submitted_by_id, feedback_for_id, feedback_type, notified_at, created_at"),
       fetchAll("feedback_answers", "id, submission_id, question_key, question_text, answer_value, created_at"),
-      fetchAll("feedback_responses", "id, answer_id, responder_id, response_text, created_at"),
+      // `*` rather than a fixed list: as_org is applied by hand, so the query
+      // must not 400 on a column that may not exist yet.
+      fetchAll("feedback_responses", "*"),
     ])
 
   const firstError =
@@ -218,12 +220,17 @@ export async function buildInsightsPayload(
     list.push({
       ...r,
       responderName: empNameById.get(r.responder_id) || "Unknown",
-      asFoundation: isOrgVoiceReply({
-        feedbackType: submissionTypeByAnswerId.get(r.answer_id),
-        responderEmail: emailById.get(r.responder_id),
-        responderId: r.responder_id,
-        submittedById: submitterByAnswerId.get(r.answer_id),
-      }),
+      // Stored voice wins; the derived rule is only a fallback for rows written
+      // before supabase/response-voice.sql was applied.
+      asFoundation:
+        typeof (r as { as_org?: boolean }).as_org === "boolean"
+          ? (r as { as_org?: boolean }).as_org === true
+          : isOrgVoiceReply({
+              feedbackType: submissionTypeByAnswerId.get(r.answer_id),
+              responderEmail: emailById.get(r.responder_id),
+              responderId: r.responder_id,
+              submittedById: submitterByAnswerId.get(r.answer_id),
+            }),
     })
     responseMap.set(r.answer_id, list)
   }

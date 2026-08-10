@@ -117,7 +117,7 @@ export default function ModPage() {
           accent="peach"
           eyebrow="restricted · leadership only"
           title="org feedback"
-          description={`everything the team has told build3 about itself. replies reach them as the ${ORG_VOICE_LABEL}, never under your own name.`}
+          description={`everything the team has told build3 about itself. reply in your own name, or switch to the ${ORG_VOICE_LABEL} to answer officially.`}
         />
 
         {loadError ? (
@@ -188,10 +188,11 @@ export default function ModPage() {
               responsesByAnswer={data?.responsesByAnswer}
               currentUser={currentUser}
               onResponseSaved={() => void load()}
-              // Every row in this queue is a build3 submission and the page
-              // itself is behind requireMod, so anyone who can see this replies
-              // in the org's voice — no per-row check needed.
-              respondAsOrg
+              // The page is behind requireMod, so every viewer here is a
+              // moderator. Whether the org voice is actually offered on a given
+              // row is derived per submission — a moderator replying to their own
+              // org note speaks for themselves.
+              viewerIsOrgMod
             />
           ))}
       </div>

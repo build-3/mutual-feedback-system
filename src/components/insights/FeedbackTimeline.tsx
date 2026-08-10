@@ -75,11 +75,13 @@ interface Props {
   currentUser?: { id: string; name: string } | null
   onResponseSaved?: () => void
   /**
-   * Replies on this timeline are published as the org rather than the signed-in
-   * user. Passed down from the page, because deciding it needs MOD_EMAILS, which
-   * is server-only and unavailable to this client component.
+   * Whether the signed-in viewer is an org moderator. Passed down from the page
+   * because deciding it needs MOD_EMAILS, which is server-only and unreachable
+   * from a client component. Per-thread eligibility is derived from this plus
+   * the submission, so a moderator is not offered the org voice on their own
+   * feedback or on a personal thread.
    */
-  respondAsOrg?: boolean
+  viewerIsOrgMod?: boolean
 }
 
 function ResponseThread({
@@ -132,15 +134,18 @@ function ReplyBox({
   answerId,
   currentUser,
   onSaved,
-  respondAsOrg = false,
+  canRespondAsOrg = false,
 }: {
   answerId: string
   currentUser: { id: string; name: string } | null
   onSaved?: () => void
-  /** Reply will be published as the org, so the chip must say so up front. */
-  respondAsOrg?: boolean
+  /** Whether speaking as the org is *available* here — not whether it is used. */
+  canRespondAsOrg?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  // Defaults to the person, deliberately: issuing a statement on behalf of the
+  // studio should be a chosen act, not the consequence of who is logged in.
+  const [asOrg, setAsOrg] = useState(false)
   const [text, setText] = useState("")
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -169,6 +174,7 @@ function ReplyBox({
           answerId,
           responderId: currentUser.id,
           responseText: text.trim(),
+          asOrg: canRespondAsOrg && asOrg,
         }),
       })
 
@@ -186,7 +192,7 @@ function ReplyBox({
       submittingRef.current = false
       setSending(false)
     }
-  }, [answerId, currentUser, text, onSaved])
+  }, [answerId, currentUser, text, onSaved, canRespondAsOrg, asOrg])
 
   const btn = buttonClasses({ accent: "sky", variant: "ghost", size: "sm" })
   const sendBtn = buttonClasses({ accent: "sky", variant: "solid", size: "sm" })
@@ -213,24 +219,47 @@ function ReplyBox({
           chip has to name the identity the recipient will actually see, or a
           moderator writes a personal-sounding note that lands as an official
           one. The real responder_id is still recorded either way. */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-semibold tracking-[0.08em] text-muted">
           responding as
         </span>
-        <div className="flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink">
-          <span
-            className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-            style={{
-              backgroundColor: respondAsOrg
-                ? "#1d1d1b"
-                : getAvatarColor(currentUser.name),
-            }}
-          >
-            {respondAsOrg ? ORG_VOICE_INITIALS : getInitials(currentUser.name)}
-          </span>
-          {respondAsOrg ? ORG_VOICE_LABEL : currentUser.name}
-        </div>
-        {respondAsOrg && (
+        {(canRespondAsOrg ? [false, true] : [false]).map((orgOption) => {
+          const active = asOrg === orgOption
+          const label = orgOption ? ORG_VOICE_LABEL : currentUser.name
+          const initials = orgOption
+            ? ORG_VOICE_INITIALS
+            : getInitials(currentUser.name)
+          return (
+            <button
+              key={String(orgOption)}
+              type="button"
+              disabled={!canRespondAsOrg}
+              aria-pressed={active}
+              onClick={() => setAsOrg(orgOption)}
+              className={[
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-all",
+                active
+                  ? "border-ink bg-white text-ink shadow-brand"
+                  : "border-line bg-white/60 text-muted hover:border-black/20 hover:text-ink",
+                canRespondAsOrg ? "cursor-pointer" : "cursor-default",
+              ].join(" ")}
+            >
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                style={{
+                  backgroundColor: orgOption
+                    ? "#1d1d1b"
+                    : getAvatarColor(currentUser.name),
+                  opacity: active ? 1 : 0.45,
+                }}
+              >
+                {initials}
+              </span>
+              {label}
+            </button>
+          )
+        })}
+        {canRespondAsOrg && asOrg && (
           <span className="text-[10px] text-muted">
             they will not see your name
           </span>
@@ -328,7 +357,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
   onResponseSaved,
   siblingAnswers,
   allResponsesByAnswer,
-  respondAsOrg = false,
+  canRespondAsOrg = false,
 }: {
   questionKey: string
   questionText: string
@@ -339,7 +368,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
   onResponseSaved?: () => void
   siblingAnswers?: { question_key: string; answer_value: string; id: string; question_text: string }[]
   allResponsesByAnswer?: Record<string, (FeedbackResponse & { responderName: string })[]>
-  respondAsOrg?: boolean
+  canRespondAsOrg?: boolean
 }) {
   const label = QUESTION_LABELS[questionKey] || questionText || questionKey
   const numericValue = parseNumericAnswer(value)
@@ -378,7 +407,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
                 answerId={detailAnswerId}
                 currentUser={currentUser}
                 onSaved={onResponseSaved}
-                respondAsOrg={respondAsOrg}
+                canRespondAsOrg={canRespondAsOrg}
               />
             )}
           </div>
@@ -421,7 +450,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
             answerId={answerId}
             currentUser={currentUser}
             onSaved={onResponseSaved}
-            respondAsOrg={respondAsOrg}
+            canRespondAsOrg={canRespondAsOrg}
           />
         )}
       </div>
@@ -448,7 +477,7 @@ const AnswerDisplay = memo(function AnswerDisplay({
           answerId={answerId}
           currentUser={currentUser}
           onSaved={onResponseSaved}
-          respondAsOrg={respondAsOrg}
+          canRespondAsOrg={canRespondAsOrg}
         />
       )}
     </div>
@@ -460,15 +489,22 @@ const TimelineItem = memo(function TimelineItem({
   responsesByAnswer,
   currentUser,
   onResponseSaved,
-  respondAsOrg = false,
+  viewerIsOrgMod = false,
 }: {
   submission: SubmissionWithDetails
   responsesByAnswer: Record<string, (FeedbackResponse & { responderName: string })[]>
   currentUser: { id: string; name: string } | null
   onResponseSaved?: () => void
-  respondAsOrg?: boolean
+  viewerIsOrgMod?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+  // Org voice is offered only where it is legitimate: org-level feedback, by a
+  // moderator, that they did not write. Mirrors isOrgVoice() on the server, which
+  // is the actual gate — this only decides whether the option is shown.
+  const canRespondAsOrg =
+    viewerIsOrgMod &&
+    submission.submission.feedback_type === "build3" &&
+    currentUser?.id !== submission.submission.submitted_by_id
   const prefersReducedMotion = useReducedMotion()
   const accent = getFeedbackAccent(submission.submission.feedback_type)
   const badge = badgeClasses({ accent, tone: "soft" })
@@ -543,7 +579,7 @@ const TimelineItem = memo(function TimelineItem({
                       onResponseSaved={onResponseSaved}
                       siblingAnswers={submission.answers}
                       allResponsesByAnswer={responsesByAnswer}
-                      respondAsOrg={respondAsOrg}
+                      canRespondAsOrg={canRespondAsOrg}
                     />
                   ))}
                 </div>
@@ -572,7 +608,7 @@ export default function FeedbackTimeline({
   responsesByAnswer = {},
   currentUser = null,
   onResponseSaved,
-  respondAsOrg = false,
+  viewerIsOrgMod = false,
 }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all")
 
@@ -633,7 +669,7 @@ export default function FeedbackTimeline({
             responsesByAnswer={responsesByAnswer}
             currentUser={currentUser}
             onResponseSaved={onResponseSaved}
-            respondAsOrg={respondAsOrg}
+            viewerIsOrgMod={viewerIsOrgMod}
           />
         ))}
         {filtered.length === 0 && (
