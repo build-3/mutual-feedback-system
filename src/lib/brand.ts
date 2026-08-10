@@ -157,6 +157,25 @@ export const FEEDBACK_TYPE_LABELS: Record<FeedbackPath, string> = {
   adhoc: "adhoc",
 }
 
+/**
+ * Peer paths where the target writes their own self-reflection, so the reviewer
+ * is shown it and asked to agree or disagree before giving their own feedback.
+ *
+ * Interns write reflections exactly like full-timers do — buildStages() gates
+ * every submitter into `self` regardless of role. Gating the *review* half on
+ * "full_timer" alone meant 40 intern reflections were written and never shown
+ * to a single reviewer, and 62 intern reviews were filed by someone who had the
+ * reflection on file but was never offered it. One predicate, used at every
+ * site, so the two lanes cannot drift apart again.
+ *
+ * Deliberately excludes `adhoc` (a quick interaction note, not a cycle review),
+ * `build3` (target is the studio, not a person) and `self` (that IS the
+ * reflection).
+ */
+export function pathCollectsSelfReview(path: FeedbackPath | null): boolean {
+  return path === "full_timer" || path === "intern"
+}
+
 export function getFeedbackAccent(type: FeedbackPath): Accent {
   if (type === "intern") return "lavender"
   if (type === "full_timer") return "sky"

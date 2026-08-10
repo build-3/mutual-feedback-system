@@ -22,7 +22,7 @@ import {
   buttonClasses,
   fieldClasses,
 } from "@/components/ui/brand"
-import { SCREEN_ACCENTS, getFeedbackPathOptions, type FeedbackPath } from "@/lib/brand"
+import { SCREEN_ACCENTS, getFeedbackPathOptions, pathCollectsSelfReview, type FeedbackPath } from "@/lib/brand"
 import { VALUES_SEP, VALUES_VERSION_PREFIX, VALUES_WITH_TEXT_KEYS } from "@/lib/insights-helpers"
 import {
   Question,
@@ -371,7 +371,7 @@ export default function FeedbackPage() {
 
   // Progress: for multi-stage pipelines, compute total questions across all stages.
   // For single-stage, it's just the current path's questions + setup.
-  const hasReviewStep = feedbackPath === "full_timer" && selfFeedbackForTarget != null
+  const hasReviewStep = pathCollectsSelfReview(feedbackPath) && selfFeedbackForTarget != null
   const adhocSkipped = feedbackPath === "adhoc" ? 1 : 0
   const build3Skipped = 0
 
@@ -559,7 +559,7 @@ export default function FeedbackPage() {
     window.history.replaceState(historyStateFor(basePhase, 0, stageOver), "")
     if (draft.phase !== "route") {
       window.history.pushState(historyStateFor("questions", 0, stageOver), "")
-      const hasReviewEntry = !!draft.selfFeedbackForTarget && draft.feedbackPath === "full_timer"
+      const hasReviewEntry = !!draft.selfFeedbackForTarget && pathCollectsSelfReview(draft.feedbackPath)
       if (draft.phase === "self_review") {
         window.history.pushState(historyStateFor("self_review", 0, stageOver), "")
       } else {
@@ -786,7 +786,7 @@ export default function FeedbackPage() {
         setError("share your view on each reflection before moving on.")
         return
       }
-      // Continue to full_timer question index 1
+      // Continue to the peer path's question index 1
       animateTransition(true, () => {
         setCurrentQ(1)
         setPhase("questions")
@@ -811,10 +811,10 @@ export default function FeedbackPage() {
       if (!question) return
       if (!validateAnswer(question)) return
 
-      // Full-timer question 0 (feedback_for): auto-advance from SearchableDropdown
+      // Peer-path question 0 (feedback_for): auto-advance from SearchableDropdown
       // handles the self-review fetch. If the user clicks "keep going" instead,
       // skip if a fetch is already in-flight; otherwise trigger it here.
-      if (feedbackPath === "full_timer" && currentQ === 0 && feedbackFor) {
+      if (pathCollectsSelfReview(feedbackPath) && currentQ === 0 && feedbackFor) {
         if (fetchingSelfFeedbackRef.current) return
         fetchSelfFeedbackAndAdvance(feedbackFor.id)
         return
@@ -1014,8 +1014,8 @@ export default function FeedbackPage() {
       }
     }
 
-    // Inject self-review answers for full_timer submissions
-    if (feedbackPath === "full_timer" && selfFeedbackForTarget) {
+    // Inject self-review answers for peer submissions (intern + full_timer)
+    if (pathCollectsSelfReview(feedbackPath) && selfFeedbackForTarget) {
       for (const selfAnswer of selfFeedbackForTarget.answers) {
         const agreementKey = `review_${selfAnswer.question_key}_agreement`
         const agreementValue = reviewAnswers[agreementKey]?.trim()
@@ -1316,8 +1316,8 @@ export default function FeedbackPage() {
               if (employee && (!submitter || employee.id !== submitter.id)) {
                 safeTimeout(() => {
                   if (!mountedRef.current) return
-                  // For full_timer path at question 0, fetch self-feedback and go to review
-                  if (feedbackPath === "full_timer" && currentQ === 0) {
+                  // On a peer path at question 0, fetch self-feedback and go to review
+                  if (pathCollectsSelfReview(feedbackPath) && currentQ === 0) {
                     fetchSelfFeedbackAndAdvance(employee.id)
                     return
                   }
