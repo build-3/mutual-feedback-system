@@ -1850,7 +1850,12 @@ export default function FeedbackPage() {
                 />
                 <div className="mt-8 space-y-3">
                   {pathOptions.map((option) => {
-                    const active = feedbackPath === option.key || intendedPath === option.key
+                    // Precedence, not "either". In a gated run these differ on
+                    // purpose — intendedPath is the lane you chose, feedbackPath
+                    // is the stage you start on — so `||` lit up two cards at
+                    // once (intern AND self reflection). The "current route"
+                    // panel already resolved it this way; this matches it.
+                    const active = (intendedPath ?? feedbackPath) === option.key
                     const needsGates = option.key !== "self" && option.key !== "build3"
                     const waiting = needsGates && !gateChecksLoaded
                     return (
