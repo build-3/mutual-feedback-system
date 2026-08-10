@@ -156,9 +156,9 @@ describe("teal principles carry a definition for the info button", () => {
     for (const item of teal.matrixItems!) {
       expect(EXPECTED[item.key], item.key).toBeDefined()
       expect(item.definition, item.key).toBe(EXPECTED[item.key])
-      // The behavioural description stays: it says what to look for in this
-      // person, where the definition explains the principle itself.
-      expect(item.description, item.key).toBeTruthy()
+      // No inline description: the definition behind the info button is the only
+      // explanation, so the row does not say the same thing twice.
+      expect(item.description, item.key).toBeUndefined()
     }
   })
 })

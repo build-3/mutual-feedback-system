@@ -160,29 +160,23 @@ const TEAL_CONCEPTS_QUESTION: Question = {
   type: "matrix_rating",
   subtext: "quick score, 1 to 5.",
   matrixItems: [
+    // Definition only, no inline description. Carrying both meant every row
+    // stated the same idea twice — once behind the info button and once in full
+    // underneath it, which just made the question harder to scan.
     {
       key: "teal_self_management",
       label: "Self-Management",
-      description:
-        "makes decisions and owns outcomes without waiting for permission or a manager to unblock them.",
-      // The `description` says what to look for in this person; the `definition`
-      // says what the principle itself means, for anyone rating it who has not
-      // met teal before.
       definition: "Enabling autonomous decision-making with accountability.",
     },
     {
       key: "teal_wholeness",
       label: "Wholeness",
-      description:
-        "brings their whole self to work — feelings, intuition, and personality — instead of hiding behind a professional mask.",
       definition:
         "Bringing your authentic self to work instead of wearing a professional mask.",
     },
     {
       key: "teal_evolutionary_purpose",
       label: "Evolutionary Purpose",
-      description:
-        "listens for where build3 is trying to go next and moves with it, rather than forcing a fixed plan.",
       definition:
         "Continuously adapting to fulfill the organization's evolving purpose.",
     },
