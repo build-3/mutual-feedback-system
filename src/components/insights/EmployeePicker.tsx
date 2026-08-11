@@ -36,11 +36,23 @@ export default function EmployeePicker({
 
   const selected = employees.find((e) => e.id === selectedId)
 
+  // Deactivated teammates are not selectable. The insights payload deliberately
+  // carries every employee row, hidden ones included, so historical feedback
+  // still resolves to a name — which also made a duplicate or departed row show
+  // up here as a pickable person. Filter at the point of choosing instead.
+  //
+  // A hidden person who is already selected stays listed: an old ?employee=
+  // link should keep naming who is on screen rather than going blank.
+  const selectable = useMemo(
+    () => employees.filter((e) => e.is_active !== false || e.id === selectedId),
+    [employees, selectedId]
+  )
+
   // Matches name OR the local part of the email, ranked — "at" finds
   // at@build3.org, "vc" finds vc@build3.org.
   const filtered = useMemo(
-    () => filterAndRankEmployees(employees, search),
-    [employees, search]
+    () => filterAndRankEmployees(selectable, search),
+    [selectable, search]
   )
 
   const fullTimers = useMemo(
