@@ -20,14 +20,16 @@ const UsageDashboard = dynamic(() => import("@/components/admin/UsageDashboard")
 const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { ssr: false })
 const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher"), { ssr: false })
 const DataExport = dynamic(() => import("@/components/admin/DataExport"), { ssr: false })
+const RiskScan = dynamic(() => import("@/components/admin/RiskScan"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "usage" | "birthdays" | "export" | "danger"
+type Tab = "overview" | "activity" | "employees" | "submissions" | "risk" | "usage" | "birthdays" | "export" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
   { key: "activity", label: "activity" },
   { key: "employees", label: "employees" },
   { key: "submissions", label: "submissions" },
+  { key: "risk", label: "trust risk" },
   { key: "usage", label: "usage" },
   { key: "birthdays", label: "birthdays 🎂" },
   { key: "export", label: "export 📦" },
@@ -250,6 +252,9 @@ export default function AdminPage() {
             employees={employees}
             onDelete={handleDeleteSubmissions}
           />
+        )}
+        {tab === "risk" && (
+          <RiskScan employees={employees} submissions={submissions} answers={answers} />
         )}
         {tab === "usage" && (
           <UsageDashboard
