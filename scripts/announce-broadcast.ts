@@ -88,7 +88,7 @@ async function main() {
     if (key === SENDER_EMAIL.toLowerCase()) continue
     if (!byEmail.has(key)) byEmail.set(key, e as { id: string; name: string; email: string })
   }
-  const recipients = [...byEmail.values()]
+  const recipients = Array.from(byEmail.values())
 
   console.log(`Sender: ${SENDER_EMAIL}`)
   console.log(`Recipients: ${recipients.length} (of ${employees?.length ?? 0} with email; sender excluded)`)
