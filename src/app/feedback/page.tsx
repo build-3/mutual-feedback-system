@@ -23,7 +23,7 @@ import {
   fieldClasses,
 } from "@/components/ui/brand"
 import { SCREEN_ACCENTS, getFeedbackPathOptions, pathCollectsSelfReview, type FeedbackPath } from "@/lib/brand"
-import { VALUES_SEP, VALUES_VERSION_PREFIX, VALUES_WITH_TEXT_KEYS } from "@/lib/insights-helpers"
+import { VALUES_SEP, VALUES_VERSION_PREFIX, VALUES_WITH_TEXT_KEYS, getAvatarColor, getInitials } from "@/lib/insights-helpers"
 import {
   Question,
   getQuestionsForPath,
@@ -373,6 +373,18 @@ export default function FeedbackPage() {
   // Progress: for multi-stage pipelines, compute total questions across all stages.
   // For single-stage, it's just the current path's questions + setup.
   const hasReviewStep = pathCollectsSelfReview(feedbackPath) && selfFeedbackForTarget != null
+
+  // self and build3 feedback aren't about one named person, so there is
+  // nothing to pin. intern, full_timer, and adhoc all rate someone specific
+  // and are long enough (up to a dozen questions) that the name picked at
+  // step 0 is easy to lose track of by the time you're mid-flow. self_review
+  // already names the person via SelfReviewSidebar, so this only covers the
+  // question phase.
+  const recipientPinVisible =
+    !!feedbackFor &&
+    feedbackPath !== "self" &&
+    feedbackPath !== "build3" &&
+    phase === "questions"
 
   /**
    * A trust-battery follow-up that is open and still under its minimum.
@@ -1771,6 +1783,19 @@ export default function FeedbackPage() {
             </div>
             <div className="text-sm font-semibold tracking-[-0.03em] text-ink">{progress}%</div>
           </div>
+          {recipientPinVisible && feedbackFor && (
+            <div className="mt-2.5 flex items-center gap-2 lg:hidden">
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={{ backgroundColor: getAvatarColor(feedbackFor.name) }}
+              >
+                {getInitials(feedbackFor.name)}
+              </span>
+              <span className="truncate text-sm text-muted">
+                giving feedback to <span className="font-semibold text-ink">{feedbackFor.name}</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2019,6 +2044,29 @@ export default function FeedbackPage() {
           </div>
 
           <div className="hidden lg:block space-y-4 lg:sticky lg:top-[142px] lg:self-start">
+            {recipientPinVisible && feedbackFor && (
+              <BrandPanel accent={feedbackAccent} tone="plain" className="p-5">
+                <div className="text-xs font-semibold tracking-[0.08em] text-muted">
+                  giving feedback to
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <span
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={{ backgroundColor: getAvatarColor(feedbackFor.name) }}
+                  >
+                    {getInitials(feedbackFor.name)}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-semibold tracking-[-0.02em] text-ink">
+                      {feedbackFor.name}
+                    </div>
+                    <div className="text-sm text-muted">
+                      {STAGE_LABELS[feedbackPath || "intern"]}
+                    </div>
+                  </div>
+                </div>
+              </BrandPanel>
+            )}
             {phase === "self_review" && selfFeedbackForTarget && feedbackFor ? (
               <SelfReviewSidebar
                 feedbackForName={feedbackFor.name}
