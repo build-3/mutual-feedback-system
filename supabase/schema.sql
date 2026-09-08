@@ -19,6 +19,13 @@ CREATE TABLE employees (
 CREATE UNIQUE INDEX idx_employees_name_unique
   ON employees (LOWER(BTRIM(name)));
 
+-- The roster is keyed by email everywhere else in the app, so a second row for
+-- an address already on it reads as a second person: two probation clocks, two
+-- assignment sets, two entries in every picker.
+CREATE UNIQUE INDEX idx_employees_email_unique
+  ON employees (LOWER(email))
+  WHERE email IS NOT NULL;
+
 -- Feedback submissions table
 CREATE TABLE feedback_submissions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

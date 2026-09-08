@@ -77,12 +77,33 @@ export async function POST(request: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdmin()
+
+    // The roster is keyed by email everywhere else in the app, so a second row
+    // for an address already on it reads as a second person: two probation
+    // clocks, two assignment sets, two entries in every picker.
+    const email = normalizeEmail(body.email)
+
+    if (email) {
+      const { data: clash } = await supabaseAdmin
+        .from("employees")
+        .select("id, name")
+        .ilike("email", email)
+        .limit(1)
+
+      if (clash?.[0]) {
+        return NextResponse.json(
+          { error: `${clash[0].name} is already on the roster with that email.` },
+          { status: 409 }
+        )
+      }
+    }
+
     const { data: newEmployee, error } = await supabaseAdmin
       .from("employees")
       .insert({
         name: normalizeName(body.name),
         role,
-        email: normalizeEmail(body.email),
+        email,
       })
       .select("id")
       .single()

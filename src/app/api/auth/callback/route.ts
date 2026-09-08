@@ -38,11 +38,17 @@ export async function GET(request: Request) {
           email.split('@')[0]
 
         const supabaseAdmin = getSupabaseAdmin()
-        const { data: existing } = await supabaseAdmin
+        // maybeSingle() returns { data: null, error: PGRST116 } when more than
+        // one row matches. Ignoring that error made a second duplicate spawn a
+        // third on the next login, and a third a fourth. Take the oldest match
+        // instead, so an already-duplicated roster stops multiplying.
+        const { data: matches } = await supabaseAdmin
           .from('employees')
           .select('id')
-          .eq('email', email)
-          .maybeSingle()
+          .ilike('email', email)
+          .order('created_at', { ascending: true })
+          .limit(1)
+        const existing = matches?.[0]
 
         if (!existing) {
           const { data: newEmp } = await supabaseAdmin
