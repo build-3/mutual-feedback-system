@@ -28,10 +28,15 @@ const WINDOW_OPTIONS: { key: Window; label: string; days: number | null }[] = [
 ]
 
 type Mode = "any" | "average"
+type Role = "full_timer" | "intern"
+const ROLE_OPTIONS: { key: Role; label: string }[] = [
+  { key: "full_timer", label: "full-timer" },
+  { key: "intern", label: "intern" },
+]
 
 type Scored = {
   submissionId: string
-  fullTimerId: string
+  targetId: string
   createdAt: string
   scores: Partial<Record<(typeof TEAL_KEYS)[number], number>>
   trustBattery: number | null
@@ -44,6 +49,7 @@ function num(value: string | undefined): number | undefined {
 }
 
 export default function RiskScan({ employees, submissions, answers }: Props) {
+  const [role, setRole] = useState<Role>("full_timer")
   const [tealThreshold, setTealThreshold] = useState(4)
   const [trustThreshold, setTrustThreshold] = useState(85)
   const [windowKey, setWindowKey] = useState<Window>("3m")
@@ -55,24 +61,26 @@ export default function RiskScan({ employees, submissions, answers }: Props) {
     const windowDays = WINDOW_OPTIONS.find((w) => w.key === windowKey)?.days ?? null
     const cutoff = windowDays !== null ? Date.now() - windowDays * 24 * 60 * 60 * 1000 : null
 
-    const fullTimerSubmissionIds = new Set(
+    // Only people still on the roster — a departed teammate's old scores
+    // aren't something anyone needs to act on.
+    const matchingSubmissionIds = new Set(
       submissions
         .filter((s) => {
-          if (s.feedback_type !== "full_timer" || !s.feedback_for_id) return false
+          if (s.feedback_type !== role || !s.feedback_for_id) return false
           if (cutoff !== null && new Date(s.created_at).getTime() < cutoff) return false
           const target = empById.get(s.feedback_for_id)
-          return target?.role === "full_timer"
+          return target?.role === role && target.is_active !== false
         })
         .map((s) => s.id)
     )
 
     const bySubmission = new Map<string, Scored>()
-    for (const submissionId of Array.from(fullTimerSubmissionIds)) {
+    for (const submissionId of Array.from(matchingSubmissionIds)) {
       const submission = submissions.find((s) => s.id === submissionId)
       if (!submission?.feedback_for_id) continue
       bySubmission.set(submissionId, {
         submissionId,
-        fullTimerId: submission.feedback_for_id,
+        targetId: submission.feedback_for_id,
         createdAt: submission.created_at,
         scores: {},
         trustBattery: null,
@@ -92,7 +100,7 @@ export default function RiskScan({ employees, submissions, answers }: Props) {
     return Array.from(bySubmission.values()).filter(
       (s) => TEAL_KEYS.every((k) => s.scores[k] !== undefined) && s.trustBattery !== null
     )
-  }, [submissions, answers, empById, windowKey])
+  }, [submissions, answers, empById, windowKey, role])
 
   const flaggedAny = useMemo(
     () =>
@@ -107,13 +115,13 @@ export default function RiskScan({ employees, submissions, answers }: Props) {
   const perPerson = useMemo(() => {
     const byPerson = new Map<string, Scored[]>()
     for (const s of scored) {
-      byPerson.set(s.fullTimerId, [...(byPerson.get(s.fullTimerId) ?? []), s])
+      byPerson.set(s.targetId, [...(byPerson.get(s.targetId) ?? []), s])
     }
     return Array.from(byPerson.entries()).map(([id, rows]) => {
       const avg = (key: (typeof TEAL_KEYS)[number]) =>
         rows.reduce((sum, r) => sum + (r.scores[key] as number), 0) / rows.length
       const avgTrust = rows.reduce((sum, r) => sum + (r.trustBattery as number), 0) / rows.length
-      const flaggedCount = flaggedAny.filter((f) => f.fullTimerId === id).length
+      const flaggedCount = flaggedAny.filter((f) => f.targetId === id).length
       const meetsOnAverage = TEAL_KEYS.every((k) => avg(k) < tealThreshold) && avgTrust < trustThreshold
       return {
         id,
@@ -143,9 +151,16 @@ export default function RiskScan({ employees, submissions, answers }: Props) {
     <div className="space-y-6">
       <SectionHeading
         accent="pink"
-        eyebrow="admin · full-timers only"
+        eyebrow="admin"
         title="trust risk scan"
         description="tune the thresholds below — the list updates as you move them. reads from feedback already loaded on this page, nothing is saved."
+      />
+
+      <SegmentedControl
+        ariaLabel="role"
+        options={ROLE_OPTIONS}
+        value={role}
+        onChange={setRole}
       />
 
       <BrandPanel accent="pink" tone="plain" className="p-6 space-y-5">
@@ -232,7 +247,8 @@ export default function RiskScan({ employees, submissions, answers }: Props) {
       <div className="flex items-baseline gap-2">
         <span className="text-2xl font-bold tracking-[-0.03em] text-ink">{result.length}</span>
         <span className="text-sm text-muted">
-          full-timer{result.length === 1 ? "" : "s"} in this bracket
+          {role === "full_timer" ? "full-timer" : "intern"}
+          {result.length === 1 ? "" : "s"} in this bracket
           {mode === "any" ? " (at least one flagged review)" : " (on average)"}
         </span>
       </div>
