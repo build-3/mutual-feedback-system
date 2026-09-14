@@ -49,9 +49,19 @@ type Run = {
   reportRecipients: string[]
 }
 
+type Config = {
+  weights: Record<string, number>
+  cut_lines: Record<"full_timer" | "probation", { doing_well: number; on_the_fence: number }>
+  min_reviews: number
+  window_cycles: number
+  send_verbatim_to_llm: boolean
+  exclude_emails: string[]
+}
+
 type Payload = {
   run: Run | null
   people: Person[]
+  config: Config
   recipients: string[]
   runs: { id: string; cycle_key: string }[]
 }
@@ -92,6 +102,9 @@ export default function PulseReview() {
    * wrong element is enough to message someone about their performance.
    */
   const [confirmBulk, setConfirmBulk] = useState<Bucket | null>(null)
+  const [showConfig, setShowConfig] = useState(false)
+  const [draftConfig, setDraftConfig] = useState<Config | null>(null)
+  const [draftRecipients, setDraftRecipients] = useState("")
 
   const load = useCallback(async (runId?: string) => {
     setLoading(true)
@@ -100,7 +113,10 @@ export default function PulseReview() {
         cache: "no-store",
       })
       if (!res.ok) throw new Error("could not load the pulse run")
-      setData(await res.json())
+      const payload: Payload = await res.json()
+      setData(payload)
+      setDraftConfig(payload.config)
+      setDraftRecipients((payload.recipients ?? []).join(", "))
       setError("")
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "something went wrong")
@@ -146,6 +162,32 @@ export default function PulseReview() {
     },
     [data?.run?.id, load]
   )
+
+  const saveConfig = useCallback(async () => {
+    if (!draftConfig) return
+    setBusy("config")
+    try {
+      const res = await fetch("/api/admin/pulse/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          config: draftConfig,
+          recipients: draftRecipients
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean),
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "could not save those settings")
+      setFlash("settings saved")
+      await load(data?.run?.id)
+    } catch (err: unknown) {
+      setFlash(err instanceof Error ? err.message : "could not save those settings")
+    } finally {
+      setBusy(null)
+    }
+  }, [draftConfig, draftRecipients, data?.run?.id, load])
 
   const grouped = useMemo(() => {
     const out = new Map<Bucket, Person[]>()
@@ -254,6 +296,141 @@ export default function PulseReview() {
           {flash}
         </BrandPanel>
       )}
+
+      <BrandPanel accent="lavender" tone="plain" className="p-5">
+        <button
+          onClick={() => setShowConfig((v) => !v)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <Eyebrow accent="lavender">thresholds and recipients</Eyebrow>
+          <span className="text-xs text-muted">{showConfig ? "hide" : "show"}</span>
+        </button>
+
+        {showConfig && draftConfig && (
+          <div className="mt-5 space-y-5">
+            <p className="text-xs text-muted">
+              changing these does not rescore this run. the next run uses them — or hit
+              redraft on a note to rescore that person now.
+            </p>
+
+            {(["full_timer", "probation"] as const).map((cohort) => (
+              <div key={cohort} className="grid gap-4 sm:grid-cols-2">
+                {(["doing_well", "on_the_fence"] as const).map((line) => (
+                  <div key={line}>
+                    <label
+                      className="text-xs font-semibold tracking-[0.08em] text-muted"
+                      htmlFor={`${cohort}-${line}`}
+                    >
+                      {cohort === "full_timer" ? "full-timer" : "on probation"} ·{" "}
+                      {line === "doing_well" ? "doing well at or above" : "on the fence at or above"}
+                    </label>
+                    <div className="mt-2 flex items-center gap-3">
+                      <input
+                        id={`${cohort}-${line}`}
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={draftConfig.cut_lines[cohort][line]}
+                        onChange={(e) =>
+                          setDraftConfig({
+                            ...draftConfig,
+                            cut_lines: {
+                              ...draftConfig.cut_lines,
+                              [cohort]: {
+                                ...draftConfig.cut_lines[cohort],
+                                [line]: Number(e.target.value),
+                              },
+                            },
+                          })
+                        }
+                        className="flex-1"
+                      />
+                      <span className="w-10 text-right text-lg font-semibold text-ink">
+                        {draftConfig.cut_lines[cohort][line]}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-semibold tracking-[0.08em] text-muted" htmlFor="min-reviews">
+                  minimum reviews before anyone is bucketed
+                </label>
+                <input
+                  id="min-reviews"
+                  type="number"
+                  min={1}
+                  max={10}
+                  className={`${fieldClasses({ size: "sm" })} mt-2`}
+                  value={draftConfig.min_reviews}
+                  onChange={(e) =>
+                    setDraftConfig({ ...draftConfig, min_reviews: Number(e.target.value) })
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold tracking-[0.08em] text-muted" htmlFor="window-cycles">
+                  cycles in the scoring window
+                </label>
+                <input
+                  id="window-cycles"
+                  type="number"
+                  min={1}
+                  max={12}
+                  className={`${fieldClasses({ size: "sm" })} mt-2`}
+                  value={draftConfig.window_cycles}
+                  onChange={(e) =>
+                    setDraftConfig({ ...draftConfig, window_cycles: Number(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold tracking-[0.08em] text-muted" htmlFor="recipients">
+                report goes to (comma separated)
+              </label>
+              <input
+                id="recipients"
+                className={`${fieldClasses({ size: "sm" })} mt-2`}
+                value={draftRecipients}
+                onChange={(e) => setDraftRecipients(e.target.value)}
+                placeholder="at@build3.org, br@build3.org"
+              />
+              <p className="mt-1.5 text-xs text-muted">
+                leave this empty and the run sends nothing at all.
+              </p>
+            </div>
+
+            <label className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={draftConfig.send_verbatim_to_llm}
+                onChange={(e) =>
+                  setDraftConfig({ ...draftConfig, send_verbatim_to_llm: e.target.checked })
+                }
+              />
+              send written feedback to the model when drafting notes
+            </label>
+            <p className="-mt-3 text-xs text-muted">
+              on, the notes can be specific about what to work on, and colleagues&apos; written
+              feedback leaves our servers for openai. off, notes name the weak areas only.
+            </p>
+
+            <button
+              {...buttonClasses({ accent: "lavender", size: "sm" })}
+              disabled={busy !== null}
+              onClick={() => void saveConfig()}
+            >
+              {busy === "config" ? "saving…" : "save settings"}
+            </button>
+          </div>
+        )}
+      </BrandPanel>
 
       {BUCKETS.map((bucket) => {
         const group = grouped.get(bucket.key) ?? []

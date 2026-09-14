@@ -27,6 +27,10 @@ function num(value: unknown, lo: number, hi: number, fallback: number): number {
  * to zero, or a doing-well line below the on-the-fence line, would not error —
  * it would quietly produce a nonsense report, and the first anyone would know
  * is a teammate receiving the wrong note.
+ *
+ * Everything is validated before anything is written. Writing as we went meant
+ * a request carrying good recipients and a bad config saved the recipients and
+ * then 400'd, leaving the caller told it failed while half of it had landed.
  */
 export async function PATCH(request: Request) {
   const auth = await requireAdmin()
@@ -42,6 +46,7 @@ export async function PATCH(request: Request) {
   const supabaseAdmin = getSupabaseAdmin()
   const current = await loadPulseConfig()
 
+  let cleanedRecipients: string[] | null = null
   if (body.recipients !== undefined) {
     if (!Array.isArray(body.recipients)) {
       return NextResponse.json({ error: "Recipients must be a list." }, { status: 400 })
@@ -61,11 +66,10 @@ export async function PATCH(request: Request) {
         { status: 400 }
       )
     }
-    await supabaseAdmin
-      .from("site_settings" as never)
-      .upsert({ key: "pulse_recipients", value: JSON.stringify(cleaned), updated_at: new Date().toISOString() } as never)
+    cleanedRecipients = cleaned
   }
 
+  let nextConfig: Record<string, unknown> | null = null
   if (body.config !== undefined) {
     const incoming = body.config as Record<string, unknown>
     const weightsIn = (incoming.weights ?? {}) as Record<string, unknown>
@@ -122,10 +126,36 @@ export async function PATCH(request: Request) {
         : current.exclude_emails,
     }
 
-    await supabaseAdmin
-      .from("site_settings" as never)
-      .upsert({ key: "pulse_config", value: JSON.stringify(next), updated_at: new Date().toISOString() } as never)
+    nextConfig = next
   }
+
+  // Both halves validated — now write.
+  // PromiseLike, not Promise: a Supabase query builder is a thenable and only
+  // becomes a real promise when awaited.
+  const writes: PromiseLike<unknown>[] = []
+  if (cleanedRecipients !== null) {
+    writes.push(
+      supabaseAdmin
+        .from("site_settings" as never)
+        .upsert({
+          key: "pulse_recipients",
+          value: JSON.stringify(cleanedRecipients),
+          updated_at: new Date().toISOString(),
+        } as never)
+    )
+  }
+  if (nextConfig !== null) {
+    writes.push(
+      supabaseAdmin
+        .from("site_settings" as never)
+        .upsert({
+          key: "pulse_config",
+          value: JSON.stringify(nextConfig),
+          updated_at: new Date().toISOString(),
+        } as never)
+    )
+  }
+  await Promise.all(writes)
 
   const [config, recipients] = await Promise.all([loadPulseConfig(), loadPulseRecipients()])
   return NextResponse.json({ config, recipients })

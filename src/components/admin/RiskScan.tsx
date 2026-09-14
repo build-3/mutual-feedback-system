@@ -29,9 +29,11 @@ const WINDOW_OPTIONS: { key: Window; label: string; days: number | null }[] = [
 
 type Mode = "any" | "average"
 type Role = "full_timer" | "intern"
+// The DB role is still 'intern' (schema CHECK constraint), but nothing
+// user-facing says that word — see docs/PULSE-SPEC.md §2.
 const ROLE_OPTIONS: { key: Role; label: string }[] = [
   { key: "full_timer", label: "full-timer" },
-  { key: "intern", label: "intern" },
+  { key: "intern", label: "on probation" },
 ]
 
 type Scored = {
@@ -247,8 +249,10 @@ export default function RiskScan({ employees, submissions, answers }: Props) {
       <div className="flex items-baseline gap-2">
         <span className="text-2xl font-bold tracking-[-0.03em] text-ink">{result.length}</span>
         <span className="text-sm text-muted">
-          {role === "full_timer" ? "full-timer" : "intern"}
-          {result.length === 1 ? "" : "s"} in this bracket
+          {role === "full_timer"
+            ? `full-timer${result.length === 1 ? "" : "s"}`
+            : `teammate${result.length === 1 ? "" : "s"} on probation`}
+          {" "}in this bracket
           {mode === "any" ? " (at least one flagged review)" : " (on average)"}
         </span>
       </div>
