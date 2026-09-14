@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getSupabaseAdmin } from "./supabase-admin"
+import { fetchPaged, fetchPagedByIds } from "./paged-query"
 import {
   DEFAULT_PULSE_CONFIG,
   aggregateReviews,
@@ -99,6 +100,14 @@ export type PulsePerson = {
   composite: number | null
   reviewScores: number[]
   reviewCount: number
+  /**
+   * How many different people reviewed them. Over a multi-cycle window one
+   * reviewer can contribute several reviews, so this and reviewCount diverge —
+   * and "three reviews from one person" is one opinion, not three.
+   */
+  distinctReviewers: number
+  /** The lowest single review. A good mean can hide a bad one. */
+  lowestReview: number | null
   componentAverages: Partial<Record<ComponentKey, number>>
   weakest: { key: ComponentKey; value: number }[]
   strongest: { key: ComponentKey; value: number } | null
@@ -122,7 +131,10 @@ export type PulsePerson = {
 
 export type PulseRunResult = {
   cycleKey: string
+  /** The closing cycle alone, e.g. "10 aug – 6 sep". */
   cycleLabel: string
+  /** The whole scored window, e.g. "8 jun – 6 sep". */
+  spanLabel: string
   windowStartIso: string
   windowEndIso: string
   windowLabel: string
@@ -154,30 +166,54 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
 
   // The cycle that just closed, plus the (window_cycles - 1) before it.
   const closed = closedCycleAt(at)
-  const first = shiftCycle(closed, -(Math.max(1, config.window_cycles) - 1))
+  const cycleCount = Math.max(1, config.window_cycles)
+  const first = shiftCycle(closed, -(cycleCount - 1))
   const window = { startIso: first.startIso, endIso: closed.endIso }
 
-  const [employeesResult, probationsResult, submissionsResult] = await Promise.all([
-    supabaseAdmin
-      .from("employees")
-      .select("id, name, email, role, is_active")
-      .eq("is_active", true),
-    supabaseAdmin
-      .from("probation_tracking")
-      .select("id, employee_id, end_date, status")
-      .in("status", ["active", "extended"]),
-    supabaseAdmin
-      .from("feedback_submissions")
-      .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
-      .in("feedback_type", ["intern", "full_timer"])
-      .not("feedback_for_id", "is", null)
-      .gte("created_at", window.startIso)
-      .lt("created_at", window.endIso),
-  ])
+  // The header used to print only the closing cycle's label while the numbers
+  // spanned the whole window — it read as "we looked at one month" when three
+  // had been scored. Build the label from the window that is actually used.
+  const spanLabel =
+    cycleCount === 1
+      ? closed.label
+      : `${first.label.split(" – ")[0]} – ${closed.label.split(" – ")[1]}`
 
-  const employees = employeesResult.data ?? []
-  const probations = probationsResult.data ?? []
-  const submissions = submissionsResult.data ?? []
+  type EmployeeRow = { id: string; name: string; email: string | null; role: string; is_active: boolean }
+  type ProbationRow = { id: string; employee_id: string; end_date: string; status: string }
+  type SubmissionRow = {
+    id: string
+    submitted_by_id: string
+    feedback_for_id: string | null
+    feedback_type: string
+    created_at: string
+  }
+
+  const [employees, probations, submissions] = await Promise.all([
+    fetchPaged<EmployeeRow>(() =>
+      supabaseAdmin
+        .from("employees")
+        .select("id, name, email, role, is_active")
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+    ),
+    fetchPaged<ProbationRow>(() =>
+      supabaseAdmin
+        .from("probation_tracking")
+        .select("id, employee_id, end_date, status")
+        .in("status", ["active", "extended"])
+        .order("id", { ascending: true })
+    ),
+    fetchPaged<SubmissionRow>(() =>
+      supabaseAdmin
+        .from("feedback_submissions")
+        .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
+        .in("feedback_type", ["intern", "full_timer"])
+        .not("feedback_for_id", "is", null)
+        .gte("created_at", window.startIso)
+        .lt("created_at", window.endIso)
+        .order("id", { ascending: true })
+    ),
+  ])
 
   const excluded = new Set(
     config.exclude_emails.map((e) => e.trim().toLowerCase()).filter(Boolean)
@@ -198,19 +234,33 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
 
   const submissionIds = relevant.map((s) => s.id)
 
-  const [answersResult, probationReviewsResult, selfResult] = await Promise.all([
-    submissionIds.length > 0
-      ? supabaseAdmin
+  type AnswerRow = { submission_id: string; question_key: string; answer_value: string }
+  type ProbationReviewRow = {
+    probation_id: string
+    reviewer_id: string
+    backing_score: number
+    created_at: string
+  }
+
+  const [answers, probationReviews, selfResult] = await Promise.all([
+    fetchPagedByIds<AnswerRow>(
+      (ids) =>
+        supabaseAdmin
           .from("feedback_answers")
           .select("submission_id, question_key, answer_value")
-          .in("submission_id", submissionIds)
-      : Promise.resolve({ data: [] as { submission_id: string; question_key: string; answer_value: string }[] }),
-    probations.length > 0
-      ? supabaseAdmin
+          .in("submission_id", ids)
+          .order("id", { ascending: true }),
+      submissionIds
+    ),
+    fetchPagedByIds<ProbationReviewRow>(
+      (ids) =>
+        supabaseAdmin
           .from("probation_reviews")
           .select("probation_id, reviewer_id, backing_score, created_at")
-          .in("probation_id", probations.map((p) => p.id))
-      : Promise.resolve({ data: [] as { probation_id: string; reviewer_id: string; backing_score: number; created_at: string }[] }),
+          .in("probation_id", ids)
+          .order("id", { ascending: true }),
+      probations.map((p) => p.id)
+    ),
     supabaseAdmin
       .from("feedback_submissions")
       .select("submitted_by_id, feedback_type")
@@ -219,8 +269,6 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
       .lt("created_at", closed.endIso),
   ])
 
-  const answers = answersResult.data ?? []
-  const probationReviews = probationReviewsResult.data ?? []
   const selfSubmissions = selfResult.data ?? []
 
   const answersBySubmission = new Map<string, { question_key: string; answer_value: string }[]>()
@@ -233,12 +281,18 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
   // backing_score lives in probation_reviews, keyed by probation and reviewer
   // rather than by submission, so it is looked up per (subject, reviewer) pair.
   const backingByPair = new Map<string, number>()
+  const backingSeenAt = new Map<string, string>()
   for (const r of probationReviews) {
     const probation = probations.find((p) => p.id === r.probation_id)
     if (!probation) continue
     const key = `${probation.employee_id}::${r.reviewer_id}`
-    const existing = backingByPair.get(key)
-    if (existing === undefined) backingByPair.set(key, r.backing_score)
+    // Latest wins. Taking whichever row arrived first made the result depend on
+    // page order, so the same data could score differently between runs.
+    const seen = backingSeenAt.get(key)
+    if (seen === undefined || r.created_at > seen) {
+      backingSeenAt.set(key, r.created_at)
+      backingByPair.set(key, r.backing_score)
+    }
   }
 
   const selfFiled = new Set(selfSubmissions.map((s) => s.submitted_by_id))
@@ -282,7 +336,10 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
     const aggregate = aggregateReviews(scored)
     const composite = aggregate?.composite ?? null
     const reviewCount = aggregate?.count ?? 0
-    const bucket = bucketFor(composite, cohort, reviewCount, config)
+    const distinctReviewers = new Set(scored.map((r) => r.reviewerId)).size
+    // The gate counts people, not submissions: three reviews from one teammate
+    // is a single opinion and should not clear a "two reviewers" bar.
+    const bucket = bucketFor(composite, cohort, distinctReviewers, config)
     totals[bucket] += 1
 
     const keptSubmissionIds = new Set(scored.map((s) => s.submissionId))
@@ -297,11 +354,15 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
       composite,
       reviewScores: scored.map((s) => Math.round(s.composite)),
       reviewCount,
+      distinctReviewers,
+      lowestReview: aggregate ? Math.round(aggregate.min) : null,
       componentAverages: aggregate?.componentAverages ?? {},
       weakest: aggregate ? weakestComponents(aggregate, 2) : [],
       strongest: aggregate ? strongestComponent(aggregate) : null,
       coverageExpected: reviewerPool.filter((r) => r.id !== employee.id).length,
-      coverageReceived: reviewCount,
+      // Both sides count people. Comparing a multi-cycle review tally against a
+      // single-cycle reviewer pool let coverage read above 100%.
+      coverageReceived: distinctReviewers,
       selfReviewFiled: selfFiled.has(employee.id),
       probationEndDate: probation?.end_date ?? null,
       // A probation whose end date has passed while the record is still
@@ -319,6 +380,7 @@ export async function buildPulseRun(at: number = Date.now()): Promise<PulseRunRe
   return {
     cycleKey: closed.key,
     cycleLabel: closed.label,
+    spanLabel,
     windowStartIso: window.startIso,
     windowEndIso: window.endIso,
     windowLabel:
@@ -429,9 +491,10 @@ export function buildReportText(
   const previous = options.previousScores ?? new Map<string, number>()
   const lines: string[] = []
 
-  lines.push(`📊 *build3 pulse — cycle ${run.cycleLabel}*`)
+  lines.push(`📊 *build3 pulse — ${run.spanLabel}*`)
   lines.push(
-    `${run.people.length} teammates scored · window: ${run.windowLabel} · ${run.reviewsInWindow} reviews`
+    `${run.people.length} teammates scored on ${run.windowLabel} of feedback ` +
+      `(${run.reviewsInWindow} reviews). closing cycle: ${run.cycleLabel}.`
   )
 
   // Surfaced above the buckets because it is the one item here that is overdue
@@ -469,21 +532,38 @@ export function buildReportText(
         // Names only. Nothing here needs acting on, and detail would bury the
         // two buckets above it that do.
         lines.push(group.map((p) => p.name).join(", "))
+
+        // Except this: averaging means someone with many reviews can carry a
+        // genuinely bad one and still clear the line. The mean is the right
+        // basis for the bucket; the outlier is still worth a look.
+        const outliers = group.filter(
+          (p) => p.lowestReview !== null && p.lowestReview < run.config.cut_lines[cohort].on_the_fence
+        )
+        if (outliers.length > 0) {
+          lines.push(
+            `_worth a look — one low review each, averaged out by the rest: ` +
+              outliers
+                .map((p) => `${p.name} (one at ${p.lowestReview}, across ${p.reviewCount})`)
+                .join(", ") +
+              `_`
+          )
+        }
         continue
       }
 
       for (const person of group) {
         if (bucket === "not_enough_signal") {
-          const short = Math.max(0, run.config.min_reviews - person.reviewCount)
+          const short = Math.max(0, run.config.min_reviews - person.distinctReviewers)
           lines.push(
-            `• ${person.name} — ${person.reviewCount} review${person.reviewCount === 1 ? "" : "s"}` +
+            `• ${person.name} — ${person.distinctReviewers} reviewer${person.distinctReviewers === 1 ? "" : "s"}` +
               (short > 0 ? ` (needs ${short} more)` : "") +
               probationTag(person)
           )
         } else {
           lines.push(
             `• ${person.name} — ${Math.round(person.composite ?? 0)}${movement(person, previous)} · ` +
-              `${person.reviewCount} reviews: ${person.reviewScores.join(", ")}`
+              `${person.distinctReviewers} reviewer${person.distinctReviewers === 1 ? "" : "s"}, ` +
+              `${person.reviewCount} review${person.reviewCount === 1 ? "" : "s"}: ${person.reviewScores.join(", ")}`
           )
           const weak = person.weakest
             .map((w) => `${COMPONENT_LABELS[w.key]} ${Math.round(w.value)}`)
@@ -496,7 +576,7 @@ export function buildReportText(
             )
           }
           const tag = probationTag(person)
-          if (tag) lines.push(` ${tag}`)
+          if (tag) lines.push(tag)
         }
       }
     }
@@ -526,6 +606,8 @@ export type PersistedRun = {
   runId: string
   /** False when a run for this cycle already existed and was reused. */
   created: boolean
+  /** Whether the report for that existing run has already gone out. */
+  reportAlreadySent: boolean
   previousScores: Map<string, number>
 }
 
@@ -574,13 +656,18 @@ export async function persistRun(
 
   const { data: existing } = await supabaseAdmin
     .from("pulse_runs" as never)
-    .select("id")
+    .select("id, report_sent_at")
     .eq("cycle_key", run.cycleKey)
     .maybeSingle()
 
-  const existingRun = existing as { id: string } | null
+  const existingRun = existing as { id: string; report_sent_at: string | null } | null
   if (existingRun?.id) {
-    return { runId: existingRun.id, created: false, previousScores }
+    return {
+      runId: existingRun.id,
+      created: false,
+      reportAlreadySent: existingRun.report_sent_at !== null,
+      previousScores,
+    }
   }
 
   const { data: inserted, error } = await supabaseAdmin
@@ -602,11 +689,18 @@ export async function persistRun(
     // two reports.
     const { data: raced } = await supabaseAdmin
       .from("pulse_runs" as never)
-      .select("id")
+      .select("id, report_sent_at")
       .eq("cycle_key", run.cycleKey)
       .maybeSingle()
-    const racedRun = raced as { id: string } | null
-    if (racedRun?.id) return { runId: racedRun.id, created: false, previousScores }
+    const racedRun = raced as { id: string; report_sent_at: string | null } | null
+    if (racedRun?.id) {
+      return {
+        runId: racedRun.id,
+        created: false,
+        reportAlreadySent: racedRun.report_sent_at !== null,
+        previousScores,
+      }
+    }
     throw new Error(`Failed to create pulse run: ${error?.message ?? "unknown"}`)
   }
 
@@ -618,6 +712,8 @@ export async function persistRun(
     composite: person.composite,
     components: person.componentAverages,
     review_count: person.reviewCount,
+    distinct_reviewers: person.distinctReviewers,
+    lowest_review: person.lowestReview,
     review_scores: person.reviewScores,
     coverage_expected: person.coverageExpected,
     coverage_received: person.coverageReceived,
@@ -630,11 +726,15 @@ export async function persistRun(
   if (rows.length > 0) {
     const { error: scoreError } = await supabaseAdmin.from("pulse_scores" as never).insert(rows as never)
     if (scoreError) {
+      // The run row is already in, and cycle_key is unique — leaving it would
+      // claim this cycle forever, so every retry would find an "existing" run
+      // that has no scores and skip. Roll it back so a retry can start clean.
+      await supabaseAdmin.from("pulse_runs" as never).delete().eq("id", newRun.id)
       throw new Error(`Failed to write pulse scores: ${scoreError.message}`)
     }
   }
 
-  return { runId: newRun.id, created: true, previousScores }
+  return { runId: newRun.id, created: true, reportAlreadySent: false, previousScores }
 }
 
 /**

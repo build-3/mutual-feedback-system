@@ -32,6 +32,8 @@ type Person = {
   prevComposite: number | null
   components: Record<string, number>
   reviewCount: number
+  distinctReviewers: number
+  lowestReview: number | null
   reviewScores: number[]
   coverageExpected: number
   coverageReceived: number
@@ -508,10 +510,10 @@ export default function PulseReview() {
                         <span className="block text-xs text-muted">
                           {person.cohort === "probation" ? "on probation" : "full-timer"}
                           {" · "}
-                          {person.reviewCount} review{person.reviewCount === 1 ? "" : "s"}
+                          {person.distinctReviewers} of {person.coverageExpected} teammates
+                          {person.reviewCount !== person.distinctReviewers &&
+                            ` (${person.reviewCount} reviews)`}
                           {person.reviewScores.length > 0 && `: ${person.reviewScores.join(", ")}`}
-                          {" · coverage "}
-                          {person.coverageReceived}/{person.coverageExpected}
                         </span>
                       </span>
                       <span className="text-right">
@@ -524,6 +526,16 @@ export default function PulseReview() {
                           </span>
                         )}
                       </span>
+                      {person.bucket === "doing_well" &&
+                        person.lowestReview !== null &&
+                        person.lowestReview < 55 && (
+                          <span
+                            className="rounded-full bg-[#f5bb9f]/40 px-2.5 py-1 text-[11px] font-semibold text-[#a05a2a]"
+                            title={`one review scored ${person.lowestReview}, averaged out by the rest`}
+                          >
+                            one at {person.lowestReview}
+                          </span>
+                        )}
                       {person.note && (
                         <span
                           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_STYLE[person.note.status]}`}

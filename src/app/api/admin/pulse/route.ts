@@ -22,6 +22,8 @@ type ScoreRow = {
   composite: number | null
   components: Record<string, number>
   review_count: number
+  distinct_reviewers: number
+  lowest_review: number | null
   review_scores: number[]
   coverage_expected: number
   coverage_received: number
@@ -103,6 +105,8 @@ export async function GET(request: Request) {
         prevComposite: s.prev_composite === null ? null : Number(s.prev_composite),
         components: s.components ?? {},
         reviewCount: s.review_count,
+        distinctReviewers: s.distinct_reviewers ?? 0,
+        lowestReview: s.lowest_review,
         reviewScores: s.review_scores ?? [],
         coverageExpected: s.coverage_expected,
         coverageReceived: s.coverage_received,

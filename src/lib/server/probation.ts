@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getSupabaseAdmin } from "./supabase-admin"
+import { fetchPagedByIds } from "./paged-query"
 import { sendDirectMessage, isNotificationsEnabled, isGoogleChatConfigured } from "./google-chat"
 import type { ContributionLevel } from "@/lib/types"
 
@@ -367,45 +368,84 @@ export async function getProbationOverview(): Promise<{
     return { probations: [], totalActive: 0 }
   }
 
-  // Wave 1: three independent queries in parallel
-  const [empsResult, reviewsResult, submissionsResult] = await Promise.all([
-    supabaseAdmin.from("employees").select("id, name, email").in("id", employeeIds),
-    probationIds.length > 0
-      ? supabaseAdmin.from("probation_reviews").select("*").in("probation_id", probationIds)
-      : Promise.resolve({ data: [] as never[] }),
-    supabaseAdmin
-      .from("feedback_submissions")
-      .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
-      .eq("feedback_type", "intern")
-      .in("feedback_for_id", employeeIds)
-      .order("created_at", { ascending: false }),
+  // Wave 1: three independent queries in parallel.
+  //
+  // Every one of these is paged. The answers read below needs ~2,700 rows
+  // against a 1000-row cap, so this overview was previously built from about a
+  // third of each probationer's feedback — and it is what promotion and
+  // extension decisions are read off.
+  type ProbationEmp = { id: string; name: string; email: string | null }
+  type ProbationReviewRow = {
+    id: string
+    probation_id: string
+    reviewer_id: string
+    contribution_level: string
+    backing_score: number
+    created_at: string
+  }
+  type ProbationSubmission = {
+    id: string
+    submitted_by_id: string
+    feedback_for_id: string | null
+    feedback_type: string
+    created_at: string
+  }
+
+  const [emps, allReviews, submissions] = await Promise.all([
+    fetchPagedByIds<ProbationEmp>(
+      (ids) => supabaseAdmin.from("employees").select("id, name, email").in("id", ids).order("id", { ascending: true }),
+      employeeIds
+    ),
+    fetchPagedByIds<ProbationReviewRow>(
+      (ids) => supabaseAdmin.from("probation_reviews").select("*").in("probation_id", ids).order("id", { ascending: true }),
+      probationIds
+    ),
+    fetchPagedByIds<ProbationSubmission>(
+      (ids) =>
+        supabaseAdmin
+          .from("feedback_submissions")
+          .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
+          .eq("feedback_type", "intern")
+          .in("feedback_for_id", ids)
+          // Paging needs a stable, unique sort; created_at alone is neither.
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true }),
+      employeeIds
+    ),
   ])
 
-  const emps = empsResult.data ?? []
   const empMap = new Map(emps.map((e) => [e.id, e]))
-  const allReviews = reviewsResult.data ?? []
-  const submissions = submissionsResult.data ?? []
-
   const submissionIds = submissions.map((s) => s.id)
   const submitterIds = Array.from(new Set(submissions.map((s) => s.submitted_by_id)))
   const reviewerIds = Array.from(new Set(allReviews.map((r) => r.reviewer_id)))
 
   // Wave 2: answers + name lookup in parallel
   const allNameIds = Array.from(new Set([...submitterIds, ...reviewerIds]))
-  const [answersResult, nameEmpsResult] = await Promise.all([
-    submissionIds.length > 0
-      ? supabaseAdmin
+  type ProbationAnswer = {
+    id: string
+    submission_id: string
+    question_key: string
+    question_text: string
+    answer_value: string
+  }
+
+  const [allAnswers, nameEmps] = await Promise.all([
+    fetchPagedByIds<ProbationAnswer>(
+      (ids) =>
+        supabaseAdmin
           .from("feedback_answers")
           .select("id, submission_id, question_key, question_text, answer_value")
-          .in("submission_id", submissionIds)
-      : Promise.resolve({ data: [] as never[] }),
-    allNameIds.length > 0
-      ? supabaseAdmin.from("employees").select("id, name").in("id", allNameIds)
-      : Promise.resolve({ data: [] as never[] }),
+          .in("submission_id", ids)
+          .order("id", { ascending: true }),
+      submissionIds
+    ),
+    fetchPagedByIds<{ id: string; name: string }>(
+      (ids) => supabaseAdmin.from("employees").select("id, name").in("id", ids).order("id", { ascending: true }),
+      allNameIds
+    ),
   ])
 
-  const allAnswers = answersResult.data ?? []
-  const nameMap = new Map((nameEmpsResult.data ?? []).map((e: { id: string; name: string }) => [e.id, e.name]))
+  const nameMap = new Map(nameEmps.map((e) => [e.id, e.name]))
 
   // Group answers by submission
   const answersBySubmission = new Map<string, typeof allAnswers>()

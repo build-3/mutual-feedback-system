@@ -60,6 +60,9 @@ Teammates in their probation period are referred to as **"on probation"** or **"
 | R11 | Non-person accounts on the roster are never scored or notified. | The studio's own Chat sender sits on `employees` as an `intern` with an active probation record, and was being bucketed. |
 | R12 | The report flags probations whose end date has passed while the record is still open. | The first real run surfaced ten, some three months over — a decision nobody made, invisible everywhere else in the product. |
 | R13 | Bulk send takes two clicks and states that it cannot be undone. | During testing a single stray click on the bulk button sent a real note. A send is irreversible and the button sits directly above the rows it fires for. |
+| R14 | Every read of a table that grows goes through the paged helper. | The first run scored everyone on ~1/3 of their feedback: PostgREST caps a select at 1000 rows and returns a normal 200, and a three-cycle window needs ~2,900 `feedback_answers` rows. |
+| R15 | Gates and coverage count reviewers, not submissions. | Over a multi-cycle window one reviewer contributes several reviews. Three reviews from one teammate is one opinion, and coverage could read above 100%. |
+| R16 | A good average must not hide a bad single review. | Averaging is right for the bucket, but a teammate with 18 reviews can carry one at 36 and still sit in *doing well* with nothing said about it. |
 
 ---
 
@@ -124,6 +127,24 @@ backing / recommend  0.10    (probation cohort only)
 
 **Missing components renormalise, they do not score zero.** Full-timers have no backing component, so the remaining four weights renormalise to sum to 1 (0.389 / 0.278 / 0.222 / 0.111). The same rule applies to any component absent from a given submission — treating a skipped question as a zero would punish an incomplete form rather than measure the person.
 
+### 5.2a Reading the data
+
+**Every query goes through `fetchPaged` / `fetchPagedByIds` (`src/lib/server/paged-query.ts`).**
+
+PostgREST caps a select at 1000 rows and reports nothing: an ordinary 200 with a
+short array. A three-cycle window needs roughly 2,900 `feedback_answers` rows, so
+the first live run scored 30 people on about a third of their feedback and
+published the result as fact. Nine people were in the wrong bucket, including one
+reported as *not enough signal* who actually had ample feedback and was in the
+bottom bucket.
+
+`fetchPagedByIds` also chunks the `.in(...)` id list at 150: PostgREST reads that
+filter from the query string, and 230 UUIDs already make an ~8KB URL. Any paged
+query needs a stable, unique `.order()`, or pages can both duplicate and skip rows.
+
+The same cap applied to `getProbationOverview`, which feeds promotion and
+extension decisions; it is fixed too.
+
 ### 5.3 Aggregation
 
 Score each **submission** first, then average across submissions in the window, weighting each reviewer equally.
@@ -172,6 +193,22 @@ Separate lines are necessary, not a courtesy. The contribution ladder runs *find
 **`min_reviews` gate (default 2).** Fewer reviews than this and the person is held out in a fourth bucket, **not enough signal**, rather than being bucketed on one data point.
 
 This fourth bucket is a feature, not an exception path. It is the clearest actionable output the system produces: it tells leadership exactly who is invisible to the feedback process, and it generates the most concrete possible note — *collect two more pieces of feedback before the next session*. Someone with one review is not doing well or badly; they are unmeasured, and that is the thing to fix.
+
+### 6.2a Reviewers, not submissions
+
+The `min_reviews` gate and the coverage denominator both count **distinct
+reviewers**. Over a three-cycle window one reviewer can contribute three reviews;
+that is one opinion, not three, and counting submissions let coverage read above
+100%. `reviewCount` is still reported alongside, so "9 of 13 teammates, 14
+reviews" is legible.
+
+### 6.2b Outliers inside a good average
+
+The mean decides the bucket — that is the right basis, and a single hostile
+review should not by itself move someone. But with 18 reviews a teammate can
+carry one at 36 and land in *doing well* with nothing said. The report and the
+admin row both flag anyone in *doing well* whose lowest single review falls below
+their cohort's on-the-fence line.
 
 ### 6.3 Excluded entirely
 
@@ -378,10 +415,15 @@ tests predating this work all use relative imports and avoid `src/lib/server`.
 6. **Idempotency.** Re-run the cron for the same cycle; confirm one run row, no duplicate notes, no second report.
 7. Only then set `pulse_recipients` to `at@build3.org` and `br@build3.org`, and register the Coolify schedule.
 
-**Result of the first real run (14 Sep 2026, cycle `2026-08-11`):** 30 people
-scored from 190 reviews — 12 doing well, 1 on the fence, 1 needing a
-conversation, 16 without enough signal. 30 notes drafted, zero template
-fallbacks. Ten probation records found lapsed. Re-running correctly skipped.
+**First run (14 Sep 2026, cycle `2026-08-11`) — discarded.** It reported 12 / 1 /
+1 / 16 across the four buckets, computed from about a third of the feedback
+because of the row cap described in §5.2a. Nothing was ever sent from it.
+
+**Corrected run (15 Sep 2026, same cycle):** 30 people from 190 reviews — 17
+doing well, 3 on the fence, 2 needing a conversation, 8 without enough signal. 30
+notes drafted, zero template fallbacks. Nine people changed bucket against the
+truncated run; most consequentially Raj Kumar moved from *not enough signal* to
+*needs a conversation* at 49.
 
 ---
 

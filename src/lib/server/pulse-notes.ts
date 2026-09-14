@@ -38,6 +38,7 @@ export type DraftedNote = {
 type NoteFacts = {
   firstName: string
   bucket: Bucket
+  /** People, not submissions — the note says "across N teammates". */
   reviewCount: number
   coverageExpected: number
   reviewsShort: number
@@ -67,9 +68,11 @@ export function buildNoteFacts(
   return {
     firstName: firstNameOf(person.name),
     bucket: person.bucket,
-    reviewCount: person.reviewCount,
+    // Distinct reviewers throughout: "across 11 teammates" has to mean eleven
+    // people, and "ask 2 more" has to mean two more people.
+    reviewCount: person.distinctReviewers,
     coverageExpected: person.coverageExpected,
-    reviewsShort: Math.max(0, config.min_reviews - person.reviewCount),
+    reviewsShort: Math.max(0, config.min_reviews - person.distinctReviewers),
     strongest: person.strongest
       ? { label: COMPONENT_LABELS[person.strongest.key], value: Math.round(person.strongest.value) }
       : null,
@@ -164,7 +167,7 @@ export function templateNote(facts: NoteFacts): string {
       lines.push(
         facts.reviewCount === 0
           ? "no one has left you feedback in this window, so the system can't say anything about how you're doing."
-          : `only ${facts.reviewCount} teammate has left you feedback in this window, which isn't enough to say anything useful.`
+          : `only ${facts.reviewCount} teammate${facts.reviewCount === 1 ? " has" : "s have"} left you feedback in this window, which isn't enough to say anything useful.`
       )
       lines.push("")
       lines.push(

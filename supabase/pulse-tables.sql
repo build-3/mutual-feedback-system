@@ -47,7 +47,14 @@ CREATE TABLE IF NOT EXISTS pulse_scores (
   composite NUMERIC,
   components JSONB NOT NULL DEFAULT '{}'::jsonb,
   review_count INTEGER NOT NULL DEFAULT 0,
+  -- review_count counts submissions. Over a multi-cycle window one reviewer can
+  -- file several, so the bucket gate and the coverage denominator both count
+  -- PEOPLE instead: three reviews from one teammate is one opinion.
+  distinct_reviewers INTEGER NOT NULL DEFAULT 0,
   review_scores INTEGER[] NOT NULL DEFAULT '{}',
+  -- The worst single review. A healthy mean hides it completely, and someone
+  -- with eighteen reviews can carry one at 36 and still sit in 'doing_well'.
+  lowest_review INTEGER,
   coverage_expected INTEGER NOT NULL DEFAULT 0,
   coverage_received INTEGER NOT NULL DEFAULT 0,
   self_review_filed BOOLEAN NOT NULL DEFAULT false,

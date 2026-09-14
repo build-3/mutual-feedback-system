@@ -119,9 +119,9 @@ export async function GET(request: Request) {
   const previousScores = await loadPreviousScores(run.cycleKey)
   const persisted = await persistRun(run, previousScores)
 
-  if (!persisted.created) {
-    // A run already exists for this cycle. Re-running must not produce a
-    // second report or a second set of drafts.
+  if (!persisted.created && persisted.reportAlreadySent) {
+    // A finished run already exists for this cycle. Re-running must not produce
+    // a second report or a second set of drafts.
     return NextResponse.json({
       skipped: true,
       reason: "A pulse run already exists for this cycle.",
@@ -129,6 +129,11 @@ export async function GET(request: Request) {
       cycle: run.cycleKey,
     })
   }
+
+  // Otherwise the run exists but never finished — drafting or delivery failed
+  // partway. Carry on: persistNotes tops up rather than duplicating, and the
+  // report has not gone out yet. Without this, one failed run left the cycle
+  // claimed forever with nothing to show for it.
 
   // Everyone gets a note — including the doing-well bucket, which is the only
   // one that is pure recognition and makes no ask.
