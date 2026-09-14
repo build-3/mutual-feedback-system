@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import {
   IST_OFFSET_MS,
+  closedCycleAt,
   cycleFor,
   cycleFromKey,
   cycleKeyOf,
+  isDayAfterSecondTuesdayIst,
   isInCycle,
   istDateKey,
   istParts,
@@ -279,5 +281,42 @@ describe("listCyclesSince", () => {
     expect(
       listCyclesSince(ist("2026-09-01T00:00:00"), ist("2026-08-06T00:00:00"))
     ).toEqual([])
+  })
+})
+
+describe("isDayAfterSecondTuesdayIst / closedCycleAt — the pulse trigger", () => {
+  // Sep 2026's 2nd Tuesday is the 8th; Oct 2026's is the 13th.
+  it("fires only on the IST day after a 2nd Tuesday", () => {
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-08T09:00"))).toBe(false)
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-09T09:00"))).toBe(true)
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-10T09:00"))).toBe(false)
+    expect(isDayAfterSecondTuesdayIst(ist("2026-10-14T09:00"))).toBe(true)
+  })
+
+  it("is true for the whole IST day, including either edge", () => {
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-09T00:00"))).toBe(true)
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-09T23:59"))).toBe(true)
+    // One minute earlier is still session day, one minute later is the day after.
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-08T23:59"))).toBe(false)
+    expect(isDayAfterSecondTuesdayIst(ist("2026-09-10T00:00"))).toBe(false)
+  })
+
+  it("crosses a month boundary without a special case", () => {
+    // Dec 2026's 2nd Tuesday is the 8th — no boundary. Use a month whose 2nd
+    // Tuesday is the 14th and check the day after is the 15th, not a rollover.
+    expect(isDayAfterSecondTuesdayIst(ist("2026-04-15T09:00"))).toBe(true)
+    expect(isDayAfterSecondTuesdayIst(ist("2026-05-01T09:00"))).toBe(false)
+  })
+
+  it("reports the cycle that just closed, not the one just opened", () => {
+    // The run happens 9 sep 2026, one day into the cycle keyed 2026-09-08.
+    const runAt = ist("2026-09-09T09:00")
+    expect(cycleFor(runAt).key).toBe("2026-09-08")
+    expect(closedCycleAt(runAt).key).toBe("2026-08-11")
+  })
+
+  it("covers a settled window — the closed cycle ended before the run", () => {
+    const runAt = ist("2026-09-09T09:00")
+    expect(closedCycleAt(runAt).endMs).toBeLessThan(runAt)
   })
 })

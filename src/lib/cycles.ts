@@ -290,6 +290,31 @@ export function isSecondTuesdayIst(year: number, month: number, day: number): bo
   return day === secondTuesdayDayOfMonth(year, month)
 }
 
+/**
+ * Whether `at` falls on the IST calendar day immediately after a 2nd Tuesday.
+ *
+ * This is the pulse report's trigger: it runs the morning after a session and
+ * reports on the cycle that closed. Computed by stepping back one IST day and
+ * asking whether that was a session day, rather than by adding a day to the
+ * session — the back-step is correct across month and year boundaries without
+ * a special case for the 1st.
+ */
+export function isDayAfterSecondTuesdayIst(at: number = Date.now()): boolean {
+  const yesterday = istParts(at - DAY_MS)
+  return isSecondTuesdayIst(yesterday.year, yesterday.month, yesterday.day)
+}
+
+/**
+ * The cycle the pulse report covers when run at `at`: the one that just closed.
+ *
+ * On the day after a session we are one day into the newly opened cycle
+ * (buildCycle opens a cycle on the REMINDER day, the day before the session),
+ * so the settled, complete window is the cycle before the current one.
+ */
+export function closedCycleAt(at: number = Date.now()): Cycle {
+  return shiftCycle(cycleFor(at), -1)
+}
+
 const WEEKDAYS_LONG = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 ]
