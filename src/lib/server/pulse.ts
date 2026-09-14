@@ -519,3 +519,170 @@ export function buildReportText(
 
   return lines.join("\n")
 }
+
+// ── Persistence ─────────────────────────────────────────────────────────
+
+export type PersistedRun = {
+  runId: string
+  /** False when a run for this cycle already existed and was reused. */
+  created: boolean
+  previousScores: Map<string, number>
+}
+
+/**
+ * Composite scores from the most recent run before `cycleKey`, keyed by
+ * employee. Drives the movement arrows, and is stored on the new run so the
+ * delta survives a later config change.
+ */
+export async function loadPreviousScores(cycleKey: string): Promise<Map<string, number>> {
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: prior } = await supabaseAdmin
+    .from("pulse_runs" as never)
+    .select("id")
+    .lt("cycle_key", cycleKey)
+    .order("cycle_key", { ascending: false })
+    .limit(1)
+
+  const priorRunId = ((prior ?? []) as { id: string }[])[0]?.id
+  if (!priorRunId) return new Map()
+
+  const { data: scores } = await supabaseAdmin
+    .from("pulse_scores" as never)
+    .select("employee_id, composite")
+    .eq("run_id", priorRunId)
+
+  const out = new Map<string, number>()
+  for (const row of (scores ?? []) as { employee_id: string; composite: number | null }[]) {
+    if (row.composite !== null) out.set(row.employee_id, Number(row.composite))
+  }
+  return out
+}
+
+/**
+ * Write the run and its scores.
+ *
+ * Idempotent on cycle_key: a second call for the same cycle returns the
+ * existing run untouched rather than producing a second report and a second
+ * set of draft notes. The unique index is what actually enforces this — the
+ * lookup below is the fast path, not the guarantee.
+ */
+export async function persistRun(
+  run: PulseRunResult,
+  previousScores: Map<string, number>
+): Promise<PersistedRun> {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  const { data: existing } = await supabaseAdmin
+    .from("pulse_runs" as never)
+    .select("id")
+    .eq("cycle_key", run.cycleKey)
+    .maybeSingle()
+
+  const existingRun = existing as { id: string } | null
+  if (existingRun?.id) {
+    return { runId: existingRun.id, created: false, previousScores }
+  }
+
+  const { data: inserted, error } = await supabaseAdmin
+    .from("pulse_runs" as never)
+    .insert({
+      cycle_key: run.cycleKey,
+      window_start: run.windowStartIso,
+      window_end: run.windowEndIso,
+      config: run.config,
+      status: "built",
+    } as never)
+    .select("id")
+    .single()
+
+  const newRun = inserted as { id: string } | null
+  if (error || !newRun) {
+    // A concurrent run won the unique index. Fall back to reading theirs
+    // rather than failing — two schedulers firing at once must not produce
+    // two reports.
+    const { data: raced } = await supabaseAdmin
+      .from("pulse_runs" as never)
+      .select("id")
+      .eq("cycle_key", run.cycleKey)
+      .maybeSingle()
+    const racedRun = raced as { id: string } | null
+    if (racedRun?.id) return { runId: racedRun.id, created: false, previousScores }
+    throw new Error(`Failed to create pulse run: ${error?.message ?? "unknown"}`)
+  }
+
+  const rows = run.people.map((person) => ({
+    run_id: newRun.id,
+    employee_id: person.employeeId,
+    cohort: person.cohort,
+    bucket: person.bucket,
+    composite: person.composite,
+    components: person.componentAverages,
+    review_count: person.reviewCount,
+    review_scores: person.reviewScores,
+    coverage_expected: person.coverageExpected,
+    coverage_received: person.coverageReceived,
+    self_review_filed: person.selfReviewFiled,
+    probation_end_date: person.probationEndDate,
+    probation_overdue: person.probationOverdue,
+    prev_composite: previousScores.get(person.employeeId) ?? null,
+  }))
+
+  if (rows.length > 0) {
+    const { error: scoreError } = await supabaseAdmin.from("pulse_scores" as never).insert(rows as never)
+    if (scoreError) {
+      throw new Error(`Failed to write pulse scores: ${scoreError.message}`)
+    }
+  }
+
+  return { runId: newRun.id, created: true, previousScores }
+}
+
+/**
+ * Write one draft note per person, all in `draft` status.
+ *
+ * Skips anyone already holding a note for this run, so a retry after a partial
+ * failure tops up rather than duplicating. Nothing here sends anything.
+ */
+export async function persistNotes(
+  runId: string,
+  notes: { employeeId: string; bucket: Bucket; text: string; source: "llm" | "template" }[]
+): Promise<number> {
+  if (notes.length === 0) return 0
+  const supabaseAdmin = getSupabaseAdmin()
+
+  const { data: existing } = await supabaseAdmin
+    .from("pulse_notes" as never)
+    .select("employee_id")
+    .eq("run_id", runId)
+
+  const have = new Set(
+    ((existing ?? []) as { employee_id: string }[]).map((n) => n.employee_id)
+  )
+  const rows = notes
+    .filter((n) => !have.has(n.employeeId))
+    .map((n) => ({
+      run_id: runId,
+      employee_id: n.employeeId,
+      bucket: n.bucket,
+      draft_text: n.text,
+      source: n.source,
+      status: "draft" as const,
+    }))
+
+  if (rows.length === 0) return 0
+  const { error } = await supabaseAdmin.from("pulse_notes" as never).insert(rows as never)
+  if (error) throw new Error(`Failed to write pulse notes: ${error.message}`)
+  return rows.length
+}
+
+/** Record that the report went out, and to whom. */
+export async function markReported(runId: string, recipients: string[]): Promise<void> {
+  await getSupabaseAdmin()
+    .from("pulse_runs" as never)
+    .update({
+      report_sent_at: new Date().toISOString(),
+      report_recipients: recipients,
+      status: "reported",
+    } as never)
+    .eq("id", runId)
+}

@@ -5,7 +5,17 @@ import {
   isGoogleChatConfigured,
   isNotificationsEnabled,
 } from "@/lib/server/google-chat"
-import { buildPulseRun, buildReportText } from "@/lib/server/pulse"
+import {
+  buildPulseRun,
+  buildReportText,
+  loadPreviousScores,
+  loadPulseRecipients,
+  markReported,
+  persistNotes,
+  persistRun,
+} from "@/lib/server/pulse"
+import { draftNote } from "@/lib/server/pulse-notes"
+import { MOD_EMAILS } from "@/lib/server/require-admin"
 import { isDayAfterSecondTuesdayIst } from "@/lib/cycles"
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
@@ -21,9 +31,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build
  *   ?preview=<email> compute and DM the report to that address only. Writes nothing
  *   ?force=true      bypass the day gate; combines with the above
  *
- * Phase 1 implements the read path only: ?dry=true and ?preview=. The default
- * mode returns 501 rather than half-running, so a schedule registered early
- * cannot quietly send a report built by an unfinished pipeline.
+ * The notes it drafts are all left in `draft` status. Nothing here messages an
+ * employee — that only happens when a human approves a note in /admin.
  */
 export async function GET(request: Request) {
   if (!CRON_SECRET) {
@@ -96,14 +105,86 @@ export async function GET(request: Request) {
     }
   }
 
-  // Guarded until persistence and note drafting land (phases 2-3). Returning
-  // 501 keeps a prematurely registered schedule from sending anything.
-  return NextResponse.json(
-    {
-      error: "Live pulse runs are not enabled yet.",
-      hint: "Use ?dry=true to inspect the buckets, or ?preview=<email> to test delivery.",
-      totals: run.totals,
-    },
-    { status: 501 }
+  const recipients = await loadPulseRecipients()
+  if (recipients.length === 0) {
+    // Fails closed, unlike the notification switch beside it: a report naming
+    // people's performance goes nowhere until someone sets the list.
+    return NextResponse.json({
+      skipped: true,
+      reason: "No pulse recipients configured.",
+      hint: "Set the recipient list in /admin?tab=pulse before enabling the schedule.",
+    })
+  }
+
+  const previousScores = await loadPreviousScores(run.cycleKey)
+  const persisted = await persistRun(run, previousScores)
+
+  if (!persisted.created) {
+    // A run already exists for this cycle. Re-running must not produce a
+    // second report or a second set of drafts.
+    return NextResponse.json({
+      skipped: true,
+      reason: "A pulse run already exists for this cycle.",
+      runId: persisted.runId,
+      cycle: run.cycleKey,
+    })
+  }
+
+  // Everyone gets a note — including the doing-well bucket, which is the only
+  // one that is pure recognition and makes no ask.
+  const rosterNames = run.people.map((p) => p.name)
+  const leadershipNames = run.people
+    .filter((p) => p.email && MOD_EMAILS.includes(p.email.toLowerCase()))
+    .map((p) => p.name)
+
+  const drafted = await Promise.all(
+    run.people.map(async (person) => {
+      const note = await draftNote(person, run.config, {
+        appUrl: APP_URL,
+        rosterNames,
+        leadershipNames,
+      })
+      return {
+        employeeId: person.employeeId,
+        bucket: person.bucket,
+        text: note.text,
+        source: note.source,
+      }
+    })
   )
+
+  const notesWritten = await persistNotes(persisted.runId, drafted)
+
+  const text = buildReportText(run, {
+    appUrl: APP_URL,
+    runId: persisted.runId,
+    previousScores,
+    pendingNotes: notesWritten,
+  })
+
+  const results: { email: string; success: boolean; error?: string }[] = []
+  for (const email of recipients) {
+    try {
+      await sendDirectMessage(email, text)
+      results.push({ email, success: true })
+    } catch (err: unknown) {
+      results.push({
+        email,
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown error",
+      })
+    }
+  }
+
+  const delivered = results.filter((r) => r.success).map((r) => r.email)
+  if (delivered.length > 0) await markReported(persisted.runId, delivered)
+
+  return NextResponse.json({
+    runId: persisted.runId,
+    cycle: run.cycleKey,
+    totals: run.totals,
+    notesDrafted: notesWritten,
+    llmDrafts: drafted.filter((d) => d.source === "llm").length,
+    reportSentTo: results,
+  })
 }
