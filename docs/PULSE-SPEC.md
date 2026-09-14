@@ -1,6 +1,6 @@
 # build3 Pulse — engineering spec
 
-**Status:** proposed · **Owner:** Arjun · **Reviewers:** Bhavesh, engineering
+**Status:** built (phases 1-4 shipped; schedule not yet registered) · **Owner:** Arjun · **Reviewers:** Bhavesh, engineering
 **Target:** `mutualfeedback.build3.online` (this repo)
 
 ---
@@ -52,6 +52,14 @@ Teammates in their probation period are referred to as **"on probation"** or **"
 | R8 | No note reaches an employee without a human reviewing and approving it. |
 | R9 | Thresholds, weights, and recipients are editable in the admin UI, not hardcoded. |
 | R10 | Notes must not identify individual reviewers. |
+
+### Added during implementation
+
+| # | Requirement | Why |
+| --- | --- | --- |
+| R11 | Non-person accounts on the roster are never scored or notified. | The studio's own Chat sender sits on `employees` as an `intern` with an active probation record, and was being bucketed. |
+| R12 | The report flags probations whose end date has passed while the record is still open. | The first real run surfaced ten, some three months over — a decision nobody made, invisible everywhere else in the product. |
+| R13 | Bulk send takes two clicks and states that it cannot be undone. | During testing a single stray click on the bulk button sent a real note. A send is irreversible and the button sits directly above the rows it fires for. |
 
 ---
 
@@ -165,7 +173,13 @@ Separate lines are necessary, not a courtesy. The contribution ladder runs *find
 
 This fourth bucket is a feature, not an exception path. It is the clearest actionable output the system produces: it tells leadership exactly who is invisible to the feedback process, and it generates the most concrete possible note — *collect two more pieces of feedback before the next session*. Someone with one review is not doing well or badly; they are unmeasured, and that is the thing to fix.
 
-### 6.3 Reported but not scored
+### 6.3 Excluded entirely
+
+Addresses in `exclude_emails` (default: `foundation@build3.org`) are never scored
+and never notified. Scoring a shared or service account produces a meaningless
+bucket and, worse, a note addressed to an inbox several people read.
+
+### 6.4 Reported but not scored
 
 Two participation measures appear in the report and inform the notes, but stay out of the composite, because they measure a person's engagement with the process rather than colleagues' assessment of them:
 
@@ -322,7 +336,14 @@ New `pulse` tab in `src/app/admin/page.tsx` (extend the `Tab` union and `TABS`; 
 - **Config panel** — weights, both cut-line pairs, `min_reviews`, `window_cycles`, and the recipient list. Sliders in the style of `RiskScan`, but persisted to `site_settings` instead of held in local state.
 - **Sent notes render read-only** with a timestamp and the approver's name. The page is the audit trail.
 
-### 10.3 Scheduling
+### 10.3 Test support
+
+`vitest.config.ts` maps the `@/` path alias and stubs `server-only`, which is a
+Next build-time marker with no standalone package. Without both, any test whose
+import graph reaches a server module fails at collection — which is why the
+tests predating this work all use relative imports and avoid `src/lib/server`.
+
+### 10.4 Scheduling
 
 `vercel.json` was removed in `82df7f6` during the Vercel → Coolify migration; cron schedules now live outside the repo as Coolify scheduled tasks. Following the pattern of every other cron here, the schedule is a plain daily hit and the route decides whether today is the day:
 
@@ -356,6 +377,11 @@ New `pulse` tab in `src/app/admin/page.tsx` (extend the `Tab` union and `TABS`; 
 5. **Approval path.** Open `/admin?tab=pulse`, edit a draft, send it to the test address, confirm delivery and the `sent` transition.
 6. **Idempotency.** Re-run the cron for the same cycle; confirm one run row, no duplicate notes, no second report.
 7. Only then set `pulse_recipients` to `at@build3.org` and `br@build3.org`, and register the Coolify schedule.
+
+**Result of the first real run (14 Sep 2026, cycle `2026-08-11`):** 30 people
+scored from 190 reviews — 12 doing well, 1 on the fence, 1 needing a
+conversation, 16 without enough signal. 30 notes drafted, zero template
+fallbacks. Ten probation records found lapsed. Re-running correctly skipped.
 
 ---
 

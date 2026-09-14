@@ -21,11 +21,13 @@ const ChatSettings = dynamic(() => import("@/components/admin/ChatSettings"), { 
 const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher"), { ssr: false })
 const DataExport = dynamic(() => import("@/components/admin/DataExport"), { ssr: false })
 const RiskScan = dynamic(() => import("@/components/admin/RiskScan"), { ssr: false })
+const PulseReview = dynamic(() => import("@/components/admin/PulseReview"), { ssr: false })
 
-type Tab = "overview" | "activity" | "employees" | "submissions" | "risk" | "usage" | "birthdays" | "export" | "danger"
+type Tab = "overview" | "pulse" | "activity" | "employees" | "submissions" | "risk" | "usage" | "birthdays" | "export" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
+  { key: "pulse", label: "pulse 📊" },
   { key: "activity", label: "activity" },
   { key: "employees", label: "employees" },
   { key: "submissions", label: "submissions" },
@@ -233,6 +235,8 @@ export default function AdminPage() {
             />
           </div>
         )}
+        {tab === "pulse" && <PulseReview />}
+
         {tab === "activity" && (
           <ActivityFeed submissions={submissions} employees={employees} />
         )}
