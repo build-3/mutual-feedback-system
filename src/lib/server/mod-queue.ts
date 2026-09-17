@@ -3,6 +3,7 @@ import "server-only"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { isOrgVoiceReply } from "@/lib/server/require-admin"
 import { cycleKeyOf } from "@/lib/cycles"
+import { isSubstantiveAnswer } from "@/lib/substantive"
 
 /**
  * Data for the /mod response console: every org-level (build3) feedback
@@ -22,14 +23,9 @@ const RESPONDABLE_BUILD3_KEYS = new Set([
 ])
 
 /** Answers that say "nothing to report" don't need a reply and shouldn't
- *  count against the triage state. Same list the data audit used. */
-const NON_SUBSTANTIVE = new Set([
-  "", "na", "n/a", "-", ".", "none", "nothing", "no", "nope", "yes", "all good",
-])
-
-function isSubstantive(value: string | null): boolean {
-  return !NON_SUBSTANTIVE.has((value ?? "").trim().toLowerCase())
-}
+ *  count against the triage state. Moved to src/lib/substantive.ts when the
+ *  leaderboard needed the same rule — one definition, not two that drift. */
+const isSubstantive = isSubstantiveAnswer
 
 export type TriageStatus = "unanswered" | "partial" | "done"
 

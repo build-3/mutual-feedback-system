@@ -125,11 +125,17 @@ export function getRoleAccent(role: "intern" | "full_timer" | "admin"): Accent {
   return "sky"
 }
 
-export const SCREEN_ACCENTS: Record<"feedback" | "insights" | "employees" | "kudos", Accent> = {
+export const SCREEN_ACCENTS: Record<
+  "feedback" | "insights" | "employees" | "kudos" | "leaderboard",
+  Accent
+> = {
   feedback: "peach",
   insights: "sky",
   employees: "sage",
   kudos: "yellow",
+  // Its own colour rather than borrowing kudos' yellow: the two are both
+  // boards and would otherwise read as the same screen.
+  leaderboard: "lavender",
 }
 
 export const DATE_RANGE_LABELS: Record<DateRange, string> = {

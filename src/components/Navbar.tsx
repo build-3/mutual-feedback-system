@@ -12,6 +12,7 @@ const links = [
   { href: "/feedback?path=kudos", label: "kudos", icon: "star", exactMatch: true },
   { href: "/feedback?path=adhoc", label: "quick note", icon: "zap", exactMatch: true },
   { href: "/insights", label: "insights", icon: "chart" },
+  { href: "/leaderboard", label: "board", icon: "trophy" },
   { href: "/employees", label: "people", icon: "people" },
 ]
 
@@ -19,6 +20,7 @@ const LINK_ACCENTS: Record<string, typeof SCREEN_ACCENTS[keyof typeof SCREEN_ACC
   "/feedback": SCREEN_ACCENTS.feedback,
   "/insights": SCREEN_ACCENTS.insights,
   "/employees": SCREEN_ACCENTS.employees,
+  "/leaderboard": SCREEN_ACCENTS.leaderboard,
 }
 
 function NavIcon({ icon, className }: { icon: string; className?: string }) {
@@ -51,6 +53,16 @@ function NavIcon({ icon, className }: { icon: string; className?: string }) {
       return (
         <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+      )
+    case "trophy":
+      return (
+        <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 21h8" />
+          <path d="M12 17v4" />
+          <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+          <path d="M17 5h3v2a3 3 0 0 1-3 3" />
+          <path d="M7 5H4v2a3 3 0 0 0 3 3" />
         </svg>
       )
     case "zap":
