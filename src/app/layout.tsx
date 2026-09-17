@@ -1,11 +1,31 @@
 import type { Metadata, Viewport } from "next"
-import { Space_Grotesk } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+/**
+ * Space Grotesk, served from the repo rather than fetched from Google.
+ *
+ * next/font/google downloads the webfont at COMPILE time, and when that fetch
+ * fails Next silently substitutes a metric-adjusted system font — the build
+ * succeeds, the page renders, and the only symptom is that the whole app is in
+ * the wrong typeface. That is not a hypothetical: it is what was happening
+ * locally (ETIMEDOUT to fonts.googleapis.com from Node, while curl on the same
+ * machine reached it fine), and the same failure would hit any build host with
+ * restricted egress.
+ *
+ * The file is the upstream v22 variable font, latin subset — U+0000-00FF plus
+ * punctuation, currency and arrows, which covers everything this app renders.
+ * Space Grotesk is SIL OFL 1.1, so redistributing it here is permitted.
+ */
+const spaceGrotesk = localFont({
+  src: "./fonts/SpaceGrotesk-Variable-latin.woff2",
+  // One variable file spans the range; the old config asked Google for 400,
+  // 500 and 700 and got this same file back three times.
+  weight: "300 700",
+  style: "normal",
+  display: "swap",
   variable: "--font-space-grotesk",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 })
 
 export const viewport: Viewport = {
