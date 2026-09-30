@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sortAnswersByQuestionOrder } from "@/lib/answer-order"
 import { requireAuth } from "@/lib/server/require-admin"
 import { getSupabaseAdmin, hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { SELF_QUESTIONS } from "@/lib/questions"
@@ -53,11 +54,14 @@ export async function GET(
     .select("question_key, answer_value")
     .eq("submission_id", sub.id)
 
-  const answers = (answerRows ?? []).map((a) => ({
-    question_key: a.question_key,
-    question_text: SELF_QUESTION_TEXT[a.question_key] || a.question_key,
-    answer_value: a.answer_value,
-  }))
+  const answers = sortAnswersByQuestionOrder(
+    "self",
+    (answerRows ?? []).map((a) => ({
+      question_key: a.question_key,
+      question_text: SELF_QUESTION_TEXT[a.question_key] || a.question_key,
+      answer_value: a.answer_value,
+    }))
+  )
 
   return NextResponse.json({
     submission: { id: sub.id, created_at: sub.created_at, answers },

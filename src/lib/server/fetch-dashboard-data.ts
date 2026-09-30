@@ -1,5 +1,6 @@
 import "server-only"
 
+import { sortAnswersByQuestionOrder } from "@/lib/answer-order"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { parseNumericAnswer, contributionKeyToLabel, selectedValueTitles, NUMERIC_KEYS, VALUES_WITH_TEXT_KEYS, formatValuesWithText } from "@/lib/insights-helpers"
 import { BUILD3_VALUES } from "@/lib/questions"
@@ -242,12 +243,15 @@ export async function buildInsightsPayload(
     feedback_type: s.feedback_type,
     created_at: s.created_at,
     submitterName: empNameById.get(s.submitted_by_id) || "Unknown",
-    answers: (answerMap.get(s.id) || []).map(a => ({
-      id: a.id,
-      question_key: a.question_key,
-      question_text: a.question_text,
-      answer_value: a.answer_value,
-    })),
+    answers: sortAnswersByQuestionOrder(
+      s.feedback_type,
+      (answerMap.get(s.id) || []).map(a => ({
+        id: a.id,
+        question_key: a.question_key,
+        question_text: a.question_text,
+        answer_value: a.answer_value,
+      }))
+    ),
   }))
 
   // Scope to the requested window HERE, once. Every metric below — org

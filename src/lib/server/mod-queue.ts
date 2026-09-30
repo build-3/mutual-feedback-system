@@ -1,4 +1,5 @@
 import "server-only"
+import { sortAnswersByQuestionOrder } from "@/lib/answer-order"
 
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { isOrgVoiceReply } from "@/lib/server/require-admin"
@@ -179,7 +180,7 @@ export async function buildModQueue() {
         notified_at: null,
       },
       submitterName: nameById.get(s.submitted_by_id) || "Unknown",
-      answers: subAnswers,
+      answers: sortAnswersByQuestionOrder(s.feedback_type, subAnswers),
       period,
       status,
       needsReply: target.length,
