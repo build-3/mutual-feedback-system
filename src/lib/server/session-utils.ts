@@ -118,7 +118,7 @@ export async function getActiveSession(at: number = Date.now()): Promise<Feedbac
 
 /**
  * Generate session_assignments: pairs every active probation intern
- * with every full-timer/admin as a reviewer.
+ * with every active full-timer/admin as a reviewer.
  * Idempotent — skips existing assignments.
  */
 export async function generateSessionAssignments(sessionId: string): Promise<number> {
@@ -134,11 +134,15 @@ export async function generateSessionAssignments(sessionId: string): Promise<num
 
   const internIds = probations.map((p) => p.employee_id)
 
-  // Get full-timers and admins (potential reviewers)
+  // Get full-timers and admins still on the roster. Departed reviewers were
+  // being assigned too, which quietly inflated every intern's denominator —
+  // a round looked half-answered when the people who left were never going
+  // to answer.
   const { data: reviewers } = await supabaseAdmin
     .from("employees")
     .select("id")
     .in("role", ["full_timer", "admin"])
+    .eq("is_active", true)
 
   if (!reviewers || reviewers.length === 0) return 0
 

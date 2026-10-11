@@ -74,11 +74,13 @@ export async function GET(request: Request) {
     internNames.set(i.id, i.name)
   }
 
-  // Get full-timers and admins to remind
+  // Get full-timers and admins to remind — roster only, so we stop nudging
+  // teammates who have already left.
   const { data: reviewers } = await supabaseAdmin
     .from("employees")
     .select("id, name, email")
     .in("role", ["full_timer", "admin"])
+    .eq("is_active", true)
 
   if (!reviewers || reviewers.length === 0) {
     return NextResponse.json({ skipped: true, reason: "No reviewers found." })
