@@ -21,7 +21,7 @@ import {
   contributionKeyToLabel,
   valueShortTitle,
 } from "@/lib/insights-helpers"
-import { BUILD3_VALUES } from "@/lib/questions"
+import { BUILD3_VALUES, ECOASHRAM_PRESENCE_KEY, presenceLabel } from "@/lib/questions"
 import { BrandPanel, Eyebrow, badgeClasses, buttonClasses } from "@/components/ui/brand"
 import type { FeedbackResponse } from "@/lib/types"
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder"
@@ -52,12 +52,26 @@ function parseValuesWithText(raw: string) {
   return parseValuesWithTextRaw(raw, BUILD3_VALUES)
 }
 
+/**
+ * Numeric answers that carry a written follow-up, mapped to its key. The
+ * follow-up renders inside the score's card, so it is hidden from the flat list
+ * whenever its score is present.
+ */
+const DETAIL_KEY_BY_SCORE: Record<string, string> = {
+  trust_battery: "trust_battery_detail",
+  [ECOASHRAM_PRESENCE_KEY]: "ecoashram_presence_detail",
+}
+const SCORE_KEY_BY_DETAIL: Record<string, string> = Object.fromEntries(
+  Object.entries(DETAIL_KEY_BY_SCORE).map(([score, detail]) => [detail, score])
+)
+
 const NUMERIC_DISPLAY = new Set([
   "recommend_rating",
   "teal_self_management",
   "teal_wholeness",
   "teal_evolutionary_purpose",
   "purpose_alignment",
+  "ecoashram_presence",
   "itp_humble",
   "itp_hungry",
   "itp_smart",
@@ -375,11 +389,13 @@ const AnswerDisplay = memo(function AnswerDisplay({
   const isRespondable = RESPONDABLE_KEYS.has(questionKey) && !!currentUser
 
   if (NUMERIC_DISPLAY.has(questionKey) && numericValue !== null) {
-    const detailAnswer = questionKey === "trust_battery"
-      ? siblingAnswers?.find((a) => a.question_key === "trust_battery_detail")
+    const detailKey = DETAIL_KEY_BY_SCORE[questionKey]
+    const detailAnswer = detailKey
+      ? siblingAnswers?.find((a) => a.question_key === detailKey)
       : null
     const detailAnswerId = detailAnswer?.id
-    const isDetailRespondable = detailAnswer && RESPONDABLE_KEYS.has("trust_battery_detail") && !!currentUser
+    const isDetailRespondable = detailAnswer && RESPONDABLE_KEYS.has(detailKey) && !!currentUser
+    const stepName = questionKey === ECOASHRAM_PRESENCE_KEY ? presenceLabel(numericValue) : null
 
     return (
       <div className="rounded-[20px] border border-line bg-black/[0.02] p-4">
@@ -389,14 +405,17 @@ const AnswerDisplay = memo(function AnswerDisplay({
         <div className="mt-2 text-lg font-semibold tracking-[-0.04em] text-ink">
           {questionKey === "trust_battery"
             ? `${numericValue}%`
-            : questionKey === "nps_score"
+            : questionKey === "nps_score" || questionKey === ECOASHRAM_PRESENCE_KEY
             ? `${numericValue}/10`
             : `${numericValue}/5`}
+          {stepName && (
+            <span className="ml-2 text-sm font-medium tracking-normal text-muted">{stepName}</span>
+          )}
         </div>
         {detailAnswer && detailAnswer.answer_value.trim() && (
           <div className="mt-3 border-t border-line pt-3">
             <div className="text-[11px] font-semibold tracking-[0.08em] text-muted">
-              {QUESTION_LABELS["trust_battery_detail"] || detailAnswer.question_text || "detail"}
+              {QUESTION_LABELS[detailKey] || detailAnswer.question_text || "detail"}
             </div>
             <div className="mt-1 whitespace-pre-wrap text-sm leading-7 text-ink">
               {detailAnswer.answer_value}
@@ -558,14 +577,15 @@ const TimelineItem = memo(function TimelineItem({
                 <div className="grid gap-3 px-3.5 py-3.5 sm:px-5 sm:py-5">
                   {submission.answers
                     .filter((a) => {
-                      if (a.question_key !== "trust_battery_detail") return true
+                      const scoreKey = SCORE_KEY_BY_DETAIL[a.question_key]
+                      if (!scoreKey) return true
                       // Only drop the detail here if it will be rendered nested under
-                      // a numeric trust_battery answer. If there's no such sibling,
-                      // keep it so it renders standalone below instead of vanishing.
-                      const hasNumericTrustBattery = submission.answers.some(
-                        (sib) => sib.question_key === "trust_battery" && parseNumericAnswer(sib.answer_value) !== null
+                      // its numeric score. If there's no such sibling, keep it so it
+                      // renders standalone below instead of vanishing.
+                      const hasNumericScore = submission.answers.some(
+                        (sib) => sib.question_key === scoreKey && parseNumericAnswer(sib.answer_value) !== null
                       )
-                      return !hasNumericTrustBattery
+                      return !hasNumericScore
                     })
                     .map((answer) => (
                     <AnswerDisplay

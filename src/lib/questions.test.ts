@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest"
 
 import {
   BUILD3_QUESTIONS,
+  ECOASHRAM_PRESENCE_DETAIL_KEY,
+  ECOASHRAM_PRESENCE_KEY,
+  ECOASHRAM_PRESENCE_LABELS,
   FULL_TIMER_QUESTIONS,
   INTERN_QUESTIONS,
   CONDITIONAL_DETAIL_PARENTS,
   MIN_ANSWER_LENGTHS,
   TRUST_DETAIL_MIN_LENGTH,
   TRUST_DETAIL_REQUIRED_BELOW,
+  presenceLabel,
   requiredDetailLength,
   validateFollowupDetail,
   type Question,
@@ -160,5 +164,59 @@ describe("teal principles carry a definition for the info button", () => {
       // explanation, so the row does not say the same thing twice.
       expect(item.description, item.key).toBeUndefined()
     }
+  })
+})
+
+describe("the ecoāshrām presence question replaced purpose_alignment for peers", () => {
+  const presenceIn = (questions: Question[]) =>
+    questions.find((q) => q.key === ECOASHRAM_PRESENCE_KEY)
+
+  it("is asked on both peer paths", () => {
+    expect(presenceIn(INTERN_QUESTIONS)).toBeDefined()
+    expect(presenceIn(FULL_TIMER_QUESTIONS)).toBeDefined()
+  })
+
+  it("no longer asks peers the old purpose_alignment stars question", () => {
+    expect(INTERN_QUESTIONS.some((q) => q.key === "purpose_alignment")).toBe(false)
+    expect(FULL_TIMER_QUESTIONS.some((q) => q.key === "purpose_alignment")).toBe(false)
+  })
+
+  it("leaves build3's own purpose question alone", () => {
+    expect(BUILD3_QUESTIONS.some((q) => q.key === "purpose_alignment")).toBe(true)
+    expect(presenceIn(BUILD3_QUESTIONS)).toBeUndefined()
+  })
+
+  it("is a 1-10 scale with exactly one named label per step", () => {
+    const q = presenceIn(INTERN_QUESTIONS)!
+    expect(q.type).toBe("labeled_scale")
+    expect(q.min).toBe(1)
+    expect(q.max).toBe(10)
+    expect(q.scale!.labels).toHaveLength(q.max! - q.min! + 1)
+    expect(q.scale!.labels[0]).toBe("absent")
+    expect(q.scale!.labels[9]).toBe("heart of it")
+  })
+
+  it("keeps its written follow-up under a separate key and optional", () => {
+    const q = presenceIn(FULL_TIMER_QUESTIONS)!
+    expect(q.scale!.detailKey).toBe(ECOASHRAM_PRESENCE_DETAIL_KEY)
+    expect(q.scale!.detailKey).not.toBe(q.key)
+    // No minimum may be inherited: the follow-up is a reflection, not a gate.
+    expect(MIN_ANSWER_LENGTHS[ECOASHRAM_PRESENCE_DETAIL_KEY]).toBeUndefined()
+    expect(CONDITIONAL_DETAIL_PARENTS[ECOASHRAM_PRESENCE_DETAIL_KEY]).toBeUndefined()
+  })
+
+  it("is framed as a perception rather than a verdict", () => {
+    const q = presenceIn(INTERN_QUESTIONS)!
+    expect(q.text).toContain("right now")
+    expect(q.subtext).toContain("not a judgment")
+  })
+
+  it("names a step for every score and none outside the scale", () => {
+    expect(presenceLabel(1)).toBe("absent")
+    expect(presenceLabel(4)).toBe("dipping in")
+    expect(presenceLabel(10)).toBe("heart of it")
+    expect(presenceLabel(0)).toBeNull()
+    expect(presenceLabel(11)).toBeNull()
+    expect(ECOASHRAM_PRESENCE_LABELS).toHaveLength(10)
   })
 })

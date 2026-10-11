@@ -26,7 +26,12 @@ export function filterSubmissionsByRange(
   })
 }
 
-export function getScoreColor(value: number, scale: '1-5' | '0-100' | '0-10'): string {
+export function getScoreColor(value: number, scale: '1-5' | '0-100' | '0-10' | '1-10'): string {
+  if (scale === '1-10') {
+    if (value <= 4) return '#EF4444'
+    if (value <= 6.5) return '#f5bb9f'
+    return '#79c0a6'
+  }
   if (scale === '1-5') {
     if (value <= 2.5) return '#EF4444'
     if (value <= 3.5) return '#f5bb9f'
@@ -204,7 +209,8 @@ export const NUMERIC_KEYS = new Set([
   'teal_self_management',     // matrix sub-key, intern + full_timer
   'teal_wholeness',           // matrix sub-key, intern + full_timer
   'teal_evolutionary_purpose',// matrix sub-key, intern + full_timer
-  'purpose_alignment',        // intern + full_timer, star 1-5
+  'purpose_alignment',        // build3 path star 1-5; peer answers before the ecoashram swap
+  'ecoashram_presence',       // intern + full_timer, labeled scale 1-10
   'trust_battery',            // intern + full_timer, number 0-100
   'itp_humble',               // matrix sub-key, intern
   'itp_hungry',               // matrix sub-key, intern
@@ -243,6 +249,8 @@ export const QUESTION_LABELS: Record<string, string> = {
   teal_wholeness: 'wholeness',
   teal_evolutionary_purpose: 'evolutionary purpose',
   purpose_alignment: 'purpose alignment',
+  ecoashram_presence: 'life of the ecoāshrām',
+  ecoashram_presence_detail: 'ecoāshrām — the moment',
   trust_battery: 'trust battery',
   contribution_level: 'contribution level',
   itp_humble: 'humble',

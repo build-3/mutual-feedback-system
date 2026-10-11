@@ -34,6 +34,39 @@ describe("sortAnswersByQuestionOrder", () => {
     ])
   })
 
+  it("slots the new ecoāshrām answer and its follow-up where the form asks them", () => {
+    const shuffled = rows(
+      "constructive_feedback",
+      "ecoashram_presence_detail",
+      "trust_battery",
+      "recommend_rating",
+      "ecoashram_presence",
+      "teal_wholeness"
+    )
+    expect(keysOf(sortAnswersByQuestionOrder("intern", shuffled))).toEqual([
+      "recommend_rating",
+      "teal_wholeness",
+      "ecoashram_presence",
+      "ecoashram_presence_detail",
+      "trust_battery",
+      "constructive_feedback",
+    ])
+    expect(keysOf(sortAnswersByQuestionOrder("full_timer", rows("trust_battery", "ecoashram_presence_detail", "ecoashram_presence")))).toEqual([
+      "ecoashram_presence",
+      "ecoashram_presence_detail",
+      "trust_battery",
+    ])
+  })
+
+  it("keeps an old purpose_alignment answer in the slot the replacement now holds", () => {
+    // Submitted before the swap: purpose_alignment sat between teal and trust battery.
+    const out = sortAnswersByQuestionOrder(
+      "full_timer",
+      rows("trust_battery", "purpose_alignment", "teal_wholeness", "constructive_feedback")
+    )
+    expect(keysOf(out)).toEqual(["teal_wholeness", "purpose_alignment", "trust_battery", "constructive_feedback"])
+  })
+
   it("orders org feedback the way the build3 form asks", () => {
     const out = sortAnswersByQuestionOrder(
       "build3",

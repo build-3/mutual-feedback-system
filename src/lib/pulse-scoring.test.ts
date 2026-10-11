@@ -6,6 +6,7 @@ import {
   bucketFor,
   buildReviewInput,
   dedupeByReviewerCycle,
+  normalise1to10,
   normalise1to5,
   normaliseContribution,
   normaliseTrust,
@@ -268,5 +269,49 @@ describe("config defaults", () => {
     const { full_timer, probation } = DEFAULT_PULSE_CONFIG.cut_lines
     expect(probation.doing_well).toBeLessThan(full_timer.doing_well)
     expect(probation.on_the_fence).toBeLessThan(full_timer.on_the_fence)
+  })
+})
+
+describe("the purpose component reads ecoashram_presence, falling back to the old stars", () => {
+  const submission = { id: "s1", submitted_by_id: "r1", created_at: "2026-09-01T00:00:00.000Z" }
+
+  it("maps the 1-10 scale onto 0-100 with 1 at the floor and 10 at the ceiling", () => {
+    expect(normalise1to10(1)).toBe(0)
+    expect(normalise1to10(10)).toBe(100)
+    expect(normalise1to10(5.5)).toBeCloseTo(50, 5)
+  })
+
+  it("reads the new answer row", () => {
+    const input = buildReviewInput(submission, [
+      { question_key: "ecoashram_presence", answer_value: "8" },
+    ])
+    expect(input.presence).toBe(8)
+    expect(input.purpose).toBeNull()
+  })
+
+  it("scores the purpose component from presence on the 1-10 scale", () => {
+    const s = scoreReview(review({ purpose: null, presence: 10 }))!
+    const purpose = s.components.find((c) => c.key === "purpose")!
+    expect(purpose.raw).toBe(10)
+    expect(purpose.normalised).toBe(100)
+  })
+
+  it("does not read a 1-10 answer as 1-5 stars (an 8 is not off the chart)", () => {
+    const s = scoreReview(review({ purpose: null, presence: 8 }))!
+    const purpose = s.components.find((c) => c.key === "purpose")!
+    expect(purpose.normalised).toBeCloseTo((7 / 9) * 100, 5)
+  })
+
+  it("falls back to the old stars for reviews from before the swap", () => {
+    const s = scoreReview(review({ purpose: 4, presence: null }))!
+    const purpose = s.components.find((c) => c.key === "purpose")!
+    expect(purpose.raw).toBe(4)
+    expect(purpose.normalised).toBe(75)
+  })
+
+  it("prefers presence when a review somehow carries both", () => {
+    const s = scoreReview(review({ purpose: 1, presence: 10 }))!
+    const purpose = s.components.find((c) => c.key === "purpose")!
+    expect(purpose.normalised).toBe(100)
   })
 })

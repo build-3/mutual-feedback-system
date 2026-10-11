@@ -45,7 +45,7 @@ export const COMPONENT_LABELS: Record<ComponentKey, string> = {
   trust_battery: "trust battery",
   teal: "teal principles",
   contribution: "contribution level",
-  purpose: "purpose alignment",
+  purpose: "presence in the ecoāshrām",
   backing: "backing for the next step",
 }
 
@@ -118,8 +118,13 @@ export type ReviewInput = {
   trustBattery: number | null
   /** The three teal sub-scores, 1-5 each. Nulls are skipped, not zeroed. */
   teal: (number | null)[]
-  /** 1-5 stars. */
+  /**
+   * 1-5 stars — the old peer purpose_alignment question. Only present on reviews
+   * submitted before the ecoashram_presence swap; presence wins when both exist.
+   */
   purpose: number | null
+  /** 1-10 — ecoashram_presence, which replaced purpose_alignment for peers. */
+  presence?: number | null
   /** 1-4, from the A/B/C/D ladder. */
   contribution: number | null
   /** 1-5 — probation_reviews.backing_score, else recommend_rating. */
@@ -163,6 +168,11 @@ function clamp(value: number, lo: number, hi: number): number {
 /** A 1-5 rating onto 0-100. 1 maps to 0, 5 maps to 100. */
 export function normalise1to5(value: number): number {
   return clamp(((value - 1) / 4) * 100, 0, 100)
+}
+
+/** The 1-10 presence scale onto 0-100. */
+export function normalise1to10(value: number): number {
+  return clamp(((value - 1) / 9) * 100, 0, 100)
 }
 
 /** The 1-4 contribution ladder onto 0-100. */
@@ -220,7 +230,16 @@ export function scoreReview(
       normalised: normaliseContribution(review.contribution),
     })
   }
-  if (review.purpose !== null && Number.isFinite(review.purpose)) {
+  // The "purpose" component now measures presence in the ecoāshrām. Reviews from
+  // before the swap only have the old stars answer, so fall back to it rather than
+  // dropping the component for the whole of that cycle.
+  if (review.presence != null && Number.isFinite(review.presence)) {
+    present.push({
+      key: "purpose",
+      raw: review.presence,
+      normalised: normalise1to10(review.presence),
+    })
+  } else if (review.purpose !== null && Number.isFinite(review.purpose)) {
     present.push({
       key: "purpose",
       raw: review.purpose,
@@ -388,6 +407,7 @@ export function buildReviewInput(
     trustBattery: num("trust_battery"),
     teal: TEAL_KEYS.map((k) => num(k)),
     purpose: num("purpose_alignment"),
+    presence: num("ecoashram_presence"),
     contribution:
       contributionRaw === undefined ? null : contributionToNumber(contributionRaw),
     backing,

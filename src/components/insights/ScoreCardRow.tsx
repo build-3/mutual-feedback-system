@@ -13,7 +13,7 @@ interface Props {
 interface CardConfig {
   key: string
   label: string
-  scale: "1-5" | "0-100"
+  scale: "1-5" | "0-100" | "1-10"
   suffix: string
   accent: "sky" | "peach" | "sage" | "pink"
 }
@@ -31,6 +31,13 @@ const CARD_CONFIGS: CardConfig[] = [
     label: "purpose alignment",
     scale: "1-5",
     suffix: "/5",
+    accent: "peach",
+  },
+  {
+    key: "ecoashram_presence",
+    label: "life of the ecoāshrām",
+    scale: "1-10",
+    suffix: "/10",
     accent: "peach",
   },
   {
@@ -72,7 +79,7 @@ export default memo(function ScoreCardRow({
         const metric = metrics[card.key]
         if (!metric) return null
 
-        const maxValue = card.scale === "0-100" ? 100 : 5
+        const maxValue = card.scale === "0-100" ? 100 : card.scale === "1-10" ? 10 : 5
         const percentage = (metric.avg / maxValue) * 100
         const color = getScoreColor(metric.avg, card.scale)
 

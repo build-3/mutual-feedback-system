@@ -1,6 +1,7 @@
 import {
   ADHOC_QUESTIONS,
   BUILD3_QUESTIONS,
+  ECOASHRAM_PRESENCE_KEY,
   FULL_TIMER_QUESTIONS,
   INTERN_QUESTIONS,
   SELF_QUESTIONS,
@@ -34,15 +35,30 @@ function flattenKeys(questions: Question[]): string[] {
     keys.push(q.key)
     for (const item of q.matrixItems ?? []) keys.push(item.key)
     if (q.followup?.detailKey) keys.push(q.followup.detailKey)
+    if (q.scale?.detailKey) keys.push(q.scale.detailKey)
   }
   return keys
 }
 
+/**
+ * A retired key that sorts into the slot of the question that replaced it, so a
+ * submission from before the swap still reads in the form's order instead of
+ * dropping to the bottom with the other retired keys. Only applied where the
+ * retired key is genuinely gone: build3 still asks purpose_alignment itself.
+ */
+const SLOT_OF_REPLACEMENT: Record<string, string> = {
+  purpose_alignment: ECOASHRAM_PRESENCE_KEY,
+}
+
 const RANK_BY_TYPE: Record<string, Map<string, number>> = Object.fromEntries(
-  Object.entries(QUESTIONS_BY_TYPE).map(([type, qs]) => [
-    type,
-    new Map(flattenKeys(qs).map((key, i) => [key, i])),
-  ])
+  Object.entries(QUESTIONS_BY_TYPE).map(([type, qs]) => {
+    const rank = new Map(flattenKeys(qs).map((key, i) => [key, i]))
+    for (const [retired, replacement] of Object.entries(SLOT_OF_REPLACEMENT)) {
+      const slot = rank.get(replacement)
+      if (!rank.has(retired) && slot !== undefined) rank.set(retired, slot)
+    }
+    return [type, rank]
+  })
 )
 
 export function sortAnswersByQuestionOrder<T extends { question_key: string }>(

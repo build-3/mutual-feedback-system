@@ -86,8 +86,23 @@ export type QuestionType =
   | "number_input"
   | "slider"
   | "slider_with_followup"
+  | "labeled_scale"
   | "dropdown"
   | "values_with_text"
+
+/**
+ * A stepped scale where every point has a name, plus an optional written
+ * follow-up. Unlike the trust-battery slider it has no default: an untouched
+ * scale records nothing rather than quietly recording the midpoint.
+ */
+export type LabeledScale = {
+  /** One label per step, lowest first: labels[0] names `min`. */
+  labels: string[]
+  /** Answer key for the follow-up text (separate from the score). */
+  detailKey: string
+  detailPrompt: string
+  detailPlaceholder?: string
+}
 
 /** Inline follow-up that appears below the slider based on the score. */
 export type SliderFollowup = {
@@ -133,6 +148,8 @@ export type Question = {
   employeeRole?: "intern" | "full_timer"
   /** Follow-up config for slider_with_followup type */
   followup?: SliderFollowup
+  /** Step labels and optional follow-up for labeled_scale type */
+  scale?: LabeledScale
   /** When true, user can skip without answering */
   optional?: boolean
 }
@@ -183,12 +200,51 @@ const TEAL_CONCEPTS_QUESTION: Question = {
   ],
 }
 
-const PURPOSE_ALIGNMENT_QUESTION: Question = {
-  key: "purpose_alignment",
-  text: "how closely do they align with our purpose as builders for impact?",
-  type: "star_rating",
+/**
+ * Replaced the peer "purpose_alignment" stars question.
+ *
+ * A NEW key on purpose, not purpose_alignment on a new scale: those answers are
+ * 1-5 stars and this is 1-10, so sharing a key would have averaged two scales
+ * together in insights and the pulse. Old answers keep their key and still read;
+ * build3's own purpose_alignment question (below) is a different question and is
+ * untouched.
+ */
+export const ECOASHRAM_PRESENCE_KEY = "ecoashram_presence"
+export const ECOASHRAM_PRESENCE_DETAIL_KEY = "ecoashram_presence_detail"
+
+/** Step names for the 1-10 scale, lowest first. */
+export const ECOASHRAM_PRESENCE_LABELS = [
+  "absent",
+  "distant",
+  "observing",
+  "dipping in",
+  "present",
+  "participating",
+  "contributing",
+  "invested",
+  "anchoring",
+  "heart of it",
+] as const
+
+/** The step name for a stored score, or null when it is outside the scale. */
+export function presenceLabel(value: number): string | null {
+  return ECOASHRAM_PRESENCE_LABELS[Math.round(value) - 1] ?? null
+}
+
+const ECOASHRAM_PRESENCE_QUESTION: Question = {
+  key: ECOASHRAM_PRESENCE_KEY,
+  text: "how woven into the life of the ecoāshrām do they seem to you right now?",
+  type: "labeled_scale",
   subtext:
-    "think about community building, knowledge sharing, and how they help our ecosystem grow.",
+    "this is your view from where you stand, not a judgment. think about shared meals, circles, work days, and everyday moments.",
+  min: 1,
+  max: ECOASHRAM_PRESENCE_LABELS.length,
+  scale: {
+    labels: [...ECOASHRAM_PRESENCE_LABELS],
+    detailKey: ECOASHRAM_PRESENCE_DETAIL_KEY,
+    detailPrompt: "what's one moment that shaped your answer?",
+    detailPlaceholder: "optional — one moment is plenty.",
+  },
 }
 
 const TRUST_BATTERY_QUESTION: Question = {
@@ -250,7 +306,7 @@ export const INTERN_QUESTIONS: Question[] = [
     type: "star_rating",
   },
   TEAL_CONCEPTS_QUESTION,
-  PURPOSE_ALIGNMENT_QUESTION,
+  ECOASHRAM_PRESENCE_QUESTION,
   TRUST_BATTERY_QUESTION,
   CONTRIBUTION_LEVEL_QUESTION,
   VALUE_STRENGTH_QUESTION,
@@ -317,7 +373,7 @@ export const FULL_TIMER_QUESTIONS: Question[] = [
     employeeRole: "full_timer",
   },
   TEAL_CONCEPTS_QUESTION,
-  PURPOSE_ALIGNMENT_QUESTION,
+  ECOASHRAM_PRESENCE_QUESTION,
   TRUST_BATTERY_QUESTION,
   CONTRIBUTION_LEVEL_QUESTION,
   VALUE_STRENGTH_QUESTION,

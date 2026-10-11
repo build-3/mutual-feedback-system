@@ -79,7 +79,7 @@ const COMPONENT_LABELS: Record<string, string> = {
   trust_battery: "trust battery",
   teal: "teal principles",
   contribution: "contribution level",
-  purpose: "purpose alignment",
+  purpose: "presence in the ecoāshrām",
   backing: "backing",
 }
 

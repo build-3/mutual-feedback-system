@@ -281,7 +281,7 @@ export async function buildInsightsPayload(
 
   const orgTrustScores: number[] = [], orgPurposeScores: number[] = [], npsScores: number[] = []
   const npsPromoterNames: string[] = [], npsPassiveNames: string[] = [], npsDetractorNames: string[] = []
-  const peerTrustScores: number[] = [], peerPurposeScores: number[] = [], recommendScores: number[] = []
+  const peerTrustScores: number[] = [], peerPurposeScores: number[] = [], peerPresenceScores: number[] = [], recommendScores: number[] = []
   const tealSM: number[] = [], tealW: number[] = [], tealEP: number[] = []
   const contributionDist: Record<string, number> = {}, archetypeDist: Record<string, number> = {}
   const feedbackByType: Record<string, number> = {}, scoreDistributions: Record<string, number[]> = {}
@@ -320,6 +320,9 @@ export async function buildInsightsPayload(
         case "purpose_alignment":
           if (num !== null && isBuild3) orgPurposeScores.push(num)
           if (num !== null && isPeer) peerPurposeScores.push(num)
+          break
+        case "ecoashram_presence":
+          if (num !== null && isPeer) peerPresenceScores.push(num)
           break
         case "recommend_rating":
           if (num !== null && isPeer) recommendScores.push(num)
@@ -363,7 +366,7 @@ export async function buildInsightsPayload(
   const npsScore = npsTotal > 0 ? Math.round(((promoters - detractors) / npsTotal) * 100) : null
 
   const avgMetricsMap: Record<string, number> = {}
-  for (const [k, arr] of [["trust_battery", peerTrustScores], ["purpose_alignment", peerPurposeScores], ["recommend_rating", recommendScores], ["teal_self_management", tealSM], ["teal_wholeness", tealW], ["teal_evolutionary_purpose", tealEP]] as [string, number[]][]) { const a = avg(arr); if (a !== null) avgMetricsMap[k] = a }
+  for (const [k, arr] of [["trust_battery", peerTrustScores], ["purpose_alignment", peerPurposeScores], ["ecoashram_presence", peerPresenceScores], ["recommend_rating", recommendScores], ["teal_self_management", tealSM], ["teal_wholeness", tealW], ["teal_evolutionary_purpose", tealEP]] as [string, number[]][]) { const a = avg(arr); if (a !== null) avgMetricsMap[k] = a }
   for (const [k, arr] of Object.entries(scoreDistributions)) { if (!(k in avgMetricsMap) && arr.length > 0) avgMetricsMap[k] = arr.reduce((a, b) => a + b, 0) / arr.length }
 
   const nonGhost = enriched.filter(s => s.answers.length > 0)

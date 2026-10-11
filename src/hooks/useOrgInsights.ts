@@ -81,6 +81,7 @@ export function useOrgInsights(
     // These answer "how do peers rate each other?"
     const peerTrustScores: number[] = []
     const peerPurposeScores: number[] = []
+    const peerPresenceScores: number[] = []
     const recommendScores: number[] = []
     const tealSM: number[] = []
     const tealW: number[] = []
@@ -148,6 +149,9 @@ export function useOrgInsights(
           case 'purpose_alignment':
             if (num !== null && isBuild3) orgPurposeScores.push(num)
             if (num !== null && isPeerFeedback) peerPurposeScores.push(num)
+            break
+          case 'ecoashram_presence':
+            if (num !== null && isPeerFeedback) peerPresenceScores.push(num)
             break
           case 'recommend_rating':
             if (num !== null && isPeerFeedback) recommendScores.push(num)
@@ -232,6 +236,7 @@ export function useOrgInsights(
     const namedAvgs: Array<[string, number[]]> = [
       ['trust_battery', peerTrustScores],
       ['purpose_alignment', peerPurposeScores],
+      ['ecoashram_presence', peerPresenceScores],
       ['recommend_rating', recommendScores],
       ['nps_score', npsScores],
       ['teal_self_management', tealSM],

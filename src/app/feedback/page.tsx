@@ -12,6 +12,7 @@ const MatrixRating = dynamic(() => import("@/components/MatrixRating"), { ssr: f
 const NpsScale = dynamic(() => import("@/components/NpsScale"), { ssr: false })
 const StarRating = dynamic(() => import("@/components/StarRating"), { ssr: false })
 const TrustSlider = dynamic(() => import("@/components/TrustSlider"), { ssr: false })
+const LabeledScale = dynamic(() => import("@/components/LabeledScale"), { ssr: false })
 const ValuesMultiSelect = dynamic(() => import("@/components/ValuesMultiSelect"), { ssr: false })
 import {
   BrandPanel,
@@ -946,6 +947,22 @@ export default function FeedbackPage() {
       return true
     }
 
+    if (question.type === "labeled_scale") {
+      // No default value, so the reviewer has to pick a point. The follow-up is
+      // optional by design.
+      const picked = Number(answers[question.key])
+      if (
+        !answers[question.key] ||
+        !Number.isInteger(picked) ||
+        picked < (question.min ?? 1) ||
+        picked > (question.max ?? 10)
+      ) {
+        setError("pick a point on the scale so we can keep going.")
+        return false
+      }
+      return true
+    }
+
     if (question.type === "slider") {
       // Slider always has a numeric value (defaults to 50), so it's always valid
       return true
@@ -1046,6 +1063,25 @@ export default function FeedbackPage() {
           answerRows.push({
             question_key: detailKey,
             question_text: detailPrompt,
+            answer_value: detailValue,
+          })
+        }
+      } else if (question.type === "labeled_scale") {
+        const scoreValue = answers[question.key]?.trim()
+        if (scoreValue) {
+          answerRows.push({
+            question_key: question.key,
+            question_text: question.text,
+            answer_value: scoreValue,
+          })
+        }
+        // The follow-up is optional: only emit it when something was written.
+        const detailKey = question.scale?.detailKey || `${question.key}_detail`
+        const detailValue = answers[detailKey]?.trim()
+        if (detailValue) {
+          answerRows.push({
+            question_key: detailKey,
+            question_text: question.scale?.detailPrompt || "follow-up",
             answer_value: detailValue,
           })
         }
@@ -1287,6 +1323,14 @@ export default function FeedbackPage() {
       if (question.min !== undefined && numericValue < question.min) return false
       if (question.max !== undefined && numericValue > question.max) return false
       return true
+    }
+    if (question.type === "labeled_scale") {
+      const picked = Number(pendingAnswers.current[question.key])
+      return (
+        Number.isInteger(picked) &&
+        picked >= (question.min ?? 1) &&
+        picked <= (question.max ?? 10)
+      )
     }
     if (question.type === "slider") {
       return true
@@ -1605,6 +1649,59 @@ export default function FeedbackPage() {
                 </div>
               )}
             </div>
+          </div>
+        )
+      }
+      case "labeled_scale": {
+        const scale = question.scale
+        const detailKey = scale?.detailKey || `${question.key}_detail`
+        voiceQuestionKeyRef.current = detailKey
+        const rawPick = answers[question.key]
+        const picked = rawPick ? Number(rawPick) : null
+        const detailValue = answers[detailKey] || ""
+        // Same reveal as the trust slider: the follow-up opens once a point is
+        // picked, and stays open if there is already text (Back-then-Next).
+        const followupOpen = picked !== null || detailValue.length > 0
+        return (
+          <div className="space-y-6">
+            <LabeledScale
+              value={picked !== null && Number.isFinite(picked) ? picked : null}
+              min={question.min ?? 1}
+              max={question.max ?? 10}
+              labels={scale?.labels ?? []}
+              ariaLabel={question.text}
+              onChange={(value) => setAnswer(question.key, String(value))}
+            />
+            {scale && (
+              <div
+                className={[
+                  "space-y-2 transition-all duration-300 overflow-hidden",
+                  followupOpen ? "opacity-100 max-h-[480px]" : "opacity-0 max-h-0",
+                ].join(" ")}
+              >
+                <p className="text-sm font-semibold text-ink">
+                  {scale.detailPrompt}
+                  <span className="ml-1 font-normal text-muted">(optional)</span>
+                </p>
+                <textarea
+                  value={detailValue}
+                  onChange={(e) => setAnswer(detailKey, e.target.value)}
+                  rows={3}
+                  maxLength={4000}
+                  className={fieldClasses({ size: "lg" })}
+                  placeholder={scale.detailPlaceholder || ""}
+                />
+                {VOICE_ENABLED && (
+                  <div className="mt-1">
+                    <VoiceRecorderBar
+                      ref={voiceBarRef}
+                      onTranscript={handleVoiceTranscript}
+                      onStateChange={setVoiceState}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       }
