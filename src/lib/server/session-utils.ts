@@ -132,7 +132,17 @@ export async function generateSessionAssignments(sessionId: string): Promise<num
 
   if (!probations || probations.length === 0) return 0
 
-  const internIds = probations.map((p) => p.employee_id)
+  // A departed intern keeps an "active" probation row, so the roster check has
+  // to come from employees — otherwise every reviewer is assigned someone who
+  // will never be reviewed.
+  const { data: activeInterns } = await supabaseAdmin
+    .from("employees")
+    .select("id")
+    .in("id", probations.map((p) => p.employee_id))
+    .eq("is_active", true)
+
+  const internIds = (activeInterns ?? []).map((i) => i.id)
+  if (internIds.length === 0) return 0
 
   // Get full-timers and admins still on the roster. Departed reviewers were
   // being assigned too, which quietly inflated every intern's denominator —

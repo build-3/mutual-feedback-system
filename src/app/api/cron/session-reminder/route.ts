@@ -63,15 +63,22 @@ export async function GET(request: Request) {
 
   const internIds = probations.map((p) => p.employee_id)
 
-  // Get intern names
+  // Get intern names — roster only. A departed intern keeps an "active"
+  // probation row, so without this their name is listed in every reminder.
   const { data: interns } = await supabaseAdmin
     .from("employees")
     .select("id, name")
     .in("id", internIds)
+    .eq("is_active", true)
 
   const internNames = new Map<string, string>()
   for (const i of interns ?? []) {
     internNames.set(i.id, i.name)
+  }
+
+  const activeInternIds = internIds.filter((id) => internNames.has(id))
+  if (activeInternIds.length === 0) {
+    return NextResponse.json({ skipped: true, reason: "No active probation interns." })
   }
 
   // Get full-timers and admins to remind — roster only, so we stop nudging
@@ -101,7 +108,7 @@ export async function GET(request: Request) {
 
   for (const reviewer of reviewers) {
     // Skip self-review — find interns this reviewer still needs to review
-    const pendingInterns = internIds.filter((internId) => {
+    const pendingInterns = activeInternIds.filter((internId) => {
       if (internId === reviewer.id) return false
       return !completedSet.has(`${reviewer.id}-${internId}`)
     })
