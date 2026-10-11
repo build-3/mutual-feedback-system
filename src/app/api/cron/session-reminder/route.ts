@@ -16,6 +16,11 @@ import { formatSessionDateLabel } from "@/lib/cycles"
 const CRON_SECRET = process.env.CRON_SECRET ?? ""
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mutualfeedback.build3.online"
 
+// The org's own "build3 Foundation" record sits on probation as an intern (it is
+// the target of the feedback-to-build3 path), but it is not a person a reviewer
+// can be asked to review, so it is never named in the reminder.
+const NOT_REMINDED_ABOUT = new Set(["490002de-d7e8-4534-983b-6fc8c4cee9be"])
+
 export async function GET(request: Request) {
   if (!CRON_SECRET) {
     return NextResponse.json({ error: "CRON_SECRET not configured." }, { status: 503 })
@@ -76,7 +81,9 @@ export async function GET(request: Request) {
     internNames.set(i.id, i.name)
   }
 
-  const activeInternIds = internIds.filter((id) => internNames.has(id))
+  const activeInternIds = internIds.filter(
+    (id) => internNames.has(id) && !NOT_REMINDED_ABOUT.has(id)
+  )
   if (activeInternIds.length === 0) {
     return NextResponse.json({ skipped: true, reason: "No active probation interns." })
   }
