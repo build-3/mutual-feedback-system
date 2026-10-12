@@ -220,6 +220,7 @@ Streaks are computed, not stored: cycles are cheap to enumerate with `listCycles
 - `src/app/api/leaderboard/route.ts` — GET, gated to any signed-in roster member.
 - `src/app/leaderboard/page.tsx` + a client component for the table.
 - `src/app/api/cron/leaderboard-nudge/route.ts` — the per-cycle nudge, following the existing cron auth block.
+- `src/app/api/cron/leaderboard-podium/route.ts` — the evening after a session, posts the top three of the live cycle to the kudos space. Ties share a step (`podium()`). Once per cycle via `site_settings.leaderboard_podium_posted`; `leaderboard_podium_enabled = "false"` stops it. Coolify task: `30 12 * * *` (18:00 IST). `?dry=true`, `?force=true`, `?preview=<build3 email>`.
 
 ### Reuse, not reinvention
 

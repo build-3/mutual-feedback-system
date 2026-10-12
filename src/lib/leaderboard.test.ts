@@ -5,6 +5,8 @@ import {
   computeStreaks,
   denseRanks,
   needsFeedback,
+  podium,
+  podiumMessage,
   shouldShowPrevious,
   submissionCounts,
   type LeaderboardPerson,
@@ -254,5 +256,49 @@ describe("denseRanks", () => {
   it("starts again from 1 after a cohort filter hides the people ahead", () => {
     // Full-timers only, from a roster where two probation people sat on 7.
     expect(denseRanks([12, 7, 5, 5, 5, 5])).toEqual([1, 2, 3, 3, 3, 3])
+  })
+})
+
+describe("podium", () => {
+  const row = (name: string, reviewed: number) =>
+    ({ ...build([])[0], employeeId: name, name, reviewed })
+
+  it("shares a step between ties and never leaves a step empty", () => {
+    const steps = podium([row("A", 10), row("B", 5), row("C", 5), row("D", 5), row("E", 3), row("F", 2)])
+    expect(steps).toEqual([
+      { place: 1, reviewed: 10, names: ["A"] },
+      { place: 2, reviewed: 5, names: ["B", "C", "D"] },
+      { place: 3, reviewed: 3, names: ["E"] },
+    ])
+  })
+
+  it("leaves out anyone who reviewed nobody", () => {
+    expect(podium([row("A", 1), row("B", 0), row("C", 0)])).toEqual([
+      { place: 1, reviewed: 1, names: ["A"] },
+    ])
+  })
+
+  it("is empty when nobody has reviewed anyone", () => {
+    expect(podium([row("A", 0), row("B", 0)])).toEqual([])
+  })
+})
+
+describe("podiumMessage", () => {
+  it("names each step with its medal and says 'each' for ties", () => {
+    const text = podiumMessage({
+      steps: [
+        { place: 1, reviewed: 10, names: ["A"] },
+        { place: 2, reviewed: 1, names: ["B", "C"] },
+      ],
+      sessionLabel: "13 Oct",
+      givers: 3,
+      people: 31,
+      boardUrl: "https://x/leaderboard",
+    })
+    expect(text).toContain("after the 13 Oct session")
+    expect(text).toContain("🥇 *A* · 10 teammates")
+    expect(text).toContain("🥈 *B*, *C* · 1 teammate each")
+    expect(text).not.toContain("🥉")
+    expect(text).toContain("<https://x/leaderboard|See the full board>")
   })
 })

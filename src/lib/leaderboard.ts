@@ -281,3 +281,66 @@ export function denseRanks(scores: number[]): number[] {
   }
   return out
 }
+
+export type PodiumPlace = {
+  /** 1, 2 or 3. Dense, so a tie never leaves a step of the podium empty. */
+  place: number
+  /** Distinct teammates each person on this step reviewed. */
+  reviewed: number
+  names: string[]
+}
+
+/**
+ * The top places for the post-session announcement.
+ *
+ * Numbered the way the page numbers its rows (`denseRanks`), not by `rank`:
+ * with three people tied on 5 below a 10, `rank` would make the next score 5th
+ * and leave nobody third, which reads as a mistake in a group post. Everyone
+ * tied on a step shares it. Nobody with zero reviews places, however few
+ * people reviewed anyone.
+ */
+export function podium(rows: LeaderboardRow[], places = 3): PodiumPlace[] {
+  const givers = rows
+    .filter((row) => row.reviewed > 0)
+    .sort((a, b) => b.reviewed - a.reviewed || a.name.localeCompare(b.name))
+  const numbers = denseRanks(givers.map((row) => row.reviewed))
+
+  const out: PodiumPlace[] = []
+  givers.forEach((row, index) => {
+    const place = numbers[index]
+    if (place > places) return
+    const step = out[place - 1]
+    if (step) step.names.push(row.name)
+    else out.push({ place, reviewed: row.reviewed, names: [row.name] })
+  })
+  return out
+}
+
+const MEDALS = ["🥇", "🥈", "🥉"]
+
+/**
+ * The Google Chat text for the podium. Chat renders *bold* and <url|label>.
+ */
+export function podiumMessage(input: {
+  steps: PodiumPlace[]
+  sessionLabel: string
+  givers: number
+  people: number
+  boardUrl: string
+}): string {
+  const { steps, sessionLabel, givers, people, boardUrl } = input
+  const lines = steps.map((step) => {
+    const names = step.names.map((n) => `*${n}*`).join(", ")
+    const teammates = `${step.reviewed} ${step.reviewed === 1 ? "teammate" : "teammates"}`
+    return `${MEDALS[step.place - 1] ?? `${step.place}.`} ${names} · ${teammates}${step.names.length > 1 ? " each" : ""}`
+  })
+  return [
+    `🏆 *Feedback leaderboard after the ${sessionLabel} session*`,
+    "",
+    "Most teammates given real feedback this cycle:",
+    ...lines,
+    "",
+    `${givers} of ${people} of us have given feedback so far. Thank you, all of you 💛`,
+    `<${boardUrl}|See the full board>`,
+  ].join("\n")
+}
