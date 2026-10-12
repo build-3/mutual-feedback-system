@@ -4,6 +4,7 @@ import {
   buildLeaderboard,
   computeStreaks,
   needsFeedback,
+  shouldShowPrevious,
   submissionCounts,
   type LeaderboardPerson,
   type ReviewEvent,
@@ -208,5 +209,24 @@ describe("needsFeedback", () => {
       review("a", "b"), review("b", "a"), review("c", "d"), review("d", "c"),
     ])
     expect(needsFeedback(rows)).toHaveLength(0)
+  })
+})
+
+describe("shouldShowPrevious", () => {
+  it("falls back to last cycle when this one is still empty and last one has data", () => {
+    expect(shouldShowPrevious("cycle", 0, 12)).toBe(true)
+  })
+
+  it("stays on the live cycle as soon as one review has landed", () => {
+    expect(shouldShowPrevious("cycle", 1, 12)).toBe(false)
+  })
+
+  it("does not fall back to a previous cycle that is empty too", () => {
+    expect(shouldShowPrevious("cycle", 0, 0)).toBe(false)
+  })
+
+  it("never rewrites a range the reader chose by name", () => {
+    expect(shouldShowPrevious("3cycles", 0, 12)).toBe(false)
+    expect(shouldShowPrevious("all", 0, 12)).toBe(false)
   })
 })

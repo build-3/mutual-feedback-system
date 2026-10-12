@@ -240,3 +240,20 @@ export function needsFeedback(rows: LeaderboardRow[], threshold = 1): Leaderboar
     .filter((row) => row.received < threshold)
     .sort((a, b) => a.received - b.received || a.name.localeCompare(b.name))
 }
+
+/**
+ * Whether the board should show last cycle instead of the live one.
+ *
+ * A cycle opens with nobody having reviewed anybody, so for its first days the
+ * live board is a wall of zeroes where everyone shares first place. Showing the
+ * last finished cycle until the first review lands keeps the page readable. Only
+ * the default "this cycle" view falls back — a wider range was asked for by name
+ * — and only when last cycle actually has something to show.
+ */
+export function shouldShowPrevious(
+  range: string,
+  liveReviewsCounted: number,
+  previousReviewsCounted: number
+): boolean {
+  return range === "cycle" && liveReviewsCounted === 0 && previousReviewsCounted > 0
+}

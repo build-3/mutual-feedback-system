@@ -12,7 +12,7 @@ const links = [
   { href: "/feedback?path=kudos", label: "kudos", icon: "star", exactMatch: true },
   { href: "/feedback?path=adhoc", label: "quick note", icon: "zap", exactMatch: true },
   { href: "/insights", label: "insights", icon: "chart" },
-  { href: "/leaderboard", label: "board", icon: "trophy" },
+  { href: "/leaderboard", label: "leaderboard", icon: "trophy" },
   { href: "/employees", label: "people", icon: "people" },
 ]
 

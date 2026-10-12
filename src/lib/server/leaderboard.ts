@@ -6,6 +6,7 @@ import {
   buildLeaderboard,
   computeStreaks,
   needsFeedback,
+  shouldShowPrevious,
   submissionCounts,
   TEXT_KEYS,
   type LeaderboardCohort,
@@ -222,4 +223,32 @@ export async function buildLeaderboardPayload(
       noFeedbackYet: gap.length,
     },
   }
+}
+
+export type LeaderboardView = LeaderboardPayload & {
+  /** True when the live cycle has no counted reviews yet and last cycle is shown. */
+  showingPrevious: boolean
+  /** The live cycle's label, so the page can say which cycle it is waiting on. */
+  liveWindowLabel: string
+}
+
+/**
+ * What the page shows: the live board, or last cycle's while the live one is
+ * still empty. The nudge cron calls buildLeaderboardPayload directly and is
+ * deliberately unaffected.
+ */
+export async function buildLeaderboardView(
+  range: DateRange = "cycle",
+  at: number = Date.now()
+): Promise<LeaderboardView> {
+  const live = await buildLeaderboardPayload(range, at)
+  const asLive = { ...live, showingPrevious: false, liveWindowLabel: live.windowLabel }
+  // Only worth a second read when the live board is the empty default view.
+  if (range !== "cycle" || live.totals.reviewsCounted > 0) return asLive
+
+  const previous = await buildLeaderboardPayload("cycle", cycleFor(at).startMs - 1)
+  if (!shouldShowPrevious(range, live.totals.reviewsCounted, previous.totals.reviewsCounted)) {
+    return asLive
+  }
+  return { ...previous, showingPrevious: true, liveWindowLabel: live.windowLabel }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/server/require-admin"
-import { buildLeaderboardPayload } from "@/lib/server/leaderboard"
+import { buildLeaderboardView } from "@/lib/server/leaderboard"
 import type { DateRange } from "@/lib/brand"
 
 const RANGES: DateRange[] = ["cycle", "3cycles", "all"]
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     : "cycle"
 
   try {
-    const payload = await buildLeaderboardPayload(range)
+    const payload = await buildLeaderboardView(range)
     const response = NextResponse.json(payload)
     response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60")
     return response
