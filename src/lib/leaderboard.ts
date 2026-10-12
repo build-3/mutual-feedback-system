@@ -344,3 +344,67 @@ export function podiumMessage(input: {
     `<${boardUrl}|See the full board>`,
   ].join("\n")
 }
+
+/** A counted peer review, tagged with the cycle it landed in. */
+export type CycleReview = { giverId: string; subjectId: string; cycleKey: string }
+
+/**
+ * All-time given and received per person, in the board's own unit.
+ *
+ * On the board, reviewing the same teammate twice in a cycle counts once, so
+ * one feedback here is one giver reviewing one teammate in one cycle. Summing
+ * that across cycles keeps "total" in the same unit as "this cycle": a total is
+ * what the per-cycle numbers add up to, never a different count of forms.
+ *
+ * Unlike the ranked board, the other side need not still be on the roster.
+ * Feedback someone gave a teammate who has since left was still given.
+ */
+export function feedbackTotals(reviews: CycleReview[]): {
+  given: Map<string, number>
+  received: Map<string, number>
+} {
+  const seen = new Set<string>()
+  const given = new Map<string, number>()
+  const received = new Map<string, number>()
+  for (const r of reviews) {
+    if (r.giverId === r.subjectId) continue
+    const key = `${r.giverId}|${r.subjectId}|${r.cycleKey}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    given.set(r.giverId, (given.get(r.giverId) ?? 0) + 1)
+    received.set(r.subjectId, (received.get(r.subjectId) ?? 0) + 1)
+  }
+  return { given, received }
+}
+
+export type FeedbackTableRow = {
+  name: string
+  givenCycle: number
+  receivedCycle: number
+  givenTotal: number
+  receivedTotal: number
+}
+
+/**
+ * The four-number table the podium image shows: sorted by feedback given this
+ * cycle, then by all-time given, then by name.
+ */
+export function feedbackTable(
+  rows: LeaderboardRow[],
+  totals: { given: Map<string, number>; received: Map<string, number> }
+): FeedbackTableRow[] {
+  return rows
+    .map((row) => ({
+      name: row.name,
+      givenCycle: row.reviewed,
+      receivedCycle: row.received,
+      givenTotal: totals.given.get(row.employeeId) ?? 0,
+      receivedTotal: totals.received.get(row.employeeId) ?? 0,
+    }))
+    .sort(
+      (a, b) =>
+        b.givenCycle - a.givenCycle ||
+        b.givenTotal - a.givenTotal ||
+        a.name.localeCompare(b.name)
+    )
+}

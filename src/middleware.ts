@@ -58,6 +58,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request: { headers: cleanRequestHeaders() } })
   }
 
+  // The podium post's image. Google Chat fetches it with no session; the route
+  // checks a signed URL instead (src/lib/server/leaderboard-image.ts).
+  if (pathname === '/api/leaderboard/image') {
+    return NextResponse.next({ request: { headers: cleanRequestHeaders() } })
+  }
+
   // Google Chat interactive callback for Kudos++ button. Authenticated at
   // the route level via Bearer JWT from chat@system.gserviceaccount.com,
   // not via user session cookie.

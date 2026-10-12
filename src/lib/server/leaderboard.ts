@@ -5,10 +5,13 @@ import { fetchPaged, fetchPagedByIds } from "./paged-query"
 import {
   buildLeaderboard,
   computeStreaks,
+  feedbackTable,
+  feedbackTotals,
   needsFeedback,
   shouldShowPrevious,
   submissionCounts,
   TEXT_KEYS,
+  type FeedbackTableRow,
   type LeaderboardCohort,
   type LeaderboardPerson,
   type LeaderboardRow,
@@ -251,4 +254,55 @@ export async function buildLeaderboardView(
     return asLive
   }
   return { ...previous, showingPrevious: true, liveWindowLabel: live.windowLabel }
+}
+
+/**
+ * The board's rows with all-time given and received added: the table the
+ * podium post shows as an image.
+ *
+ * Totals run from the first submission up to the end of the board's window, so
+ * a table for a past cycle does not quietly include what came after it.
+ */
+export async function buildFeedbackTable(board: LeaderboardPayload): Promise<FeedbackTableRow[]> {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  const peer = await fetchPaged<SubmissionRow>(() =>
+    supabaseAdmin
+      .from("feedback_submissions")
+      .select("id, submitted_by_id, feedback_for_id, feedback_type, created_at")
+      .in("feedback_type", ["intern", "full_timer"])
+      .not("feedback_for_id", "is", null)
+      .lt("created_at", board.windowEndIso)
+      .order("id", { ascending: true })
+  )
+
+  const answers = await fetchPagedByIds<AnswerRow>(
+    (ids) =>
+      supabaseAdmin
+        .from("feedback_answers")
+        .select("submission_id, question_key, answer_value")
+        .in("submission_id", ids)
+        .in("question_key", Array.from(TEXT_KEYS))
+        .order("id", { ascending: true }),
+    peer.map((s) => s.id)
+  )
+
+  const answersBySubmission = new Map<string, AnswerRow[]>()
+  for (const answer of answers) {
+    const group = answersBySubmission.get(answer.submission_id) ?? []
+    group.push(answer)
+    answersBySubmission.set(answer.submission_id, group)
+  }
+
+  const totals = feedbackTotals(
+    peer
+      .filter((s) => submissionCounts(answersBySubmission.get(s.id) ?? []))
+      .map((s) => ({
+        giverId: s.submitted_by_id,
+        subjectId: s.feedback_for_id as string,
+        cycleKey: cycleKeyOf(s.created_at),
+      }))
+  )
+
+  return feedbackTable(board.rows, totals)
 }

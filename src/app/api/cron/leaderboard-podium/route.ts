@@ -7,6 +7,7 @@ import {
   sendDirectMessage,
 } from "@/lib/server/google-chat"
 import { buildLeaderboardPayload, buildLeaderboardView } from "@/lib/server/leaderboard"
+import { leaderboardImageUrl } from "@/lib/server/leaderboard-image"
 import { podium, podiumMessage } from "@/lib/leaderboard"
 import { cycleFor, formatSessionDateLabel, isDayAfterSecondTuesdayIst } from "@/lib/cycles"
 
@@ -96,14 +97,42 @@ export async function GET(request: Request) {
     boardUrl: `${APP_URL}/leaderboard`,
   })
 
+  // The whole table travels as an image inside the post, so nobody has to
+  // click through to see where they stand. Chat fetches it from the signed URL.
+  const imageUrl = leaderboardImageUrl(APP_URL, board.cycleKey)
+  const payload = {
+    text,
+    cardsV2: [
+      {
+        cardId: `leaderboard-podium-${board.cycleKey}`,
+        card: {
+          sections: [
+            {
+              widgets: [
+                {
+                  image: {
+                    imageUrl,
+                    altText: `Feedback given and received this cycle and all time, for everyone, ${board.windowLabel}`,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  }
+
   if (dry) {
-    return NextResponse.json({ dry: true, cycle: cycle.key, window: board.windowLabel, podium: steps, text })
+    return NextResponse.json({ dry: true, cycle: board.cycleKey, window: board.windowLabel, podium: steps, text, imageUrl })
   }
 
   if (preview) {
     try {
-      await sendDirectMessage(preview, text)
-      return NextResponse.json({ preview: true, to: preview, cycle: board.cycleKey, podium: steps, text })
+      // A DM goes out as the user, and only an app can send cards, so the
+      // preview links the image instead of embedding it.
+      await sendDirectMessage(preview, `${text}\n\n<${imageUrl}|The table image>`)
+      return NextResponse.json({ preview: true, to: preview, cycle: board.cycleKey, podium: steps, text, imageUrl })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error"
       return NextResponse.json({ error: msg }, { status: 502 })
@@ -119,7 +148,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await sendCardToSpace(KUDOS_SPACE_ID, { text })
+    const result = await sendCardToSpace(KUDOS_SPACE_ID, payload)
 
     await supabaseAdmin
       .from("site_settings" as never)

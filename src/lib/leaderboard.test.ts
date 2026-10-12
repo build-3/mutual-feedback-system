@@ -4,6 +4,8 @@ import {
   buildLeaderboard,
   computeStreaks,
   denseRanks,
+  feedbackTable,
+  feedbackTotals,
   needsFeedback,
   podium,
   podiumMessage,
@@ -300,5 +302,39 @@ describe("podiumMessage", () => {
     expect(text).toContain("🥈 *B*, *C* · 1 teammate each")
     expect(text).not.toContain("🥉")
     expect(text).toContain("<https://x/leaderboard|See the full board>")
+  })
+})
+
+describe("feedbackTotals", () => {
+  it("counts a teammate once per cycle, and again in a later cycle", () => {
+    const { given, received } = feedbackTotals([
+      { giverId: "a", subjectId: "b", cycleKey: "2026-09-08" },
+      { giverId: "a", subjectId: "b", cycleKey: "2026-09-08" },
+      { giverId: "a", subjectId: "b", cycleKey: "2026-10-13" },
+      { giverId: "a", subjectId: "c", cycleKey: "2026-10-13" },
+      { giverId: "a", subjectId: "a", cycleKey: "2026-10-13" },
+    ])
+    expect(given.get("a")).toBe(3)
+    expect(received.get("b")).toBe(2)
+    expect(received.get("c")).toBe(1)
+    expect(received.get("a")).toBeUndefined()
+  })
+})
+
+describe("feedbackTable", () => {
+  it("sorts by given this cycle, then given in total, then name", () => {
+    const base = build([])[0]
+    const rows = [
+      { ...base, employeeId: "x", name: "Xi", reviewed: 1, received: 0 },
+      { ...base, employeeId: "y", name: "Yu", reviewed: 1, received: 2 },
+      { ...base, employeeId: "z", name: "Zo", reviewed: 4, received: 1 },
+    ]
+    const table = feedbackTable(rows, {
+      given: new Map([["x", 2], ["y", 9], ["z", 4]]),
+      received: new Map([["y", 5]]),
+    })
+    expect(table.map((r) => r.name)).toEqual(["Zo", "Yu", "Xi"])
+    expect(table[1]).toEqual({ name: "Yu", givenCycle: 1, receivedCycle: 2, givenTotal: 9, receivedTotal: 5 })
+    expect(table[2].receivedTotal).toBe(0)
   })
 })
