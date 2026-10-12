@@ -337,7 +337,7 @@ export function podiumMessage(input: {
   return [
     `🏆 *Feedback leaderboard after the ${sessionLabel} session*`,
     "",
-    "Most teammates given real feedback this cycle:",
+    "Most teammates given feedback this cycle:",
     ...lines,
     "",
     `${givers} of ${people} of us have given feedback so far. Thank you, all of you 💛`,
