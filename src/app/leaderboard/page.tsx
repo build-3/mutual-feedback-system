@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/brand"
 import { SCREEN_ACCENTS, DATE_RANGE_LABELS, type DateRange } from "@/lib/brand"
 import { getAvatarColor, getInitials } from "@/lib/insights-helpers"
+import { denseRanks } from "@/lib/leaderboard"
 
 type Row = {
   employeeId: string
@@ -121,13 +122,23 @@ export default function LeaderboardPage() {
     void load(range)
   }, [load, range])
 
-  // Ranks come from the server over the whole roster, so filtering to a cohort
-  // shows each person's real position rather than renumbering them 1..n.
   const rows = useMemo(
     () => (data?.rows ?? []).filter((r) => cohort === "everyone" || r.cohort === cohort),
     [data, cohort]
   )
   const giving = useMemo(() => rows.filter((r) => r.reviewed > 0), [rows])
+  // Numbered over the rows on screen, not taken from the server: its positions
+  // skip after a tie and span the whole roster, so a cohort filter left holes
+  // (1, 2, 5) that read as missing people.
+  const positions = useMemo(() => denseRanks(giving.map((r) => r.reviewed)), [giving])
+  // The summary and the "no feedback" box describe the people on screen, so they
+  // follow the cohort filter instead of quietly staying roster-wide.
+  const reviewsCounted = useMemo(() => rows.reduce((sum, r) => sum + r.submissions, 0), [rows])
+  const needsFeedback = useMemo(() => {
+    const visible = new Set(rows.map((r) => r.employeeId))
+    return (data?.needsFeedback ?? []).filter((p) => visible.has(p.employeeId))
+  }, [data, rows])
+  const who = cohort === "full_timer" ? "full-timers" : cohort === "probation" ? "people on probation" : "teammates"
   const notYet = useMemo(() => rows.filter((r) => r.reviewed === 0), [rows])
 
   const when = data?.showingPrevious ? "last cycle" : "yet"
@@ -172,15 +183,15 @@ export default function LeaderboardPage() {
 
             <p className="mt-6 text-sm leading-6 text-muted">
               <span className="font-semibold text-ink">
-                {data.totals.activeGivers} of {data.totals.people}
+                {giving.length} of {rows.length}
               </span>{" "}
-              teammates have given feedback ·{" "}
-              <span className="font-semibold text-ink">{data.totals.reviewsCounted}</span>{" "}
-              {data.totals.reviewsCounted === 1 ? "review" : "reviews"} counted ·{" "}
+              {who} have given feedback ·{" "}
+              <span className="font-semibold text-ink">{reviewsCounted}</span>{" "}
+              {reviewsCounted === 1 ? "review" : "reviews"} counted ·{" "}
               {data.windowLabel}
             </p>
 
-            {data.needsFeedback.length > 0 && (
+            {needsFeedback.length > 0 && (
               <BrandPanel accent="peach" tone="washed" className="mt-5 p-4 sm:p-5">
                 <button
                   type="button"
@@ -190,8 +201,8 @@ export default function LeaderboardPage() {
                 >
                   <span>
                     <span className="block text-sm font-semibold text-ink">
-                      {data.needsFeedback.length}{" "}
-                      {data.needsFeedback.length === 1 ? "teammate hasn't" : "teammates haven't"} had
+                      {needsFeedback.length}{" "}
+                      {needsFeedback.length === 1 ? "teammate hasn't" : "teammates haven't"} had
                       any feedback {when}
                     </span>
                     <span className="mt-0.5 block text-xs text-muted">
@@ -204,7 +215,7 @@ export default function LeaderboardPage() {
                 </button>
                 {showGap && (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {data.needsFeedback.map((person) => (
+                    {needsFeedback.map((person) => (
                       <Link
                         key={person.employeeId}
                         href={`/feedback?for=${person.employeeId}`}
@@ -240,7 +251,7 @@ export default function LeaderboardPage() {
                   teammates reviewed
                 </p>
                 <ol className="divide-y divide-line overflow-hidden rounded-[22px] border border-line bg-white">
-                  {giving.map((row) => {
+                  {giving.map((row, index) => {
                     const pct =
                       row.reachable > 0 ? Math.round((row.reviewed / row.reachable) * 100) : 0
                     return (
@@ -249,7 +260,7 @@ export default function LeaderboardPage() {
                           href={`/insights?employee=${row.employeeId}`}
                           className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[rgba(188,173,204,0.10)] sm:gap-4 sm:px-5"
                         >
-                          <RankBadge rank={row.rank} reviewed={row.reviewed} />
+                          <RankBadge rank={positions[index]} reviewed={row.reviewed} />
                           <Avatar name={row.name} />
                           <span className="min-w-0 flex-1">
                             <span className="block font-semibold leading-snug text-ink">{row.name}</span>
@@ -300,8 +311,8 @@ export default function LeaderboardPage() {
 
             <p className="mt-8 text-xs leading-6 text-muted">
               only feedback that actually says something counts — an empty or “na” form doesn’t —
-              and reviewing the same person twice counts once. “reviewed by” is shown but never
-              ranked, because nobody chooses how many teammates review them.
+              and reviewing the same person twice counts once. people on the same number share a position.
+              “reviewed by” is shown but never ranked, because nobody chooses how many teammates review them.
             </p>
           </div>
         )}

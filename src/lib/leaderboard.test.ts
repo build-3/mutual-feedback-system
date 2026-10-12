@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildLeaderboard,
   computeStreaks,
+  denseRanks,
   needsFeedback,
   shouldShowPrevious,
   submissionCounts,
@@ -228,5 +229,30 @@ describe("shouldShowPrevious", () => {
   it("never rewrites a range the reader chose by name", () => {
     expect(shouldShowPrevious("3cycles", 0, 12)).toBe(false)
     expect(shouldShowPrevious("all", 0, 12)).toBe(false)
+  })
+})
+
+describe("denseRanks", () => {
+  it("numbers the visible rows without skipping after a tie", () => {
+    // The standard ranking of these scores is 1, 2, 2, 2, 5, 5 — the 3 and 4 a
+    // reader goes looking for. Dense numbering has no such holes.
+    expect(denseRanks([12, 7, 7, 7, 5, 5])).toEqual([1, 2, 2, 2, 3, 3])
+  })
+
+  it("gives everyone the same number when everyone ties", () => {
+    expect(denseRanks([4, 4, 4])).toEqual([1, 1, 1])
+  })
+
+  it("counts up by one when nobody ties", () => {
+    expect(denseRanks([9, 8, 7, 6])).toEqual([1, 2, 3, 4])
+  })
+
+  it("returns nothing for nothing", () => {
+    expect(denseRanks([])).toEqual([])
+  })
+
+  it("starts again from 1 after a cohort filter hides the people ahead", () => {
+    // Full-timers only, from a roster where two probation people sat on 7.
+    expect(denseRanks([12, 7, 5, 5, 5, 5])).toEqual([1, 2, 3, 3, 3, 3])
   })
 })

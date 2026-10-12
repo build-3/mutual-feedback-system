@@ -257,3 +257,27 @@ export function shouldShowPrevious(
 ): boolean {
   return range === "cycle" && liveReviewsCounted === 0 && previousReviewsCounted > 0
 }
+
+/**
+ * The position numbers to print beside the rows being shown.
+ *
+ * `scores` is the displayed order, highest first. Equal scores share a number and
+ * the next distinct score is simply the next number: 1, 2, 2, 2, 3. The server's
+ * own `rank` is the "standard competition" kind (1, 2, 2, 2, 5) over the whole
+ * roster, which on screen reads as missing numbers — worse when a cohort filter
+ * hides the people who held the numbers in between, so a reader sees 1, 2, 5 and
+ * asks where 3 and 4 went. Numbering the rows that are visible cannot do that.
+ */
+export function denseRanks(scores: number[]): number[] {
+  const out: number[] = []
+  let rank = 0
+  let last: number | null = null
+  for (const score of scores) {
+    if (last === null || score !== last) {
+      rank += 1
+      last = score
+    }
+    out.push(rank)
+  }
+  return out
+}
