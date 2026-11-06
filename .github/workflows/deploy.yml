@@ -35,7 +35,8 @@ jobs:
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          curl -sS --fail-with-body \
+          # Coolify 4.6 rejects GET on this endpoint with 405 ("changed to a POST request").
+          curl -sS -X POST --fail-with-body \
             "${COOLIFY_HOST}/api/v1/deploy?uuid=${COOLIFY_APP_UUID}" \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             -H "Accept: application/json"
