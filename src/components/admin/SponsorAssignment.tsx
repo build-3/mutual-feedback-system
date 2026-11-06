@@ -112,6 +112,12 @@ export default function SponsorAssignment() {
         }
       />
 
+      <p className="text-xs">
+        <a href="/probation" className="font-semibold text-ink underline">
+          open the full probation board →
+        </a>
+      </p>
+
       <p className="text-xs text-muted max-w-2xl">
         the sponsor owns the probation conversation. they see their person&apos;s probation card and
         are told when that person gets low-trust feedback. the buddy only helps them settle in.

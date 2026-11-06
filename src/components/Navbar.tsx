@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { SCREEN_ACCENTS } from "@/lib/brand"
 import { PillarMark, buttonClasses } from "@/components/ui/brand"
@@ -21,6 +21,7 @@ const LINK_ACCENTS: Record<string, typeof SCREEN_ACCENTS[keyof typeof SCREEN_ACC
   "/insights": SCREEN_ACCENTS.insights,
   "/employees": SCREEN_ACCENTS.employees,
   "/leaderboard": SCREEN_ACCENTS.leaderboard,
+  "/probation": SCREEN_ACCENTS.probation,
 }
 
 function NavIcon({ icon, className }: { icon: string; className?: string }) {
@@ -110,6 +111,27 @@ function NavbarInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  // Sponsors and the people who decide get a probation link. Desktop only: the
+  // mobile tab bar is already full, so on a phone it is reached from the admin
+  // page or a link in the sponsor's message. The data route enforces access
+  // itself; this only decides whether to show the link.
+  const [canSeeProbation, setCanSeeProbation] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/probation/access", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { canView: false }))
+      .then((d) => {
+        if (!cancelled) setCanSeeProbation(d.canView === true)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  const desktopLinks = canSeeProbation
+    ? [...links, { href: "/probation", label: "probation", icon: "people" }]
+    : links
+
   function isLinkActive(link: { href: string; exactMatch?: boolean }) {
     const [linkPath, linkQuery] = link.href.split("?")
     if (link.exactMatch) {
@@ -161,7 +183,7 @@ function NavbarInner() {
 
           {/* Desktop nav links */}
           <div className="hidden sm:flex items-center gap-2">
-            {links.map((link) => {
+            {desktopLinks.map((link) => {
               const basePath = link.href.split("?")[0]
               const accent = LINK_ACCENTS[basePath] ?? (link.icon === "star" ? "yellow" : link.icon === "zap" ? "pink" : SCREEN_ACCENTS.insights)
               const active = isLinkActive(link)
