@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "./supabase-admin"
 import { fetchPagedByIds } from "./paged-query"
 import { sendDirectMessage, isNotificationsEnabled, isGoogleChatConfigured } from "./google-chat"
 import type { ContributionLevel } from "@/lib/types"
+import { addMonthsIso, checkJoiningDate, todayIso } from "@/lib/probation-dates"
 
 export function addMonthsToDate(date: Date, months: number): Date {
   const result = new Date(date)
@@ -27,20 +28,40 @@ function formatDateDisplay(dateStr: string): string {
   })
 }
 
+/**
+ * Open a probation clock for someone.
+ *
+ * `joinedOn` is the real joining date (YYYY-MM-DD) when it is known. Without it
+ * the clock starts today, which for a first sign-in means "the day they first
+ * opened the platform", not the day they joined; a hand-entered date should be
+ * passed whenever one exists. An invalid date is refused rather than guessed.
+ */
 export async function createProbation(
-  employeeId: string
+  employeeId: string,
+  joinedOn?: string
 ): Promise<{ id: string; start_date: string; end_date: string } | null> {
   const supabaseAdmin = getSupabaseAdmin()
-  const startDate = new Date()
-  const endDate = addMonthsToDate(startDate, 3)
+
+  let startIso: string
+  if (joinedOn !== undefined) {
+    const checked = checkJoiningDate(joinedOn)
+    if (!checked.ok) {
+      console.error("[probation] createProbation refused joining date:", checked.error)
+      return null
+    }
+    startIso = checked.date
+  } else {
+    startIso = todayIso()
+  }
+  const endIso = addMonthsIso(startIso, 3)
 
   const { data, error } = await supabaseAdmin
     .from("probation_tracking")
     .insert({
       employee_id: employeeId,
-      start_date: formatDateISO(startDate),
+      start_date: startIso,
       duration_months: 3,
-      end_date: formatDateISO(endDate),
+      end_date: endIso,
     })
     .select("id, start_date, end_date")
     .single()
@@ -51,6 +72,86 @@ export async function createProbation(
   }
 
   return data
+}
+
+/**
+ * Correct the joining date of an existing probation and recompute its end date
+ * from the stored period (3 or 6 months). Never silent: the old and new values,
+ * who changed them and where the new date came from go to
+ * `probation_date_changes` BEFORE the row is touched, so if the audit table is
+ * missing the change is refused instead of happening unrecorded.
+ *
+ * A completed (promoted) probation is history and is not editable.
+ */
+export async function setProbationStartDate(
+  probationId: string,
+  joinedOn: string,
+  { changedBy, source }: { changedBy: string | null; source: string }
+): Promise<
+  | { start_date: string; end_date: string; unchanged?: true }
+  | { error: string; httpStatus: number }
+> {
+  const checked = checkJoiningDate(joinedOn)
+  if (!checked.ok) return { error: checked.error, httpStatus: 400 }
+
+  const supabaseAdmin = getSupabaseAdmin()
+  const { data: record, error: fetchError } = await supabaseAdmin
+    .from("probation_tracking")
+    .select("id, start_date, end_date, duration_months, status")
+    .eq("id", probationId)
+    .single()
+
+  if (fetchError || !record) {
+    return { error: "Probation record not found.", httpStatus: 404 }
+  }
+  if (record.status === "promoted") {
+    return { error: "Cannot change the joining date of a completed probation.", httpStatus: 400 }
+  }
+
+  const newStart = checked.date
+  const newEnd = addMonthsIso(newStart, record.duration_months)
+  if (record.start_date === newStart && record.end_date === newEnd) {
+    return { start_date: newStart, end_date: newEnd, unchanged: true }
+  }
+
+  const { error: auditError } = await supabaseAdmin
+    .from("probation_date_changes" as never)
+    .insert({
+      probation_id: probationId,
+      old_start_date: record.start_date,
+      new_start_date: newStart,
+      old_end_date: record.end_date,
+      new_end_date: newEnd,
+      source,
+      changed_by: changedBy,
+    } as never)
+  if (auditError) {
+    console.error("[probation] audit insert failed, not changing the date:", auditError.message)
+    return {
+      error:
+        "Could not record the change, so nothing was changed. Has supabase/probation-alerts-and-dates.sql been applied?",
+      httpStatus: 500,
+    }
+  }
+
+  const { error, count } = await supabaseAdmin
+    .from("probation_tracking")
+    .update(
+      { start_date: newStart, end_date: newEnd, updated_at: new Date().toISOString() },
+      { count: "exact" }
+    )
+    .eq("id", probationId)
+    .eq("status", record.status)
+
+  if (error) {
+    console.error("[probation] setProbationStartDate failed:", error)
+    return { error: "Failed to update the joining date.", httpStatus: 500 }
+  }
+  if (count === 0) {
+    return { error: "Probation status changed concurrently. Refresh and retry.", httpStatus: 409 }
+  }
+
+  return { start_date: newStart, end_date: newEnd }
 }
 
 export async function notifyReviewerGroup(

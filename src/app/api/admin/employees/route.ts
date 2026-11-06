@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin"
 import { requireAdmin, requireAdminOrFullTimer, requireAuth } from "@/lib/server/require-admin"
+import { checkJoiningDate } from "@/lib/probation-dates"
 
 function normalizeName(name: string) {
   const trimmed = name.trim()
@@ -76,6 +77,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // Optional real joining date. When given it starts the probation clock
+    // instead of "today". Validated before anything is written, and refused
+    // (not coerced) when it is not a real date.
+    let joinedOn: string | undefined
+    if (body.joinedOn !== undefined && body.joinedOn !== null && body.joinedOn !== "") {
+      const checked = checkJoiningDate(body.joinedOn)
+      if (!checked.ok) {
+        return NextResponse.json({ error: checked.error }, { status: 400 })
+      }
+      joinedOn = checked.date
+    }
+
     const supabaseAdmin = getSupabaseAdmin()
 
     // The roster is keyed by email everywhere else in the app, so a second row
@@ -117,7 +130,7 @@ export async function POST(request: Request) {
 
     if (role === "intern") {
       const { createProbation, notifyReviewerGroup } = await import("@/lib/server/probation")
-      const probation = await createProbation(newEmployee.id)
+      const probation = await createProbation(newEmployee.id, joinedOn)
 
       if (!probation) {
         return NextResponse.json(

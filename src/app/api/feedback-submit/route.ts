@@ -2,8 +2,12 @@ import { NextResponse } from "next/server"
 import { consumeRateLimit, getRequestIp } from "@/lib/server/rate-limit"
 import { hasServerSupabaseConfig } from "@/lib/server/supabase-admin"
 import { submitFeedback, sendNotificationForSubmission } from "@/lib/server/feedback"
+import { sendSponsorAlertForSubmission } from "@/lib/server/sponsor-alerts"
 import { requireAuth } from "@/lib/server/require-admin"
 import type { FeedbackType } from "@/lib/types"
+
+/** How long a submit may wait for its Chat notifications before responding. */
+const NOTIFY_WAIT_MS = 4000
 
 export async function POST(request: Request) {
   if (!hasServerSupabaseConfig()) {
@@ -52,12 +56,23 @@ export async function POST(request: Request) {
       submitterVerified: true, // requireAuth already confirmed this employee
     })
 
-    // Fire notification in background — long-running Node server keeps the
-    // promise alive after we return, no waitUntil needed (was Vercel-only).
+    // Send the notifications now, but never make the person wait on Chat for
+    // long. Work started after the response can be cut off on a small server
+    // (a recycled process drops it, and the DM is lost), so we hold the response
+    // for up to NOTIFY_WAIT_MS while the sends run. If Chat is slower than that
+    // the sends keep going and the response goes out anyway. And if the process
+    // dies mid-send, `notified_at` is still NULL and /api/cron/notify-retry
+    // sends it a few minutes later.
     if (result.feedbackForId) {
-      void sendNotificationForSubmission(result.submissionId).catch((err) =>
-        console.error("[notify] Background notification failed:", err)
-      )
+      const sends = Promise.allSettled([
+        sendNotificationForSubmission(result.submissionId).catch((err) =>
+          console.error("[notify] Notification failed (retry job will pick it up):", err)
+        ),
+        sendSponsorAlertForSubmission(result.submissionId).catch((err) =>
+          console.error("[sponsor-alert] Alert failed (retry job will pick it up):", err)
+        ),
+      ])
+      await Promise.race([sends, new Promise((resolve) => setTimeout(resolve, NOTIFY_WAIT_MS))])
     }
 
     return NextResponse.json({ status: "saved", submissionId: result.submissionId })

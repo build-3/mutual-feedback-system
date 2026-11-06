@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/server/require-admin"
+import { requireAuth } from "@/lib/server/require-admin"
 import { extendProbation } from "@/lib/server/probation"
+import { isProbationDecider } from "@/lib/probation-access"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const LEVEL1_EMAILS = ["vc@build3.org", "at@build3.org"]
 
 export async function POST(request: Request) {
-  const auth = await requireAdmin()
+  const auth = await requireAuth()
   if (auth.error) return auth.error
 
-  if (!auth.employee.email || !LEVEL1_EMAILS.includes(auth.employee.email)) {
-    return NextResponse.json({ error: "Only Level 1 admins can extend." }, { status: 403 })
+  if (!isProbationDecider(auth.user.email)) {
+    return NextResponse.json({ error: "Only probation deciders can extend." }, { status: 403 })
   }
 
   const body = await request.json()
