@@ -509,7 +509,7 @@ function InsightsContent() {
       {!showOrgOverview && insights.employee?.role === "intern" && (
         <div className="mx-auto max-w-5xl px-3 pb-20 sm:px-6 sm:pb-5">
           <div className="border-t border-line pt-8 mt-4">
-            <ProbationSection key={insights.employee.id} employeeId={insights.employee.id} userEmail={currentUser?.email} />
+            <ProbationSection key={insights.employee.id} employeeId={insights.employee.id} />
           </div>
         </div>
       )}

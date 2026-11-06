@@ -11,8 +11,6 @@ import {
 import FormattedAnswer from "@/components/FormattedAnswer"
 import { contributionKeyToLabel } from "@/lib/insights-helpers"
 
-const LEVEL1_EMAILS = ["vc@build3.org", "at@build3.org"]
-
 type FeedbackAnswer = {
   question_key: string
   question_text: string
@@ -103,8 +101,13 @@ function daysUntil(dateStr: string): number {
   return Math.round((endDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-export default function ProbationSection({ employeeId, userEmail }: { employeeId?: string; userEmail?: string | null }) {
-  const isLevel1 = Boolean(userEmail && LEVEL1_EMAILS.includes(userEmail))
+export default function ProbationSection({ employeeId }: { employeeId?: string }) {
+  // What this viewer may do is decided by the server (src/lib/probation-access.ts)
+  // and sent with the data, so the page never carries its own copy of who the
+  // deciders are. canAct: promote / extend (deciders, and a sponsor for their own
+  // people). canEditDates: joining date and period (deciders only).
+  const [canAct, setCanAct] = useState(false)
+  const [canEditDates, setCanEditDates] = useState(false)
   const [probations, setProbations] = useState<ProbationRecord[]>([])
   const [totalActive, setTotalActive] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -113,6 +116,9 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({})
+  const [dateSavingId, setDateSavingId] = useState<string | null>(null)
+  const [dateError, setDateError] = useState<{ id: string; message: string } | null>(null)
 
   // Guards against a slow response for a previous employee landing after
   // the user has already switched profiles (stale data under the new name).
@@ -128,6 +134,8 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
       if (res.status === 401 || res.status === 403) {
         setProbations([])
         setTotalActive(0)
+        setCanAct(false)
+        setCanEditDates(false)
         setError("")
         return
       }
@@ -137,6 +145,8 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
       const all: ProbationRecord[] = data.probations ?? []
       const filtered = employeeId ? all.filter((p) => p.employee_id === employeeId) : all
       setProbations(filtered)
+      setCanAct(data.canAct === true)
+      setCanEditDates(data.canEditDates === true)
       setTotalActive(employeeId ? filtered.filter((p) => p.status === "active" || p.status === "extended").length : (data.totalActive ?? 0))
       setError("")
     } catch (err) {
@@ -162,6 +172,35 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
       return
     }
     await loadData()
+  }
+
+  async function handleSaveStartDate(probationId: string) {
+    const startDate = dateDrafts[probationId]
+    if (!startDate) return
+    setDateSavingId(probationId)
+    setDateError(null)
+    try {
+      const res = await fetch("/api/admin/probation/start-date", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ probationId, startDate }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setDateError({ id: probationId, message: data.error ?? "could not save the joining date" })
+        return
+      }
+      setDateDrafts((d) => {
+        const next = { ...d }
+        delete next[probationId]
+        return next
+      })
+      await loadData()
+    } catch {
+      setDateError({ id: probationId, message: "network error" })
+    } finally {
+      setDateSavingId(null)
+    }
   }
 
   async function handleConfirmAction() {
@@ -218,13 +257,13 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
       <SectionHeading
         accent="lavender"
         eyebrow="probation"
-        title={employeeId ? "probation standing" : "intern standing"}
+        title="probation standing"
         description={
           employeeId
             ? probations[0]?.status === "promoted"
               ? "Promoted to full-time."
               : `On probation — ${totalActive > 0 ? "active" : "ended"}.`
-            : `${totalActive} intern${totalActive !== 1 ? "s" : ""} currently on probation.`
+            : `${totalActive} ${totalActive === 1 ? "person" : "people"} currently on probation.`
         }
       />
 
@@ -289,6 +328,43 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
                 </div>
               )}
             </div>
+
+            {/* Joining date correction: deciders only (canEditDates). The clock should run from the
+                real joining date, not from the first time someone opened the app. */}
+            {isActive && canEditDates && (
+              <div className="mb-4">
+                <label className="text-[11px] text-muted font-medium block mb-2" htmlFor={`joined-${p.id}`}>
+                  joining date
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    id={`joined-${p.id}`}
+                    type="date"
+                    value={dateDrafts[p.id] ?? p.start_date}
+                    onChange={(e) => setDateDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
+                    className="rounded-full border border-line bg-white px-3 py-1.5 text-xs text-ink"
+                  />
+                  <button
+                    type="button"
+                    disabled={
+                      dateSavingId === p.id ||
+                      !dateDrafts[p.id] ||
+                      dateDrafts[p.id] === p.start_date
+                    }
+                    onClick={() => handleSaveStartDate(p.id)}
+                    {...buttonClasses({ accent: "lavender", variant: "outline", size: "sm" })}
+                  >
+                    {dateSavingId === p.id ? "saving..." : "save joining date"}
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted mt-1.5">
+                  the end date follows the period. every change is recorded.
+                </p>
+                {dateError?.id === p.id && (
+                  <p className="text-xs text-[#d35b52] mt-1.5">{dateError.message}</p>
+                )}
+              </div>
+            )}
 
             {/* Feedback summary */}
             {p.total_feedback_count > 0 && (
@@ -376,7 +452,7 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
             )}
 
             {/* Duration selector (only for active probations) */}
-            {p.status === "active" && (
+            {p.status === "active" && canEditDates && (
               <div className="mb-4">
                 <div className="text-[11px] text-muted font-medium mb-2">change period</div>
                 <div className="flex gap-2">
@@ -430,8 +506,8 @@ export default function ProbationSection({ employeeId, userEmail }: { employeeId
               </div>
             )}
 
-            {/* Actions — Level 1 only */}
-            {isActive && isLevel1 && (
+            {/* Actions: deciders, and a sponsor for their own people */}
+            {isActive && canAct && (
               <div className="flex flex-wrap gap-2 pt-2 border-t border-line">
                 <button
                   type="button"

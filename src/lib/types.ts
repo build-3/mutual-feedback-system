@@ -68,6 +68,8 @@ export type Employee = {
   email?: string | null
   birthday?: string | null
   is_active?: boolean
+  buddy_id?: string | null
+  sponsor_id?: string | null
   created_at: string
 }
 
@@ -119,6 +121,8 @@ export type Database = {
           role?: EmployeeRole
           email?: string | null
           birthday?: string | null
+          buddy_id?: string | null
+          sponsor_id?: string | null
           created_at?: string
         }
         Relationships: []
