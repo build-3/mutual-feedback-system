@@ -22,14 +22,16 @@ const BirthdayWisher = dynamic(() => import("@/components/admin/BirthdayWisher")
 const DataExport = dynamic(() => import("@/components/admin/DataExport"), { ssr: false })
 const RiskScan = dynamic(() => import("@/components/admin/RiskScan"), { ssr: false })
 const PulseReview = dynamic(() => import("@/components/admin/PulseReview"), { ssr: false })
+const SponsorAssignment = dynamic(() => import("@/components/admin/SponsorAssignment"), { ssr: false })
 
-type Tab = "overview" | "pulse" | "activity" | "employees" | "submissions" | "risk" | "usage" | "birthdays" | "export" | "danger"
+type Tab = "overview" | "pulse" | "activity" | "employees" | "sponsors" | "submissions" | "risk" | "usage" | "birthdays" | "export" | "danger"
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "overview" },
   { key: "pulse", label: "pulse 📊" },
   { key: "activity", label: "activity" },
   { key: "employees", label: "employees" },
+  { key: "sponsors", label: "sponsors" },
   { key: "submissions", label: "submissions" },
   { key: "risk", label: "trust risk" },
   { key: "usage", label: "usage" },
@@ -249,6 +251,7 @@ export default function AdminPage() {
             onUpdate={handleUpdateEmployee}
           />
         )}
+        {tab === "sponsors" && <SponsorAssignment />}
         {tab === "submissions" && (
           <SubmissionBrowser
             submissions={submissions}
