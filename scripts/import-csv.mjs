@@ -22,8 +22,6 @@ const EMPLOYEE_MAP = {
   'Karan Murada': '57c9d700-4444-4588-9896-69a9eff45544',
   'Kaustubh Mankar': 'ede8e7cd-579a-4108-b7e4-c0ecee448f00',
   'Nadim G': '1a305ff4-4029-4db2-9132-78e7148765f7',
-  'Naman': '54757a64-93a9-4b53-afae-9907b109efa6',
-  'Neha': 'e7f919ab-9445-43e9-9f61-080ae63dc140',
   'Omprakash Muddaiah': 'c2a673fb-952c-492e-a0f9-319bed659641',
   'Prajwal': 'ee162d6b-7c4a-4858-b1b7-dd141aa8333d',
   'Ronak Vora': '116da7bc-f9f5-44e8-a426-6bf1d1eb5852',
@@ -35,8 +33,6 @@ const EMPLOYEE_MAP = {
   'Varun': '68226c00-8011-472c-bd1b-aceac98e1d02',
   'Vijay Relwani': '67b7da7f-db9c-40a6-9b56-59839acab2ee',
   'Nadim Gavandi': '1a305ff4-4029-4db2-9132-78e7148765f7',
-  'Naman Pandey': '54757a64-93a9-4b53-afae-9907b109efa6',
-  'Neha Bansil': 'e7f919ab-9445-43e9-9f61-080ae63dc140',
   'Prajwal Parab': 'ee162d6b-7c4a-4858-b1b7-dd141aa8333d',
   'Arjun T': '5e334cee-a68b-4cf8-aa6b-5ed17881db4f',
   'T Arjun': '5e334cee-a68b-4cf8-aa6b-5ed17881db4f',
@@ -73,8 +69,6 @@ const EMPLOYEE_MAP = {
   'prajwal parab': 'ee162d6b-7c4a-4858-b1b7-dd141aa8333d',
   'Prajwal Parab': 'ee162d6b-7c4a-4858-b1b7-dd141aa8333d',
   'Sarthak': '376f9caa-259a-408f-9a01-dbe67b6b56ca',
-  'Naman Pandey': '54757a64-93a9-4b53-afae-9907b109efa6',
-  'Neha Bansil': 'e7f919ab-9445-43e9-9f61-080ae63dc140',
 }
 
 function parseCSV(text) {

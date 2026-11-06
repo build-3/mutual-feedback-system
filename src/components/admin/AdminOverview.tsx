@@ -28,7 +28,11 @@ export default function AdminOverview({
       (s) => new Date(s.created_at).getTime() > monthAgo
     ).length
 
-    const uniqueSubmitters = new Set(submissions.map((s) => s.submitted_by_id))
+    // Only people in the (visible) employees list count toward participation.
+    const visibleIds = new Set(employees.map((e) => e.id))
+    const uniqueSubmitters = new Set(
+      submissions.map((s) => s.submitted_by_id).filter((id) => visibleIds.has(id))
+    )
     const completionRate =
       employees.length > 0
         ? Math.round((uniqueSubmitters.size / employees.length) * 100)

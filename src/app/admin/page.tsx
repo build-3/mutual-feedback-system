@@ -87,6 +87,13 @@ export default function AdminPage() {
     [employees]
   )
 
+  // Hidden people (is_active = false) are dropped from the people lists and counts.
+  // The full list stays for name lookups, so past submissions still show a name.
+  const activeEmployees = useMemo(
+    () => employees.filter((e) => e.is_active !== false),
+    [employees]
+  )
+
   async function handleAddEmployee(name: string, role: "intern" | "full_timer", email: string) {
     const res = await fetch("/api/admin/employees", {
       method: "POST",
@@ -198,7 +205,7 @@ export default function AdminPage() {
           accent="yellow"
           eyebrow="admin"
           title="the control room"
-          description={`${employees.length} employees, ${submissions.length} submissions loaded.`}
+          description={`${activeEmployees.length} employees, ${submissions.length} submissions loaded.`}
         />
 
         {/* Tab bar */}
@@ -230,7 +237,7 @@ export default function AdminPage() {
           <div className="space-y-6">
             <ChatSettings />
             <AdminOverview
-              employees={employees}
+              employees={activeEmployees}
               submissions={submissions}
               answers={answers}
               responses={responses}
@@ -244,7 +251,7 @@ export default function AdminPage() {
         )}
         {tab === "employees" && (
           <EmployeeTable
-            employees={employees}
+            employees={activeEmployees}
             submissions={submissions}
             onAdd={handleAddEmployee}
             onDelete={handleDeleteEmployee}
@@ -266,11 +273,11 @@ export default function AdminPage() {
         {tab === "usage" && (
           <UsageDashboard
             submissionCount={submissions.length}
-            employeeCount={employees.length}
+            employeeCount={activeEmployees.length}
           />
         )}
         {tab === "birthdays" && (
-          <BirthdayWisher employees={employees} />
+          <BirthdayWisher employees={activeEmployees} />
         )}
         {tab === "export" && (
           <DataExport
