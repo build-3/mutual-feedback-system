@@ -5,6 +5,7 @@ import { fetchPagedByIds } from "./paged-query"
 import { sendDirectMessage, isNotificationsEnabled, isGoogleChatConfigured } from "./google-chat"
 import type { ContributionLevel } from "@/lib/types"
 import { addMonthsIso, checkJoiningDate, todayIso } from "@/lib/probation-dates"
+import { countFullTimeReviewers } from "@/lib/review-gap"
 
 export function addMonthsToDate(date: Date, months: number): Date {
   const result = new Date(date)
@@ -444,6 +445,12 @@ export type ProbationOverviewItem = {
     created_at: string
   }[]
   feedback_history: FeedbackEntry[]
+  sponsor_id: string | null
+  sponsor_name: string | null
+  buddy_id: string | null
+  buddy_name: string | null
+  /** Distinct full-time teammates who have given feedback during probation. */
+  full_time_reviewers: number
 }
 
 export async function getProbationOverview(): Promise<{
@@ -475,7 +482,13 @@ export async function getProbationOverview(): Promise<{
   // against a 1000-row cap, so this overview was previously built from about a
   // third of each probationer's feedback — and it is what promotion and
   // extension decisions are read off.
-  type ProbationEmp = { id: string; name: string; email: string | null }
+  type ProbationEmp = {
+    id: string
+    name: string
+    email: string | null
+    sponsor_id: string | null
+    buddy_id: string | null
+  }
   type ProbationReviewRow = {
     id: string
     probation_id: string
@@ -494,7 +507,11 @@ export async function getProbationOverview(): Promise<{
 
   const [emps, allReviews, submissions] = await Promise.all([
     fetchPagedByIds<ProbationEmp>(
-      (ids) => supabaseAdmin.from("employees").select("id, name, email").in("id", ids).order("id", { ascending: true }),
+      (ids) => supabaseAdmin
+        .from("employees")
+        .select("id, name, email, sponsor_id, buddy_id")
+        .in("id", ids)
+        .order("id", { ascending: true }),
       employeeIds
     ),
     fetchPagedByIds<ProbationReviewRow>(
@@ -521,7 +538,8 @@ export async function getProbationOverview(): Promise<{
   const reviewerIds = Array.from(new Set(allReviews.map((r) => r.reviewer_id)))
 
   // Wave 2: answers + name lookup in parallel
-  const allNameIds = Array.from(new Set([...submitterIds, ...reviewerIds]))
+  const peopleIds = emps.flatMap((e) => [e.sponsor_id, e.buddy_id]).filter((v): v is string => Boolean(v))
+  const allNameIds = Array.from(new Set([...submitterIds, ...reviewerIds, ...peopleIds]))
   type ProbationAnswer = {
     id: string
     submission_id: string
@@ -540,13 +558,15 @@ export async function getProbationOverview(): Promise<{
           .order("id", { ascending: true }),
       submissionIds
     ),
-    fetchPagedByIds<{ id: string; name: string }>(
-      (ids) => supabaseAdmin.from("employees").select("id, name").in("id", ids).order("id", { ascending: true }),
+    fetchPagedByIds<{ id: string; name: string; role: string }>(
+      (ids) =>
+        supabaseAdmin.from("employees").select("id, name, role").in("id", ids).order("id", { ascending: true }),
       allNameIds
     ),
   ])
 
   const nameMap = new Map(nameEmps.map((e) => [e.id, e.name]))
+  const roleMap = new Map(nameEmps.map((e) => [e.id, e.role]))
 
   // Group answers by submission
   const answersBySubmission = new Map<string, typeof allAnswers>()
@@ -671,6 +691,11 @@ export async function getProbationOverview(): Promise<{
         created_at: rev.created_at,
       })),
       feedback_history: feedbackHistory,
+      sponsor_id: emp?.sponsor_id ?? null,
+      sponsor_name: emp?.sponsor_id ? nameMap.get(emp.sponsor_id) ?? null : null,
+      buddy_id: emp?.buddy_id ?? null,
+      buddy_name: emp?.buddy_id ? nameMap.get(emp.buddy_id) ?? null : null,
+      full_time_reviewers: countFullTimeReviewers(internSubmissions, roleMap, r.employee_id),
     }
   })
 
