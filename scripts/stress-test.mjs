@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 
-// Stress test: 50 submitters x 5 targets = 250 concurrent full_timer feedback submissions
+// Stress test: 50 submitters x 4 targets = ~200 concurrent full_timer feedback submissions
 // Usage: node scripts/stress-test.mjs [base_url]
 
 const BASE = process.argv[2] || "http://localhost:3000"
 const API = `${BASE}/api/public/feedback-submit`
 
-// 5 targets (Arjun + 4 others)
+// 4 targets (Arjun + 3 others)
 const TARGETS = [
   { id: "5e334cee-a68b-4cf8-aa6b-5ed17881db4f", name: "Arjun" },
   { id: "68226c00-8011-472c-bd1b-aceac98e1d02", name: "Varun" },
   { id: "ee162d6b-7c4a-4858-b1b7-dd141aa8333d", name: "Prajwal" },
-  { id: "e7f919ab-9445-43e9-9f61-080ae63dc140", name: "Neha" },
   { id: "0af122e1-37de-4a0c-9a31-1d889409114d", name: "Girish Sampath" },
 ]
 
-// 18 employees as submitters — we'll cycle through them
+// 16 employees as submitters — we'll cycle through them
 const SUBMITTERS = [
   "138bcabf-9440-4e8a-8c38-130269437e56", // Allya
   "4a421a19-156c-4b0d-a6e6-446d67653184", // Aniket
@@ -25,8 +24,6 @@ const SUBMITTERS = [
   "0af122e1-37de-4a0c-9a31-1d889409114d", // Girish
   "ede8e7cd-579a-4108-b7e4-c0ecee448f00", // Kaustubh
   "1a305ff4-4029-4db2-9132-78e7148765f7", // Nadim
-  "54757a64-93a9-4b53-afae-9907b109efa6", // Naman
-  "e7f919ab-9445-43e9-9f61-080ae63dc140", // Neha
   "c2a673fb-952c-492e-a0f9-319bed659641", // Omprakash
   "ee162d6b-7c4a-4858-b1b7-dd141aa8333d", // Prajwal
   "d62629a4-6928-4746-afad-24db92f187aa", // Sanya
@@ -92,8 +89,8 @@ async function submitOne(submitterId, targetId, index) {
 }
 
 async function main() {
-  console.log("=== STRESS TEST: 250 concurrent full_timer feedback submissions ===")
-  console.log(`    5 targets x 50 submitters each`)
+  console.log("=== STRESS TEST: ~200 concurrent full_timer feedback submissions ===")
+  console.log(`    4 targets x 50 submitters each`)
   console.log(`    Target: ${API}\n`)
 
   // Warm up
@@ -111,7 +108,7 @@ async function main() {
   })
   console.log(`  Warm-up: ${Date.now() - warmStart}ms (status ${warmRes.status})\n`)
 
-  // Build all 250 requests: 50 submitters per target
+  // Build all requests: 50 submitters per target
   const jobs = []
   for (let t = 0; t < TARGETS.length; t++) {
     for (let s = 0; s < 50; s++) {

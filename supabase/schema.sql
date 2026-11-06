@@ -274,6 +274,4 @@ INSERT INTO employees (name, role, email) VALUES
 INSERT INTO employees (name, role, email) VALUES
   ('Prajwal', 'intern', 'prajwal@build3.org'),
   ('Nadim G', 'intern', 'nadim@build3.org'),
-  ('Neha', 'intern', 'neha@build3.org'),
-  ('Sarthak', 'intern', 'sarthak@build3.org'),
-  ('Naman', 'intern', 'naman@build3.org');
+  ('Sarthak', 'intern', 'sarthak@build3.org');
