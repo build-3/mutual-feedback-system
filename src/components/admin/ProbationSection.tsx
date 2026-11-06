@@ -102,11 +102,12 @@ function daysUntil(dateStr: string): number {
 }
 
 export default function ProbationSection({ employeeId }: { employeeId?: string }) {
-  // Whether this viewer may promote, extend or correct dates is decided by the
-  // server (src/lib/probation-access.ts) and sent with the data, so the page
-  // never carries its own copy of who the deciders are. A sponsor sees their own
-  // people read-only.
+  // What this viewer may do is decided by the server (src/lib/probation-access.ts)
+  // and sent with the data, so the page never carries its own copy of who the
+  // deciders are. canAct: promote / extend (deciders, and a sponsor for their own
+  // people). canEditDates: joining date and period (deciders only).
   const [canAct, setCanAct] = useState(false)
+  const [canEditDates, setCanEditDates] = useState(false)
   const [probations, setProbations] = useState<ProbationRecord[]>([])
   const [totalActive, setTotalActive] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -134,6 +135,7 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
         setProbations([])
         setTotalActive(0)
         setCanAct(false)
+        setCanEditDates(false)
         setError("")
         return
       }
@@ -144,6 +146,7 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
       const filtered = employeeId ? all.filter((p) => p.employee_id === employeeId) : all
       setProbations(filtered)
       setCanAct(data.canAct === true)
+      setCanEditDates(data.canEditDates === true)
       setTotalActive(employeeId ? filtered.filter((p) => p.status === "active" || p.status === "extended").length : (data.totalActive ?? 0))
       setError("")
     } catch (err) {
@@ -326,9 +329,9 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
               )}
             </div>
 
-            {/* Joining date correction: deciders only. The clock should run from the
+            {/* Joining date correction: deciders only (canEditDates). The clock should run from the
                 real joining date, not from the first time someone opened the app. */}
-            {isActive && canAct && (
+            {isActive && canEditDates && (
               <div className="mb-4">
                 <label className="text-[11px] text-muted font-medium block mb-2" htmlFor={`joined-${p.id}`}>
                   joining date
@@ -449,7 +452,7 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
             )}
 
             {/* Duration selector (only for active probations) */}
-            {p.status === "active" && (
+            {p.status === "active" && canEditDates && (
               <div className="mb-4">
                 <div className="text-[11px] text-muted font-medium mb-2">change period</div>
                 <div className="flex gap-2">
@@ -503,7 +506,7 @@ export default function ProbationSection({ employeeId }: { employeeId?: string }
               </div>
             )}
 
-            {/* Actions: deciders only */}
+            {/* Actions: deciders, and a sponsor for their own people */}
             {isActive && canAct && (
               <div className="flex flex-wrap gap-2 pt-2 border-t border-line">
                 <button

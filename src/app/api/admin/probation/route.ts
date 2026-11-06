@@ -11,7 +11,7 @@ import {
 /**
  * Probation records, scoped to the viewer:
  *  - deciders (see src/lib/probation-access.ts) get everyone and may act;
- *  - a sponsor gets only the people they sponsor, read only;
+ *  - a sponsor gets only the people they sponsor, and may promote or extend them;
  *  - anyone else gets 403, which the page treats as "show nothing".
  */
 export async function GET() {
@@ -47,5 +47,10 @@ export async function GET() {
       ? overview.totalActive
       : probations.filter((p) => p.status === "active" || p.status === "extended").length
 
-  return NextResponse.json({ probations, totalActive, canAct: scope.canAct })
+  return NextResponse.json({
+    probations,
+    totalActive,
+    canAct: scope.canAct,
+    canEditDates: scope.canEditDates,
+  })
 }

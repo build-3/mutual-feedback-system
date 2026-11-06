@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  canActOnEmployee,
   filterByScope,
   isProbationDecider,
   probationDeciders,
@@ -46,17 +47,19 @@ describe("scope", () => {
     })
     expect(scope.kind).toBe("all")
     expect(scope.canAct).toBe(true)
+    expect(scope.canEditDates).toBe(true)
     expect(filterByScope(records, scope)).toHaveLength(3)
   })
 
-  it("a sponsor sees only their own people and cannot act", () => {
+  it("a sponsor sees only their own people, can promote or extend them, cannot edit dates", () => {
     const scope = probationScopeFor({
       viewerEmail: "sponsor@build3.org",
       sponsoredIds: ["b"],
       env: "",
     })
     expect(scope.kind).toBe("own")
-    expect(scope.canAct).toBe(false)
+    expect(scope.canAct).toBe(true)
+    expect(scope.canEditDates).toBe(false)
     expect(filterByScope(records, scope)).toEqual([{ employee_id: "b", n: 2 }])
   })
 
@@ -77,5 +80,31 @@ describe("scope", () => {
       env: "",
     })
     expect(scope.kind).toBe("all")
+  })
+})
+
+describe("canActOnEmployee", () => {
+  it("a decider may act on anyone", () => {
+    expect(
+      canActOnEmployee({ viewerEmail: "ckj@build3.org", viewerId: "x", employeeSponsorId: "y", env: "" })
+    ).toBe(true)
+  })
+  it("a sponsor may act on the person they sponsor", () => {
+    expect(
+      canActOnEmployee({ viewerEmail: "s@build3.org", viewerId: "s1", employeeSponsorId: "s1", env: "" })
+    ).toBe(true)
+  })
+  it("a sponsor may not act on someone else's person", () => {
+    expect(
+      canActOnEmployee({ viewerEmail: "s@build3.org", viewerId: "s1", employeeSponsorId: "s2", env: "" })
+    ).toBe(false)
+  })
+  it("nobody acts when there is no sponsor or no viewer id", () => {
+    expect(
+      canActOnEmployee({ viewerEmail: "s@build3.org", viewerId: "s1", employeeSponsorId: null, env: "" })
+    ).toBe(false)
+    expect(
+      canActOnEmployee({ viewerEmail: "s@build3.org", viewerId: null, employeeSponsorId: null, env: "" })
+    ).toBe(false)
   })
 })
