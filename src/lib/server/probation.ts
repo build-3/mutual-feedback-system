@@ -5,7 +5,7 @@ import { fetchPagedByIds } from "./paged-query"
 import { sendDirectMessage, isNotificationsEnabled, isGoogleChatConfigured } from "./google-chat"
 import type { ContributionLevel } from "@/lib/types"
 import { addMonthsIso, checkJoiningDate, todayIso } from "@/lib/probation-dates"
-import { countFullTimeReviewers } from "@/lib/review-gap"
+import { countFullTimeReviewers, isFullTimeRole } from "@/lib/review-gap"
 
 export function addMonthsToDate(date: Date, months: number): Date {
   const result = new Date(date)
@@ -412,6 +412,8 @@ export async function extendProbation(
 export type FeedbackEntry = {
   submission_id: string
   submitted_by_name: string
+  /** True when the reviewer is a full-timer or admin. */
+  submitted_by_full_time: boolean
   feedback_date: string
   contribution_level: string | null
   recommend_rating: number | null
@@ -616,6 +618,7 @@ export async function getProbationOverview(): Promise<{
       return {
         submission_id: s.id,
         submitted_by_name: nameMap.get(s.submitted_by_id) ?? "Unknown",
+        submitted_by_full_time: isFullTimeRole(roleMap.get(s.submitted_by_id)),
         feedback_date: s.created_at,
         contribution_level: contribAnswer?.answer_value ?? null,
         recommend_rating: ratingAnswer ? Number(ratingAnswer.answer_value) || null : null,

@@ -58,3 +58,23 @@ export function probationMonth({
   const month = Math.floor(days / 30.4375) + 1
   return { month: Math.min(month, durationMonths), of: durationMonths }
 }
+
+/**
+ * How far through probation someone is, as 0 to 100, for a progress line.
+ * `overdue` is true once today is past the end date; the line is then full.
+ * A start date in the future reads as 0.
+ */
+export function probationProgress({
+  startDate,
+  endDate,
+  today,
+}: {
+  startDate: string
+  endDate: string
+  today: string
+}): { percent: number; overdue: boolean; totalDays: number; elapsedDays: number } {
+  const totalDays = Math.max(1, daysBetweenIso(startDate, endDate))
+  const elapsedDays = daysBetweenIso(startDate, today)
+  const percent = Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)))
+  return { percent, overdue: today > endDate, totalDays, elapsedDays: Math.max(0, elapsedDays) }
+}
